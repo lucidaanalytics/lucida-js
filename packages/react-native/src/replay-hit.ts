@@ -30,5 +30,6 @@ export function hitTest(root: unknown, x: number, y: number, fallback: number): 
     }
     return n.type === 0 || n.tagName === "html" || n.id === undefined ? undefined : n.id;
   };
+  if (typeof root !== "object" || root === null) return fallback;
   return visit(root as Node, 0, 0, true) ?? fallback;
 }
