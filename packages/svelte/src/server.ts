@@ -14,7 +14,8 @@ export interface LucidaLocals {
 /** The slice of SvelteKit's `RequestEvent` the handle uses (structural: no `@sveltejs/kit` import needed). */
 export interface RequestEventLike {
   request: Request;
-  locals: { lucida?: LucidaLocals } & Record<string, unknown>;
+  // No index signature: SvelteKit's `App.Locals` is an interface, which an index signature would reject.
+  locals: { lucida?: LucidaLocals };
   getClientAddress?: () => string;
 }
 
@@ -39,8 +40,9 @@ export interface LucidaHandleOptions extends BootstrapOptions {
  * starts in the browser after hydration.
  */
 export function lucidaHandle(client: EdgeClient, o: LucidaHandleOptions = {}) {
+  // Generic over the event so SvelteKit's own `Handle` type (its `RequestEvent` and `resolve`) fits without a cast.
   const { trustProxy, ...bootstrapOptions } = o;
-  return async ({ event, resolve }: { event: RequestEventLike; resolve: (e: RequestEventLike) => Promise<Response> | Response }): Promise<Response> => {
+  return async <E extends RequestEventLike>({ event, resolve }: { event: E; resolve: (e: E, ...rest: never[]) => Promise<Response> | Response }): Promise<Response> => {
     const { setCookie, distinctId, flags } = await requestBootstrap(client, event.request.headers.get("cookie"), bootstrapOptions);
     const req = event.request;
     let remoteAddr: string | undefined;

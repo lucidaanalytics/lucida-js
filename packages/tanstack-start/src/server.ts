@@ -37,3 +37,17 @@ export async function lucidaBootstrap(
   if (setCookie) headers.append("Set-Cookie", setCookie);
   return { bootstrap, headers };
 }
+
+/**
+ * Server handler for `createMiddleware().server(...)`: gives every server function and route
+ * `context.lucida` (visitor ids from the `X-Lucida-*` headers and request props) with no extra code.
+ *
+ * ```ts
+ * export const lucidaMw = createMiddleware().server(lucidaMiddleware({ trustProxy: true }));
+ * // registered in start.ts: requestMiddleware: [lucidaMw]
+ * ```
+ */
+export function lucidaMiddleware(o: { trustProxy?: boolean } = {}) {
+  return <R>({ next, request }: { next: (opts: { context: { lucida: RequestContext } }) => R; request: Request }): R =>
+    next({ context: lucidaServerContext(request, o) });
+}

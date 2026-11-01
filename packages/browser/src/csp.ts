@@ -43,3 +43,51 @@ export function cspHint(log: (...a: unknown[]) => void, nonce: string | undefine
   document.addEventListener("securitypolicyviolation", on);
   return () => document.removeEventListener("securitypolicyviolation", on);
 }
+
+const clip = (s: string, n: number): string => s.slice(0, n);
+
+/** Origin + path of a URL (no query, no fragment); keywords such as `inline` and `eval` pass through. */
+function bareUrl(u: string): string {
+  try {
+    const p = new URL(u);
+    return p.protocol === "data:" || p.protocol === "blob:" ? p.protocol : p.origin + p.pathname;
+  } catch {
+    return clip(u, 64);
+  }
+}
+
+export interface CspCaptureOptions {
+  /** Most `$csp_violation` events per page load (default 20); identical ones (same directive, blocked URL, source) count once. */
+  maxPerPage?: number;
+}
+
+/**
+ * Opt-in `$csp_violation` events from the browser's `securitypolicyviolation` event. Only the directive, the blocked
+ * URL and the offending source file as origin + path, the line and the disposition are sent: never query strings, the
+ * code `sample` or the referrer. (A product signal for broken pages; the full report pipeline stays in Watchtower.)
+ */
+export function captureCspViolations(
+  capture: (event: string, props: Record<string, unknown>) => void,
+  opts: CspCaptureOptions = {},
+): () => void {
+  if (typeof document === "undefined") return () => {};
+  const max = opts.maxPerPage ?? 20;
+  const seen = new Set<string>();
+  const on = (e: Event): void => {
+    const v = e as SecurityPolicyViolationEvent;
+    const props = {
+      $csp_directive: v.effectiveDirective ?? v.violatedDirective,
+      $csp_blocked_uri: bareUrl(v.blockedURI ?? ""),
+      $csp_source_file: v.sourceFile ? bareUrl(v.sourceFile) : undefined,
+      $csp_line: v.lineNumber || undefined,
+      $csp_column: v.columnNumber || undefined,
+      $csp_disposition: v.disposition,
+    };
+    const key = [props.$csp_directive, props.$csp_blocked_uri, props.$csp_source_file, props.$csp_line].join("|");
+    if (seen.has(key) || seen.size >= max) return;
+    seen.add(key);
+    capture("$csp_violation", Object.fromEntries(Object.entries(props).filter(([, x]) => x !== undefined)));
+  };
+  document.addEventListener("securitypolicyviolation", on);
+  return () => document.removeEventListener("securitypolicyviolation", on);
+}

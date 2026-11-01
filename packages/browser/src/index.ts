@@ -14,7 +14,8 @@ export function init(apiKey: string, config: BrowserConfig = {}, extra: Module[]
 
 export { createClient, DEFAULT_HOST, LIB_VERSION } from "./client.js";
 export { assetUrl, isExtensionPage, loadModules, rewriteUrl } from "./delivery.js";
-export { blocksInlineStyle, styleTag } from "./csp.js";
+export { blocksInlineStyle, captureCspViolations, styleTag } from "./csp.js";
+export type { CspCaptureOptions } from "./csp.js";
 export { autocapture, tag404 } from "./autocapture/index.js";
 export { crossDomain } from "./linker.js";
 export { flags } from "./flags/index.js";

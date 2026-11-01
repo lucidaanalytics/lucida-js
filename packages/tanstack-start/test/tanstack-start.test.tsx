@@ -3,7 +3,7 @@ import { LucidaProvider } from "@lucida/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
-import { createEdgeClient, LucidaPageviews, lucidaBootstrap, lucidaServerContext, routeIdTemplate, trackRouter } from "../src/index.js";
+import { createEdgeClient, LucidaPageviews, lucidaBootstrap, lucidaMiddleware, lucidaServerContext, routeIdTemplate, trackRouter } from "../src/index.js";
 import type { TanstackRouterLike } from "../src/index.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -61,6 +61,12 @@ describe("trackRouter", () => {
 });
 
 describe("server helpers", () => {
+  it("lucidaMiddleware passes the request context to next()", () => {
+    const req = new Request("https://app.test/x", { headers: { "x-lucida-distinct-id": "d9" } });
+    const got = lucidaMiddleware()({ request: req, next: (o) => o.context });
+    expect(got.lucida.distinctId).toBe("d9");
+  });
+
   it("lucidaServerContext builds the visitor and request props", () => {
     const req = new Request("https://app.test/api/x", { method: "PUT", headers: { "x-lucida-distinct-id": "d9", "x-lucida-session-id": "s9", "user-agent": "UA" } });
     const { lucida } = lucidaServerContext(req, { remoteAddr: "1.2.3.4" });

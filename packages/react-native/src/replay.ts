@@ -1,5 +1,6 @@
 import { sha256Hex } from "@lucida/sdk-core";
 import type { Core } from "@lucida/sdk-core";
+import { hitTest } from "./replay-hit.js";
 
 /**
  * Native contract (implemented by ios/LucidaReplay.swift and android/.../LucidaReplayModule.kt, which call the
@@ -100,7 +101,7 @@ export const effectiveSampleRate = (local: number, remote: Remote | null): numbe
   remote === null ? local : remote.session_recording === false ? 0 : Math.min(local, remote.replay_sample_rate ?? 1);
 export const effectiveMinDurationMs = (local: number, remote: Remote | null): number => Math.max(local, remote?.replay_min_duration_ms ?? 0);
 
-/** Id of the `<body>` node in the native full snapshot (taps land on it: the native tree is not exposed to JS). */
+/** Id of the `<body>` node in the native full snapshot: where a tap lands when no sized view contains it. */
 function bodyId(events: RrEvent[]): number {
   const find = (n: unknown): number | undefined => {
     const o = n as { tagName?: string; id?: number; childNodes?: unknown[] } | undefined;
@@ -139,6 +140,7 @@ export function createReplay(d: ReplayDeps): ReplayService {
   const maxHeld = 20; // shortcut: bounded memory; the oldest held chunks beyond this are dropped
   let touches: RrEvent[] = [];
   let tapTarget = 0;
+  let tapTree: unknown; // the last sent snapshot's document: taps are resolved against its native view tree
   let hasSnapshot = false;
   const sampled = new Map<string, boolean>();
   const isSampled = (sid: string): boolean => {
@@ -240,6 +242,7 @@ export function createReplay(d: ReplayDeps): ReplayService {
       }
       out = [...out, ...snap];
       tapTarget = bodyId(events);
+      tapTree = events.find((e) => e.type === 2)?.data.node;
       hasSnapshot = true;
     }
     if (out.length === 0) return;
@@ -281,7 +284,7 @@ export function createReplay(d: ReplayDeps): ReplayService {
       touches.push({
         type: 3,
         timestamp: now(),
-        data: { source: 2, type: 2, id: tapTarget, x, y },
+        data: { source: 2, type: 2, id: hitTest(tapTree, x, y, tapTarget), x, y },
       });
     },
     tick,

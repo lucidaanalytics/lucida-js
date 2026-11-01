@@ -2,7 +2,7 @@ import { Core, GatedStorage, flagEventProps, flagResult, offlineTransport } from
 import type { Props, Storage, Transport } from "@lucida/sdk-core";
 import { isBotUserAgent } from "./bot-ua.js";
 import { clickIdTracker } from "./clickids.js";
-import { cspHint } from "./csp.js";
+import { captureCspViolations, cspHint } from "./csp.js";
 import { isExtensionPage, withRewrite } from "./delivery.js";
 import { campaignKey, enrich } from "./env.js";
 import { takeLinker } from "./linker.js";
@@ -12,7 +12,7 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.0.0";
+export const LIB_VERSION = "0.1.0";
 const INTERNAL_KEY = "lc_internal";
 export const DEFAULT_HOST = "https://app.lucida.dev";
 
@@ -30,7 +30,8 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
   live.apiHost = apiHost;
   // Extension pages (MV3) get no cookies; remote code is refused in snippet.ts.
   const extension = config.extension ?? isExtensionPage();
-  const mode = (p: Persistence): Persistence => (extension && (p === "cookie" || p === "localStorage+cookie") ? "localStorage" : p);
+  // `extensionPersistence` (default localStorage; "memory" keeps a content script out of the host page's storage).
+  const mode = (p: Persistence): Persistence => (extension && (p === "cookie" || p === "localStorage+cookie") ? (config.extensionPersistence ?? "localStorage") : p);
   const persistence = mode(config.cookieless === "always" ? "none" : (config.persistence ?? "cookie"));
   const origins = [apiHost, ...(config.flagsApiHost ? [config.flagsApiHost.replace(/\/+$/, "")] : [])];
   const rawFetch = config.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
@@ -323,6 +324,10 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       window.addEventListener("online", drain);
       teardowns.push(() => window.removeEventListener("online", drain));
       whenConsented(drain);
+    }
+    if (config.captureCspViolations) {
+      const o = typeof config.captureCspViolations === "object" ? config.captureCspViolations : {};
+      teardowns.push(captureCspViolations((ev, props) => void core.capture(ev, props), o));
     }
     for (const m of modules) {
       const t = m(host);

@@ -155,6 +155,32 @@ describe("react-native replay gating", () => {
   });
 });
 
+describe("tap targets from the native view tree", () => {
+  const view = (id: number, x: number, y: number, w: number, h: number, kids: unknown[] = []) => ({
+    type: 2,
+    id,
+    tagName: "div",
+    attributes: { style: `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;overflow:hidden` },
+    childNodes: kids,
+  });
+  const tree = {
+    type: 0,
+    id: 1,
+    childNodes: [
+      { type: 2, id: 2, tagName: "html", childNodes: [{ type: 2, id: 3, tagName: "body", attributes: { style: "position:relative;width:390px;height:844px" }, childNodes: [view(10, 20, 100, 200, 300, [view(11, 10, 10, 50, 50), view(12, 10, 70, 50, 50)]), view(20, 0, 0, 390, 60)] }] }],
+    ],
+  };
+  it("lands on the deepest, topmost view containing the point (offsets accumulate), else the body", async () => {
+    const { hitTest } = await import("../src/replay-hit.js");
+    expect(hitTest(tree, 40, 120, 3)).toBe(11); // inside 10 > 11 (20+10, 100+10)
+    expect(hitTest(tree, 40, 180, 3)).toBe(12);
+    expect(hitTest(tree, 200, 250, 3)).toBe(10); // inside 10 but on no child
+    expect(hitTest(tree, 5, 5, 3)).toBe(20);
+    expect(hitTest(tree, 380, 800, 3)).toBe(3); // sized body, no view there
+    expect(hitTest(undefined, 1, 1, 7)).toBe(7);
+  });
+});
+
 describe("transport options for custom transports and cipher", () => {
   it("maxBatchSize splits and requestTimeoutMs bounds a custom transport", async () => {
     const sent: number[] = [];

@@ -86,3 +86,6 @@ export function createLucida(o: LucidaOptions): LucidaStores {
 }
 
 const UNSET = Symbol("unset");
+
+export { routeTemplateOf, trackNavigation } from "./navigation.js";
+export type { CaptureClient, NavigationLike } from "./navigation.js";

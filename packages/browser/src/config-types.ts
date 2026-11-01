@@ -44,6 +44,16 @@ export interface DeliveryConfig {
    * Default: on when the page runs on a `chrome-extension:`, `moz-extension:` or `safari-web-extension:` URL.
    */
   extension?: boolean;
+  /**
+   * Extension mode only: where state lives instead of cookies. "localStorage" (default) is the extension's own origin
+   * on a popup, options or side-panel page; use "memory" in a content script so nothing is written to the host page's storage.
+   */
+  extensionPersistence?: Persistence;
+  /**
+   * `$csp_violation` events from the page's `securitypolicyviolation` events (default off): directive, blocked URL and
+   * source file as origin + path, line and disposition. `{ maxPerPage }` caps the volume (default 20).
+   */
+  captureCspViolations?: boolean | { maxPerPage?: number };
 }
 
 export interface AutocaptureConfig {

@@ -34,7 +34,7 @@ describe("snippet loader", () => {
     const done = drain(w as never, importer);
     expect(calls).toEqual([]);
     await done;
-    expect(urls).toEqual(["https://cdn.test/static/v0.0.0/replay.js", "https://cdn.test/static/v0.0.0/heatmaps.js"]);
+    expect(urls).toEqual(["https://cdn.test/static/v0.1.0/replay.js", "https://cdn.test/static/v0.1.0/heatmaps.js"]);
     expect(calls[0]![0]).toBe("init");
     expect(calls[1]).toEqual(["capture", "x"]);
   });
