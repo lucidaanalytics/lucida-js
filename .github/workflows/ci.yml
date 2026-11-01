@@ -34,7 +34,8 @@ jobs:
         with:
           node-version: 24
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm --filter @lucida/svelte add -D @sveltejs/kit svelte vite
+      # kit 3 moved its types (Handle); the wrapper is written against the 2.x line
+      - run: pnpm --filter @lucida/svelte add -D @sveltejs/kit@2 svelte@5 vite@7
       - run: pnpm --filter @lucida/svelte exec tsgo --noEmit -p real/tsconfig.json
       - run: pnpm --filter @lucida/svelte exec vitest run -c real/vitest.config.ts
       - run: pnpm --filter @lucida/tanstack-start add -D @tanstack/react-router

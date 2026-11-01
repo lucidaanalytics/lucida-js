@@ -168,7 +168,6 @@ describe("tap targets from the native view tree", () => {
     id: 1,
     childNodes: [
       { type: 2, id: 2, tagName: "html", childNodes: [{ type: 2, id: 3, tagName: "body", attributes: { style: "position:relative;width:390px;height:844px" }, childNodes: [view(10, 20, 100, 200, 300, [view(11, 10, 10, 50, 50), view(12, 10, 70, 50, 50)]), view(20, 0, 0, 390, 60)] }] }],
-    ],
   };
   it("lands on the deepest, topmost view containing the point (offsets accumulate), else the body", async () => {
     const { hitTest } = await import("../src/replay-hit.js");
