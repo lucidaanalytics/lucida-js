@@ -120,6 +120,17 @@ describe("react-native wireframe replay", () => {
     t.client.replay.tag("bug");
   });
 
+  it("screenshot mode asks the native side for a masked JPEG (quality clamped) at most once a second", async () => {
+    const native = setup();
+    const s = await withReplay({ consent: { mode: "opt_out" }, replay: { ...native.cfg.replay!, mode: "screenshot", screenshotQuality: 3 } });
+    await s.run();
+    await s.run(); // within the 1 s floor: no second capture
+    expect(native.module.calls).toEqual([
+      { screen: "Unknown", maskText: true, maskAllTextInputs: true, maskAllImages: true, maskSandboxedViews: true, mode: "screenshot", screenshotQuality: 1 },
+    ]);
+    expect(s.replayPosts).toHaveLength(1);
+  });
+
   it("is off unless enabled", async () => {
     const s = setup({ consent: { mode: "opt_out" } });
     s.cfg.replay = { ...s.cfg.replay!, enabled: false, setInterval: () => { throw new Error("must not start"); } };

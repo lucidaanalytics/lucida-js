@@ -19,7 +19,7 @@ final class LucidaReplay: NSObject {
     @objc(decryptQueue:)
     func decryptQueue(_ value: String) -> String? { cipher.decrypt(value) }
 
-    /// Resolves the JSON text of one wireframe capture, or "" when there is no key window.
+    /// Resolves the JSON text of one wireframe (or masked screenshot) capture, or "" when there is no key window.
     @objc(captureWireframe:resolver:rejecter:)
     func captureWireframe(_ options: NSDictionary, resolver resolve: @escaping (Any?) -> Void, rejecter reject: @escaping (String?, String?, Error?) -> Void) {
         let screen = (options["screen"] as? String) ?? "Unknown"
@@ -27,9 +27,11 @@ final class LucidaReplay: NSObject {
         let maskInputs = (options["maskAllTextInputs"] as? Bool) ?? true
         let maskImages = (options["maskAllImages"] as? Bool) ?? true
         let maskSandboxed = (options["maskSandboxedViews"] as? Bool) ?? true
+        // Screenshot mode: UIKitScreenshot paints the mask plan over the drawn window before JPEG encoding.
+        let quality: Double? = (options["mode"] as? String) == "screenshot" ? ((options["screenshotQuality"] as? Double) ?? 0.4) : nil
         // UIKitViewHierarchy hops to the main thread itself; this runs off it so the JS bridge never blocks.
         DispatchQueue.global(qos: .utility).async {
-            resolve(ReplayBridge.capture(screen: screen, maskText: maskText, maskAllTextInputs: maskInputs, maskAllImages: maskImages, maskSandboxedViews: maskSandboxed) ?? "")
+            resolve(ReplayBridge.capture(screen: screen, maskText: maskText, maskAllTextInputs: maskInputs, maskAllImages: maskImages, maskSandboxedViews: maskSandboxed, screenshotQuality: quality) ?? "")
         }
     }
 }

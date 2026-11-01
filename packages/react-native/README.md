@@ -77,7 +77,11 @@ import { NativeModules } from "react-native";
 createClient("lc_pk_...", { replay: { enabled: true, module: NativeModules.LucidaReplay, snapshotIntervalMs: 5000 } });
 ```
 
-Native contract (`NativeReplayModule` in `src/replay.ts`): `captureWireframe({ screen, maskText, maskAllTextInputs, maskAllImages, maskSandboxedViews }): Promise<string>`
+Screenshot mode: `replay: { mode: "screenshot", screenshotQuality: 0.4 }`. The native module draws the window into a
+bitmap, paints inputs, secure fields, `<LucidaMask>` views, images and (unless `maskText: false`) text over, and only then
+encodes JPEG (the same `ScreenshotCapture` / `UIKitScreenshot` code the native SDKs use); at most one frame a second.
+
+Native contract (`NativeReplayModule` in `src/replay.ts`): `captureWireframe({ screen, maskText, maskAllTextInputs, maskAllImages, maskSandboxedViews }): Promise<string>` (plus `mode: "screenshot", screenshotQuality` in screenshot mode)
 resolves JSON text `{"width","height","events":[meta (type 4), fullSnapshot (type 2)]}`, or `""` when nothing can
 be captured. Reference implementations, linked as ordinary React Native native modules:
 

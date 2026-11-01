@@ -17,6 +17,10 @@ export interface NativeReplayModule {
     maskAllTextInputs: boolean;
     maskAllImages: boolean;
     maskSandboxedViews: boolean;
+    /** Present only in screenshot mode: the native side draws the window, paints the mask plan and only then encodes JPEG. */
+    mode?: "screenshot";
+    /** JPEG quality 0..1 (screenshot mode). */
+    screenshotQuality?: number;
   }): Promise<string>;
 }
 
@@ -35,6 +39,10 @@ export interface ReplayConfig {
   maskAllImages?: boolean;
   /** WebViews / maps / platform views are recorded as an empty frame unless false. Default true. */
   maskSandboxedViews?: boolean;
+  /** "screenshot" sends masked JPEG frames (masks painted on device before encoding) instead of wireframes. Default "wireframe". */
+  mode?: "wireframe" | "screenshot";
+  /** JPEG quality 0..1 for screenshot mode. Default 0.4. */
+  screenshotQuality?: number;
   /** 0..1, decided once per session. Default 1. */
   sampleRate?: number;
   /** Minimum ms between captures on top of the interval. Default 0. */
@@ -203,7 +211,9 @@ export function createReplay(d: ReplayDeps): ReplayService {
       return;
     }
     if (!isSampled(core.session.touch().sessionId)) return;
-    if (now() - lastCaptureAt < (config.throttleMs ?? 0)) return;
+    const shots = config.mode === "screenshot";
+    // A JPEG per tick is costly: screenshot mode never captures more than once a second (same floor as iOS).
+    if (now() - lastCaptureAt < (shots ? Math.max(config.throttleMs ?? 0, 1000) : (config.throttleMs ?? 0))) return;
     lastCaptureAt = now();
     let cap: { events?: RrEvent[] };
     try {
@@ -213,6 +223,7 @@ export function createReplay(d: ReplayDeps): ReplayService {
         maskAllTextInputs: config.maskAllTextInputs ?? true,
         maskAllImages: config.maskAllImages ?? true,
         maskSandboxedViews: config.maskSandboxedViews ?? true,
+        ...(shots ? { mode: "screenshot" as const, screenshotQuality: Math.min(1, Math.max(0, config.screenshotQuality ?? 0.4)) } : {}),
       });
       if (!raw) return;
       cap = JSON.parse(raw) as { events?: RrEvent[] };

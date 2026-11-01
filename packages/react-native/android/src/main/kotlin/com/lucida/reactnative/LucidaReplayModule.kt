@@ -28,7 +28,7 @@ class LucidaReplayModule(ctx: ReactApplicationContext) : ReactContextBaseJavaMod
     @ReactMethod(isBlockingSynchronousMethod = true)
     fun decryptQueue(value: String): String? = runCatching { cipher.decrypt(value) }.getOrNull()
 
-    /** Resolves the JSON text of one wireframe capture, or "" when there is no resumed Activity. */
+    /** Resolves the JSON text of one wireframe (or masked screenshot) capture, or "" when there is no resumed Activity. */
     @ReactMethod
     fun captureWireframe(options: ReadableMap, promise: Promise) {
         val screen = if (options.hasKey("screen")) options.getString("screen") ?: "Unknown" else "Unknown"
@@ -37,6 +37,9 @@ class LucidaReplayModule(ctx: ReactApplicationContext) : ReactContextBaseJavaMod
         val maskInputs = flag("maskAllTextInputs")
         val maskImages = flag("maskAllImages")
         val maskSandboxed = flag("maskSandboxedViews")
+        // Screenshot mode: JPEG quality 0..100; masks are painted on the bitmap before it is encoded (ScreenshotCapture).
+        val shots = options.hasKey("mode") && options.getString("mode") == "screenshot"
+        val quality = if (!shots) null else Math.round(100 * (if (options.hasKey("screenshotQuality")) options.getDouble("screenshotQuality") else 0.4)).toInt()
         val activity = currentActivity
         if (activity == null) {
             promise.resolve("")
@@ -44,7 +47,7 @@ class LucidaReplayModule(ctx: ReactApplicationContext) : ReactContextBaseJavaMod
         }
         // View access must happen on the main thread.
         UiThreadUtil.runOnUiThread {
-            promise.resolve(runCatching { WireframeCapture.capture(activity, screen, maskText, maskInputs, maskImages, maskSandboxed) }.getOrDefault(""))
+            promise.resolve(runCatching { WireframeCapture.capture(activity, screen, maskText, maskInputs, maskImages, maskSandboxed, quality) }.getOrDefault(""))
         }
     }
 }
