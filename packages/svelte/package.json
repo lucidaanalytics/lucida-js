@@ -1,0 +1,51 @@
+{
+  "name": "@lucida/svelte",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/svelte" },
+  "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/svelte",
+  "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./server": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@lucida/browser": "workspace:*"
+  },
+  "devDependencies": {
+    "@lucida/browser": "workspace:*",
+    "@types/node": "^22.0.0",
+    "jsdom": "^26.1.0",
+    "tsup": "^8.5.0"
+  },
+  "dependencies": {
+    "@lucida/edge": "workspace:*",
+    "@lucida/sdk-core": "workspace:*"
+  }
+}

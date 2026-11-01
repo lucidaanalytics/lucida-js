@@ -1,0 +1,5 @@
+[
+ {"type": 3, "timestamp": 1700000007000, "data": {"source": 1, "positions": [{"x": 50, "y": 50, "id": 3, "timeOffset": 0}]}},
+ {"type": 3, "timestamp": 1700000060000, "data": {"source": 2, "type": 2, "id": 3, "x": 10, "y": 10}},
+ {"type": 5, "timestamp": 1700000061000, "data": {"tag": "navigation", "payload": {"url": "https://shop.example.com/checkout"}}}
+]

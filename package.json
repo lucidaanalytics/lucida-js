@@ -1,0 +1,13 @@
+{
+  "name": "lucida-js",
+  "private": true,
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

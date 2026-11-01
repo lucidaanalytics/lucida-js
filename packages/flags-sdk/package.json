@@ -1,0 +1,36 @@
+{
+  "name": "@lucida/flags-sdk",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/flags-sdk" },
+  "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/flags-sdk",
+  "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
+  "type": "module",
+  "description": "Lucida adapter for the Vercel Flags SDK (flags/next) and the Flags Explorer",
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lucida/next": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.0"
+  }
+}

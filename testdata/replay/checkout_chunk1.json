@@ -1,0 +1,28 @@
+[
+ {"type": 4, "timestamp": 1700000000000, "data": {"href": "https://shop.example.com/checkout?cart=9", "width": 1280, "height": 800}},
+ {"type": 2, "timestamp": 1700000000100, "data": {"initialOffset": {"left": 0, "top": 0}, "node": {
+  "type": 0, "id": 1, "childNodes": [
+   {"type": 2, "id": 2, "tagName": "html", "attributes": {}, "childNodes": [
+    {"type": 2, "id": 3, "tagName": "body", "attributes": {}, "childNodes": [
+     {"type": 2, "id": 4, "tagName": "h1", "attributes": {"class": "title"}, "childNodes": [
+      {"type": 3, "id": 5, "textContent": "Contact jane.doe@example.com"}]},
+     {"type": 2, "id": 6, "tagName": "form", "attributes": {"id": "checkout"}, "childNodes": [
+      {"type": 2, "id": 7, "tagName": "input", "attributes": {"id": "email", "name": "email", "type": "text", "value": "jane.doe@example.com"}, "childNodes": []},
+      {"type": 2, "id": 8, "tagName": "input", "attributes": {"id": "pw", "name": "password", "type": "password", "value": "hunter2secret"}, "childNodes": []},
+      {"type": 2, "id": 9, "tagName": "button", "attributes": {"id": "buy"}, "childNodes": [
+       {"type": 3, "id": 10, "textContent": "Buy now"}]}]},
+     {"type": 2, "id": 11, "tagName": "p", "attributes": {}, "childNodes": [
+      {"type": 3, "id": 12, "textContent": "Card 4242 4242 4242 4242 call +1 415 555 2671"}]},
+     {"type": 2, "id": 13, "tagName": "div", "attributes": {"data-lc-block": ""}, "childNodes": [
+      {"type": 3, "id": 14, "textContent": "internal-notes-xyz"}]}]}]}]}}},
+ {"type": 3, "timestamp": 1700000001000, "data": {"source": 1, "positions": [{"x": 100, "y": 200, "id": 3, "timeOffset": -40}, {"x": 400, "y": 300, "id": 3, "timeOffset": 0}]}},
+ {"type": 3, "timestamp": 1700000002000, "data": {"source": 5, "id": 7, "text": "jane.doe@example.com", "isChecked": false}},
+ {"type": 3, "timestamp": 1700000002500, "data": {"source": 5, "id": 8, "text": "hunter2secret", "isChecked": false}},
+ {"type": 3, "timestamp": 1700000003000, "data": {"source": 3, "id": 1, "x": 0, "y": 600}},
+ {"type": 3, "timestamp": 1700000004000, "data": {"source": 2, "type": 2, "id": 9, "x": 640, "y": 100}},
+ {"type": 3, "timestamp": 1700000004200, "data": {"source": 0,
+  "adds": [{"parentId": 11, "nextId": null, "node": {"type": 3, "id": 20, "textContent": "Receipt to bob@corp.io"}}],
+  "removes": [], "texts": [{"id": 5, "value": "Contact support@example.com"}],
+  "attributes": [{"id": 8, "attributes": {"value": "hunter2secretX"}}]}},
+ {"type": 5, "timestamp": 1700000005000, "data": {"tag": "navigation", "payload": {"url": "https://shop.example.com/thanks"}}}
+]

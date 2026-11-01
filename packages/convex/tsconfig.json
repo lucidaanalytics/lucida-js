@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src", "test", "vitest.config.ts"],
+  // The convex-importing files are checked by the host app (convex is a peer, not installed here).
+  "exclude": ["src/component/lib.ts", "src/component/convex.config.ts"]
+}

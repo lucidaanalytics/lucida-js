@@ -1,0 +1,116 @@
+{
+  "name": "@lucida/browser",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/browser" },
+  "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/browser",
+  "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core-entry.ts",
+    "./autocapture": "./src/autocapture/index.ts",
+    "./flags": "./src/flags/index.ts",
+    "./heatmaps": "./src/heatmaps/index.ts",
+    "./forms": "./src/forms/index.ts",
+    "./toolbar": "./src/toolbar/index.ts",
+    "./inspector": "./src/inspector/index.ts",
+    "./consent": "./src/consent/index.ts",
+    "./correlate": "./src/watchtower/correlate.ts",
+    "./host-headers": "./src/host-headers.ts",
+    "./replay": "./src/replay/index.ts",
+    "./guides": "./src/guides/index.ts",
+    "./experiments": "./src/experiments/index.ts",
+    "./early-access": "./src/early-access/index.ts"
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./core": {
+        "types": "./dist/core.d.ts",
+        "default": "./dist/core.js"
+      },
+      "./autocapture": {
+        "types": "./dist/autocapture.d.ts",
+        "default": "./dist/autocapture.js"
+      },
+      "./flags": {
+        "types": "./dist/flags.d.ts",
+        "default": "./dist/flags.js"
+      },
+      "./heatmaps": {
+        "types": "./dist/heatmaps.d.ts",
+        "default": "./dist/heatmaps.js"
+      },
+      "./forms": {
+        "types": "./dist/forms.d.ts",
+        "default": "./dist/forms.js"
+      },
+      "./toolbar": {
+        "types": "./dist/toolbar.d.ts",
+        "default": "./dist/toolbar.js"
+      },
+      "./inspector": {
+        "types": "./dist/inspector.d.ts",
+        "default": "./dist/inspector.js"
+      },
+      "./consent": {
+        "types": "./dist/consent.d.ts",
+        "default": "./dist/consent.js"
+      },
+      "./correlate": {
+        "types": "./dist/correlate.d.ts",
+        "default": "./dist/correlate.js"
+      },
+      "./host-headers": {
+        "types": "./dist/host-headers.d.ts",
+        "default": "./dist/host-headers.js"
+      },
+      "./replay": {
+        "types": "./dist/replay.d.ts",
+        "default": "./dist/replay.js"
+      },
+      "./guides": {
+        "types": "./dist/guides.d.ts",
+        "default": "./dist/guides.js"
+      },
+      "./experiments": {
+        "types": "./dist/experiments.d.ts",
+        "default": "./dist/experiments.js"
+      },
+      "./early-access": {
+        "types": "./dist/early-access.d.ts",
+        "default": "./dist/early-access.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsup && node scripts/static-layout.mjs",
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run",
+    "size": "pnpm build && node scripts/size.mjs",
+    "e2e": "pnpm build && vitest run --config vitest.e2e.config.ts"
+  },
+  "dependencies": {
+    "@lucida/sdk-core": "workspace:*",
+    "@rrweb/record": "2.2.0",
+    "fflate": "0.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "jsdom": "^26.1.0",
+    "playwright": "1.64.1",
+    "tsup": "^8.5.0"
+  }
+}

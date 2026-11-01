@@ -1,0 +1,12 @@
+{
+  "description": "Replay sampling, identical in every SDK: fnv1a32(utf8(session_id + \":\" + key)) / 2^32 < rate. key is the trigger group id, or empty without trigger groups.",
+  "cases": [
+    { "session_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b", "key": "", "rate": 0.5, "hash": 3096596050, "sampled": false },
+    { "session_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b", "key": "checkout", "rate": 0.5, "hash": 582717382, "sampled": true },
+    { "session_id": "0190ffff-0000-7000-8000-000000000001", "key": "", "rate": 0.1, "hash": 3026534251, "sampled": false },
+    { "session_id": "0190ffff-0000-7000-8000-000000000001", "key": "pricing", "rate": 0.9, "hash": 3018450343, "sampled": true },
+    { "session_id": "s-ü-unicode", "key": "grp", "rate": 0.5, "hash": 673107401, "sampled": true },
+    { "session_id": "abc", "key": "", "rate": 0, "hash": 2419333155, "sampled": false },
+    { "session_id": "abc", "key": "", "rate": 1, "hash": 2419333155, "sampled": true }
+  ]
+}

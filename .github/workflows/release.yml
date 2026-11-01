@@ -1,0 +1,49 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions: {}
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24 # npm >= 11.5 is needed for trusted publishing
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm -r --if-present build
+      # pnpm pack rewrites workspace:* and applies publishConfig; only versions not yet on npm are packed.
+      - name: Pack packages whose version is not on npm
+        run: |
+          mkdir -p dist-pack
+          for dir in packages/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            ver=$(node -p "require('./${dir}package.json').version")
+            if npm view "$name@$ver" version > /dev/null 2>&1; then echo "skip $name@$ver (already on npm)"; continue; fi
+            (cd "$dir" && pnpm pack --pack-destination "$GITHUB_WORKSPACE/dist-pack")
+          done
+          ls dist-pack
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: ${{ hashFiles('dist-pack/*.tgz') != '' }}
+        with:
+          subject-path: dist-pack/*.tgz
+      - name: Publish with provenance
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }} # only needed for a package's very first publish; trusted publishing (OIDC) otherwise
+        run: |
+          [ -n "$NPM_TOKEN" ] && export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          for t in dist-pack/*.tgz; do
+            [ -e "$t" ] || exit 0
+            npm publish "$t" --provenance --access public
+          done
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist-pack/*.tgz --generate-notes --verify-tag || gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
