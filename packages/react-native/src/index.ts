@@ -8,7 +8,7 @@ export type { NavigationRefLike } from "./navigation.js";
 export { sampleHook, runHooks, PersonMode } from "./policy.js";
 export { createAutocapture, chainFromFiber, touchHandler } from "./autocapture.js";
 export type { Autocapture, AutocaptureConfig, FiberLike, RageTapConfig, TapElement, TouchEventLike } from "./autocapture.js";
-export { tracedFetch, tracingHeaders } from "./host-headers.js";
+export { tracedFetch, tracingHeaders, withBaggage } from "./host-headers.js";
 export { createReplay, screenAllowed, effectiveSampleRate, effectiveMinDurationMs } from "./replay.js";
 export type { NativeReplayModule, ReplayConfig, ReplayService } from "./replay.js";
 export { createGuides, guideButtons, matches as matchGuideScreen } from "./guides.js";

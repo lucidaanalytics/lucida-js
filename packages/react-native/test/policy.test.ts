@@ -252,8 +252,9 @@ describe("tracing headers", () => {
   it("matches exact and suffix hosts, never the Lucida host, needs consent", async () => {
     let consent = true;
     const h = tracingHeaders(["api.example.com", ".corp.io", "ingest.test"], "https://ingest.test", () => consent, () => ({ distinctId: "d", sessionId: "s" }));
-    expect(h("https://api.example.com/v1/x")).toEqual({ "X-Lucida-Distinct-Id": "d", "X-Lucida-Session-Id": "s" });
-    expect(Object.keys(h("https://a.corp.io/x"))).toHaveLength(2);
+    expect(h("https://api.example.com/v1/x")).toEqual({ "X-Lucida-Distinct-Id": "d", "X-Lucida-Session-Id": "s", baggage: "lucida.session_id=s" });
+    expect(h("https://api.example.com/v1/x", "a=1, lucida.session_id=old,b=2").baggage).toBe("a=1,b=2,lucida.session_id=s");
+    expect(Object.keys(h("https://a.corp.io/x"))).toHaveLength(3);
     expect(h("https://corp.io/x")).toEqual({});
     expect(h("https://other.com/x")).toEqual({});
     expect(h("https://ingest.test/v1/batch")).toEqual({});
@@ -268,12 +269,14 @@ describe("tracing headers", () => {
         seen.push(Object.fromEntries(new Headers(init?.headers).entries()));
         return new Response("");
       }) as typeof fetch,
-      (u) => (u.includes("mine") ? { "X-Lucida-Distinct-Id": "d" } : {}),
+      (u, b) => (u.includes("mine") ? { "X-Lucida-Distinct-Id": "d", ...(b ? { baggage: `${b},x` } : {}) } : {}),
     );
     await f("https://mine.example.com/a", { headers: { Accept: "x" } });
     await f("https://other.com/a");
+    await f("https://mine.example.com/b", { headers: { baggage: "a=1" } });
     expect(seen[0]).toMatchObject({ "x-lucida-distinct-id": "d", accept: "x" });
     expect(seen[1]).toEqual({});
+    expect(seen[2]!.baggage).toBe("a=1,x"); // the existing baggage reaches the merge
   });
 
   it("client.fetch uses the live identity", async () => {
