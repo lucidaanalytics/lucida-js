@@ -1,6 +1,10 @@
 import { sha256Hex } from "@lucida/sdk-core";
 import type { Core } from "@lucida/sdk-core";
+import { DEAD_SWIPE_MIN_DISTANCE, DEAD_SWIPE_SETTLE_MS, deadSwipeDecision } from "./dead-swipe.js";
 import { hitTest } from "./replay-hit.js";
+import { compilePatterns, maskSnapshotText, screenMasked } from "./replay-masking.js";
+import { createSensitiveCapture } from "./sensitive.js";
+import type { ExposureKey, NativeSensitiveModule } from "./sensitive.js";
 
 /**
  * Native contract (implemented by ios/LucidaReplay.swift and android/.../LucidaReplayModule.kt, which call the
@@ -10,8 +14,12 @@ import { hitTest } from "./replay-hit.js";
  * secure fields never leave the device, other text is starred when `maskText` is true. Views wrapped in
  * `<LucidaMask>` / `<LucidaUnmask>` carry the native markers the encoders already honour. See README "Session replay".
  */
-export interface NativeReplayModule {
+export interface NativeReplayModule extends Partial<NativeSensitiveModule> {
   captureWireframe(options: {
+    /** P-M17: mask every text, input and image whatever the unmask markers say (present only when true). */
+    maskScreen?: boolean;
+    /** P-M46: regular expressions starred in shown text; screenshots paint matching views (present only when non-empty). */
+    maskTextPatterns?: string[];
     screen: string;
     maskText: boolean;
     maskAllTextInputs: boolean;
@@ -58,6 +66,14 @@ export interface ReplayConfig {
   screenDenyList?: string[];
   /** Record taps fed to `client.replay.tap(x, y)` (positions only, never what was typed). Default true. */
   captureTouches?: boolean;
+  /** P-M17 screen-name patterns (`*` wildcard, case-insensitive, whole name): mask everything there. Union with the project's list. */
+  maskScreens?: string[];
+  /** P-M46 regular expressions starred in any text replay would show. Union with the project's list; invalid ones are ignored. */
+  maskTextPatterns?: string[];
+  /** P-M46 `$dead_swipe` for swipes fed by `<LucidaTouchCapture>` that changed nothing. Default true. */
+  captureDeadSwipes?: boolean;
+  /** How long after a swipe the screen must still look the same (tests). Default 700. */
+  deadSwipeSettleMs?: number;
   /** Random source for sampling (tests). */
   random?: () => number;
   /** Largest chunk sent (the gateway accepts 10 MB decompressed). Default 5_000_000. */
@@ -81,6 +97,12 @@ export interface ReplayService {
   tap(x: number, y: number): void;
   /** One capture pass (the interval calls this); exposed for tests. */
   tick(): Promise<void>;
+  /** P-M46: a swipe passed the touch slop; its start structure is captured now. */
+  swipeBegan(): void;
+  /** P-M46: the swipe ended (end - start, points); resolves true when a `$dead_swipe` was captured. */
+  swipeEnded(dx: number, dy: number): Promise<boolean>;
+  /** P-L12: see `NativeClient.captureSensitive`; true when a `$sensitive_capture` was captured. */
+  captureSensitive(field: string, value: string): boolean;
 }
 
 export interface ReplayDeps {
@@ -95,7 +117,25 @@ export interface ReplayDeps {
 }
 
 type RrEvent = { type: number; timestamp: number; data: Record<string, unknown> };
-type Remote = { session_recording?: boolean; replay_sample_rate?: number; replay_min_duration_ms?: number };
+type Remote = {
+  session_recording?: boolean;
+  replay_sample_rate?: number;
+  replay_min_duration_ms?: number;
+  replay_mask_screens?: unknown;
+  replay_mask_text_patterns?: unknown;
+  replay_exposure_fields?: unknown;
+  replay_exposure_key?: unknown;
+};
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+/** The P-L12 key when all four parts are strings, else null (the feature is off). */
+export function exposureKeyOf(v: unknown): ExposureKey | null {
+  const k = v as Partial<Record<keyof ExposureKey, unknown>> | null;
+  if (!k || typeof k !== "object") return null;
+  const { kid, n, e, pkcs1 } = k;
+  return typeof kid === "string" && typeof n === "string" && typeof e === "string" && typeof pkcs1 === "string" ? { kid, n, e, pkcs1 } : null;
+}
 
 /** Structure fingerprint: the full snapshot without timestamps, so identical screens are not re-sent. */
 const fingerprint = (events: RrEvent[]): string => sha256Hex(JSON.stringify(events.find((e) => e.type === 2)?.data ?? null));
@@ -150,6 +190,11 @@ export function createReplay(d: ReplayDeps): ReplayService {
   let tapTarget = 0;
   let tapTree: unknown; // the last sent snapshot's document: taps are resolved against its native view tree
   let hasSnapshot = false;
+  let patternSources = config.maskTextPatterns ?? [];
+  let patterns = compilePatterns(patternSources);
+  const sensitive = createSensitiveCapture(config.module);
+  let swipeStart: Promise<{ screen: string; fp: string } | null> | null = null;
+  let lastDeadSwipeAt: number | undefined;
   const sampled = new Map<string, boolean>();
   const isSampled = (sid: string): boolean => {
     const rate = effectiveSampleRate(config.sampleRate ?? 1, remote);
@@ -179,6 +224,50 @@ export function createReplay(d: ReplayDeps): ReplayService {
       /* unreachable config: the local settings stand */
     }
     sampled.clear();
+    const fromRemote = strings(remote?.replay_mask_text_patterns).filter((p) => p.length <= 200).slice(0, 20);
+    patternSources = [...(config.maskTextPatterns ?? []), ...fromRemote];
+    patterns = compilePatterns(patternSources);
+  }
+
+  const isScreenMasked = (): boolean => screenMasked(screen, [...(config.maskScreens ?? []), ...strings(remote?.replay_mask_screens)]);
+  const touchesRecording = (): boolean => hasSnapshot && !paused && consented() && gateOpen();
+
+  /** Structure of the current screen (always a starred wireframe, also in screenshot mode), or null. */
+  async function structure(): Promise<string | null> {
+    try {
+      const raw = await config.module.captureWireframe({ screen, maskText: true, maskAllTextInputs: true, maskAllImages: true, maskSandboxedViews: true });
+      const events = raw ? ((JSON.parse(raw) as { events?: RrEvent[] }).events ?? []) : [];
+      return events.some((e) => e.type === 2) ? fingerprint(events) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function swipeEnded(dx: number, dy: number): Promise<boolean> {
+    const pending = swipeStart;
+    swipeStart = null;
+    if (!pending || Math.hypot(dx, dy) < DEAD_SWIPE_MIN_DISTANCE) return false;
+    const start = await pending;
+    if (!start) return false;
+    await new Promise((r) => setTimeout(r, config.deadSwipeSettleMs ?? DEAD_SWIPE_SETTLE_MS));
+    if (!touchesRecording()) return false;
+    const fp = await structure();
+    if (fp === null) return false;
+    const t = now();
+    const p = deadSwipeDecision({ screen, startScreen: start.screen, startFingerprint: start.fp, endFingerprint: fp, dx, dy, nowMs: t, lastAt: lastDeadSwipeAt });
+    if (!p) return false;
+    lastDeadSwipeAt = t;
+    core.capture("$dead_swipe", p);
+    return true;
+  }
+
+  function captureSensitive(field: string, value: string): boolean {
+    const key = exposureKeyOf(remote?.replay_exposure_key);
+    if (!value || !key || !strings(remote?.replay_exposure_fields).includes(field) || !consented()) return false;
+    const p = sensitive.properties(field, value, screen, key, core.session.touch().sessionId);
+    if (!p) return false;
+    core.capture("$sensitive_capture", p);
+    return true;
   }
 
   async function send(events: RrEvent[], sessionId: string, windowId: string): Promise<void> {
@@ -217,12 +306,16 @@ export function createReplay(d: ReplayDeps): ReplayService {
     lastCaptureAt = now();
     let cap: { events?: RrEvent[] };
     try {
+      // A masked screen (P-M17) forces every switch on and ignores unmask markers natively; patterns (P-M46) star matches.
+      const masked = isScreenMasked();
       const raw = await config.module.captureWireframe({
         screen,
-        maskText: config.maskText ?? true,
-        maskAllTextInputs: config.maskAllTextInputs ?? true,
-        maskAllImages: config.maskAllImages ?? true,
+        maskText: masked || (config.maskText ?? true),
+        maskAllTextInputs: masked || (config.maskAllTextInputs ?? true),
+        maskAllImages: masked || (config.maskAllImages ?? true),
         maskSandboxedViews: config.maskSandboxedViews ?? true,
+        ...(masked ? { maskScreen: true } : {}),
+        ...(patternSources.length > 0 ? { maskTextPatterns: patternSources } : {}),
         ...(shots ? { mode: "screenshot" as const, screenshotQuality: Math.min(1, Math.max(0, config.screenshotQuality ?? 0.4)) } : {}),
       });
       if (!raw) return;
@@ -230,7 +323,10 @@ export function createReplay(d: ReplayDeps): ReplayService {
     } catch {
       return; // a failing capture must never affect the app
     }
-    const events = cap.events ?? [];
+    // Patterns again in JS on the wireframe text (the native side already applied them; starring is idempotent).
+    const events = (cap.events ?? []).map((e) =>
+      e.type === 2 && !shots && patterns.length > 0 ? { ...e, data: { ...e.data, node: maskSnapshotText(e.data.node, patterns) } } : e,
+    );
     if (!events.some((e) => e.type === 2)) return;
     const { sessionId, windowId } = core.session.touch();
     const rotated = sessionId !== lastSession;
@@ -299,5 +395,12 @@ export function createReplay(d: ReplayDeps): ReplayService {
       });
     },
     tick,
+    swipeBegan() {
+      if (config.captureDeadSwipes === false || !touchesRecording()) return;
+      const s = screen;
+      swipeStart = structure().then((fp) => (fp === null ? null : { screen: s, fp }));
+    },
+    swipeEnded,
+    captureSensitive,
   };
 }

@@ -29,5 +29,7 @@ export function guideState(store: Storage) {
     dismissed: map<number>("lc_guide_dismissed"),
     /** Guides whose holdout exposure was already sent. */
     held: map<number>("lc_guide_holdout"),
+    /** Unix ms a snoozed guide may show again after (N-DAP-6). */
+    snoozed: map<number>("lc_guide_snoozed"),
   };
 }

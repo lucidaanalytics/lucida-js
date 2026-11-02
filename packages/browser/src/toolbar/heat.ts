@@ -1,6 +1,7 @@
 import { viewportBucket } from "../heatmaps/index.js";
 import type { HeatBins, HeatElement, HeatType, ScrollReach, ToolbarApi } from "./api.js";
-import { btn, el, labelled, pageBox, select } from "./dom.js";
+import { BREAKDOWNS, breakdownParam, confettiLegend, drawConfetti } from "./confetti.js";
+import { btn, el, input, labelled, pageBox, select } from "./dom.js";
 
 const docSize = () => ({ w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight });
 
@@ -67,7 +68,8 @@ interface Opts {
 }
 
 /**
- * Toolbar heatmap parity: type switch (click, rage, dead, move, scroll), click-rank boxes numbered on the page with
+ * Toolbar heatmap parity: type switch (click, rage, dead, move, scroll), click confetti coloured by a breakdown with a
+ * toggleable legend (N-DXA-3), click-rank boxes numbered on the page with
  * clicks and rage counts (click one to start an action from it), "Load more" / "Load all" paging and link matching.
  */
 export function heatPanel(o: Opts): { node: HTMLElement; teardown: () => void } {
@@ -79,7 +81,10 @@ export function heatPanel(o: Opts): { node: HTMLElement; teardown: () => void } 
     ["move", "Mouse movement"],
     ["scroll", "Scrollmap"],
   ]);
+  const colourBy = select(BREAKDOWNS);
+  const propKey = input("", "property key");
   const byHref = Object.assign(el("input"), { type: "checkbox" });
+  const legend = el("div");
   const list = el("div", undefined, "white-space:pre-wrap");
   let layer: HTMLElement | undefined;
   let boxes: HTMLElement[] = [];
@@ -93,6 +98,7 @@ export function heatPanel(o: Opts): { node: HTMLElement; teardown: () => void } 
     rows = [];
     cursor = null;
     list.replaceChildren();
+    legend.replaceChildren();
   };
   const vp = () => viewportBucket(window.innerWidth);
   const drawBoxes = (): void => {
@@ -125,7 +131,17 @@ export function heatPanel(o: Opts): { node: HTMLElement; teardown: () => void } 
   const show = async (): Promise<void> => {
     clear();
     const t = type.value as HeatType;
-    if (t === "scroll") {
+    const by = breakdownParam(colourBy.value, propKey.value);
+    if (t === "click" && by) {
+      const d = await o.api.confetti(pagePath(), vp(), by);
+      if (!d) return o.note("No confetti data");
+      const hidden = new Set<number>();
+      const canvas = drawConfetti(d, hidden);
+      layer = canvas;
+      legend.append(confettiLegend(d, hidden, () => void drawConfetti(d, hidden, canvas)));
+      o.note(`${d.dots.length} clicks on ${pagePath()} (${vp()}) coloured by ${by}`);
+      await more(false);
+    } else if (t === "scroll") {
       const r = await o.api.scroll(pagePath(), vp());
       if (!r) return o.note("No scroll data");
       layer = drawScroll(r);
@@ -144,10 +160,13 @@ export function heatPanel(o: Opts): { node: HTMLElement; teardown: () => void } 
   node.append(
     el("b", "Heatmap"),
     labelled("Heatmap type", type),
+    labelled("Colour by (clicks)", colourBy),
+    labelled("Property", propKey),
     labelled("Match links by URL", byHref),
     btn("Show heatmap", () => void show()),
     btn("Hide heatmap", clear),
     moreBtns,
+    legend,
     list,
   );
   return { node, teardown: clear };

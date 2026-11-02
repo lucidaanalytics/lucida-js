@@ -83,6 +83,10 @@ export interface AutocaptureConfig {
   siteSearch?: boolean | { params?: string[] };
   /** `$content_impression` / `$content_interaction` for elements marked `data-lc-content` (default true; nothing is sent without the attribute). */
   contentBlocks?: boolean;
+  /** `$article_read` read-through for the article region (`data-lc-region="article"` or `articleSelector`), default true; nothing is sent on pages without one. */
+  articles?: boolean;
+  /** CSS selector of the article region; wins over remote config `article_selector` and the `data-lc-region` attribute. */
+  articleSelector?: string;
   /** `$media_play` / `$media_progress` (25, 50, 75%) / `$media_complete` for `<video>` and `<audio>` (default true). */
   media?: boolean;
   /** Only capture events whose target is inside one of these tags (e.g. ["a", "button"]). */

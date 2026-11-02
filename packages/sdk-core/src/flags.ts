@@ -1,4 +1,6 @@
 import { matchOp } from "./flag-ops.js";
+import { eventFilters, eventMatches, mergePatch } from "./flag-runtime.js";
+import type { RuntimeBranch, RuntimeEvents } from "./flag-runtime.js";
 import type { FilterOp } from "./flag-ops.js";
 import { sha256Hex } from "./sha256.js";
 import type { Props } from "./ports.js";
@@ -9,15 +11,21 @@ import type { Props } from "./ports.js";
  */
 
 export type { FilterOp };
+export type { RuntimeBranch, RuntimeEvents };
 
 export interface PropertyFilter {
-  type: "person" | "group" | "cohort" | "device" | "geo" | "app_version" | "flag" | "context";
+  /** `event_property` only inside an event filter's `properties`. */
+  type: "person" | "group" | "cohort" | "device" | "geo" | "app_version" | "flag" | "context" | "event" | "event_property";
   key: string;
   op: FilterOp;
   value?: unknown;
   group_type?: string;
   /** `user | device | org` for `context` filters. */
   context_kind?: string;
+  /** `session` (default) or `page` for `event` filters: where the event count is taken. */
+  scope?: "session" | "page";
+  /** `event` filters: predicates on the counted event's own properties; only matching events count (see countKey). */
+  properties?: PropertyFilter[];
 }
 
 export interface Variant {
@@ -38,6 +46,8 @@ export interface ConditionGroup {
   variant_override?: string;
   /** Per-condition bucketing unit; the condition is skipped when the unit is absent. */
   aggregation?: Aggregation;
+  /** RFC 7386 JSON merge patch applied to the served payload when this condition decides. */
+  payload_patch?: unknown;
 }
 
 export interface FlagDefinition {
@@ -93,6 +103,8 @@ export interface EvalContext {
   app_contexts?: string[];
   /** RFC 3339 clock for relative date values; default the wall clock. */
   now?: string;
+  /** Event counts so far by scope (`session`, `page`); absent = unknown, event conditions come back as `runtime` branches. */
+  runtime_events?: RuntimeEvents;
 }
 
 /**
@@ -123,6 +135,8 @@ export interface EvalResult {
   reason: EvalReason;
   /** -1 when no condition decided the result. */
   condition_index: number;
+  /** Results that hold when a branch's event filters pass on live counts (first wins); see resolveRuntime. */
+  runtime?: RuntimeBranch[];
 }
 
 const SCALE = 16 ** 13;
@@ -202,13 +216,20 @@ function stickyResult(f: FlagDefinition, cond: ConditionGroup, i: number, c: Eva
     const v = f.variants.find((x) => x.key === stored);
     if (!v) return undefined;
     res.value = res.variant = v.key;
-    if (v.payload !== undefined) res.payload = v.payload;
-    return res;
+    return patched(res, v.payload, cond);
   }
   if (stored !== true) return undefined;
-  if (f.type === "json" && f.payload !== undefined) res.payload = f.payload;
+  return patched(res, f.type === "json" ? f.payload : undefined, cond);
+}
+
+/** Sets `res.payload` to `payload` with the condition's merge patch applied (P-L10). */
+function patched(res: EvalResult, payload: unknown, cond: ConditionGroup): EvalResult {
+  const p = cond.payload_patch === undefined || cond.payload_patch === null ? payload : mergePatch(payload, cond.payload_patch);
+  if (p !== undefined) res.payload = p;
   return res;
 }
+
+const withRuntime = (r: EvalResult, b: RuntimeBranch[]): EvalResult => (b.length ? { ...r, runtime: b } : r);
 
 /** Evaluate one flag; prerequisites and `flag` filters read `resolved` (see evaluateAll). */
 /** A flag with app contexts evaluates only for a request declaring one; a request declaring none is not filtered. */
@@ -239,6 +260,7 @@ export function evaluateFlag(f: FlagDefinition, c: EvalContext, resolved: Resolv
     if (b < f.namespace.start || b >= f.namespace.end) return off("namespace_excluded");
   }
   let skipped = 0;
+  const branches: RuntimeBranch[] = [];
   for (const [i, cond] of f.conditions.entries()) {
     const ckey = cond.aggregation ? unitKey(cond.aggregation, c) : key;
     if (!ckey) {
@@ -247,7 +269,17 @@ export function evaluateFlag(f: FlagDefinition, c: EvalContext, resolved: Resolv
     }
     let cohort = false;
     let ok = true;
+    let pending = false;
     for (const fl of cond.filters ?? []) {
+      if (fl.type === "event") {
+        // without counts (a server) the event filters are left to the client as a runtime branch
+        if (c.runtime_events === undefined) pending = true;
+        else if (!eventMatches(fl, c.runtime_events)) {
+          ok = false;
+          break;
+        }
+        continue;
+      }
       // a flag filter on a requires_server flag is undecidable locally, like a cohort filter
       const member = fl.type === "cohort" ? c.cohorts?.[fl.key] : undefined;
       if (member !== undefined) {
@@ -262,22 +294,27 @@ export function evaluateFlag(f: FlagDefinition, c: EvalContext, resolved: Resolv
       }
     }
     if (!ok) continue;
-    if (cohort) return off("requires_server", i);
-    const sticky = cond.aggregation ? undefined : stickyResult(f, cond, i, c); // the store keys on the flag-level unit
-    if (sticky) return sticky;
-    if (flagHash(f.key, f.salt, ckey) * 100 >= cond.rollout_pct) {
-      if (f.early_exit) return off("out_of_rollout", i);
-      continue;
-    }
-    const res: EvalResult = { value: true, reason: "condition_match", condition_index: i };
-    if (f.type === "multivariate" && f.variants?.length) {
-      const v = pickVariant(f, cond, ckey);
-      res.value = res.variant = v.key;
-      if (v.payload !== undefined) res.payload = v.payload;
-    } else if (f.type === "json" && f.payload !== undefined) res.payload = f.payload;
-    return res;
+    if (cohort) return withRuntime(off("requires_server", i), branches);
+    const r = outcome(f, cond, i, c, ckey);
+    if (!r) continue;
+    if (pending) branches.push({ filters: eventFilters(cond.filters), result: r });
+    else return withRuntime(r, branches);
   }
-  return off(skipped > 0 && skipped === f.conditions.length ? "no_bucketing_key" : "no_condition_match");
+  return withRuntime(off(skipped > 0 && skipped === f.conditions.length ? "no_bucketing_key" : "no_condition_match"), branches);
+}
+
+/** What condition i (filters passed) decides; undefined = try the next condition. */
+function outcome(f: FlagDefinition, cond: ConditionGroup, i: number, c: EvalContext, ckey: string): EvalResult | undefined {
+  const sticky = cond.aggregation ? undefined : stickyResult(f, cond, i, c); // the store keys on the flag-level unit
+  if (sticky) return sticky;
+  if (flagHash(f.key, f.salt, ckey) * 100 >= cond.rollout_pct) return f.early_exit ? off("out_of_rollout", i) : undefined;
+  const res: EvalResult = { value: true, reason: "condition_match", condition_index: i };
+  if (f.type === "multivariate" && f.variants?.length) {
+    const v = pickVariant(f, cond, ckey);
+    res.value = res.variant = v.key;
+    return patched(res, v.payload, cond);
+  }
+  return patched(res, f.type === "json" ? f.payload : undefined, cond);
 }
 
 function deps(f: FlagDefinition): string[] {
@@ -301,11 +338,63 @@ export function evaluateAll(flags: FlagDefinition[], c: EvalContext): Resolved {
       visit(d);
       if (state.get(d) === 1 || out[d]?.reason === "prerequisite_cycle") cyc = true;
     }
-    out[key] = cyc ? off("prerequisite_cycle") : evaluateFlag(f, c, out);
+    out[key] = cyc ? off("prerequisite_cycle") : evaluateDependent(f, c, out);
     state.set(key, 2);
   };
   for (const f of flags) visit(f.key);
   return out;
+}
+
+/** shortcut: further runtime-branched dependencies read their fallback, raise if flags chain more (Go maxBranchedDeps). */
+const MAX_BRANCHED_DEPS = 4;
+
+/**
+ * evaluateFlag for evaluateAll (go/internal/flageval runtime_deps.go). When a flag `f` reads still has runtime
+ * branches (a server without the client's counts), `f` is also evaluated for every other value that flag can take,
+ * prepended as branches on `{type: "flag", key, op: "eq", value}`, so the client re-resolves `f` after the flip.
+ */
+function evaluateDependent(f: FlagDefinition, c: EvalContext, resolved: Resolved): EvalResult {
+  const pending: string[] = [];
+  for (const d of deps(f)) if (!pending.includes(d) && resolved[d]?.runtime?.length && pending.length < MAX_BRANCHED_DEPS) pending.push(d);
+  return evalOver(f, c, resolved, pending);
+}
+
+function evalOver(f: FlagDefinition, c: EvalContext, resolved: Resolved, pending: string[]): EvalResult {
+  const [dep, ...rest] = pending;
+  if (dep === undefined) return evaluateFlag(f, c, resolved);
+  const base = evalOver(f, c, resolved, rest);
+  const cur = resolved[dep] as EvalResult;
+  const tried = new Set<FlagValue>([cur.value]);
+  const branches: RuntimeBranch[] = [];
+  for (const alt of outcomes(cur)) {
+    if (tried.has(alt.value)) continue;
+    tried.add(alt.value);
+    const r = evalOver(f, c, { ...resolved, [dep]: alt }, rest);
+    if (same(r, base)) continue; // the flip does not change f
+    branches.push({ filters: [{ type: "flag", key: dep, op: "eq", value: alt.value }], result: r });
+  }
+  const all = [...branches, ...(base.runtime ?? [])];
+  const { runtime: _old, ...plain } = base;
+  return all.length ? { ...plain, runtime: all } : plain;
+}
+
+/** The results `r`'s branches can resolve to, depth first in branch order, without their own branches. */
+function outcomes(r: EvalResult): EvalResult[] {
+  return (r.runtime ?? []).flatMap((b) => {
+    const { runtime: _nested, ...x } = b.result;
+    return [x, ...outcomes(b.result)];
+  });
+}
+
+/** Deep equality of JSON-shaped values; an undefined member equals a missing one (Go DeepEqual on zero fields). */
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) return false;
+  const ra = a as Record<string, unknown>;
+  const rb = b as Record<string, unknown>;
+  const keys = new Set([...Object.keys(ra), ...Object.keys(rb)]);
+  for (const k of keys) if (!same(ra[k], rb[k])) return false;
+  return true;
 }
 
 /** True when the flag could not be decided locally (cohort filter): ask the server. */

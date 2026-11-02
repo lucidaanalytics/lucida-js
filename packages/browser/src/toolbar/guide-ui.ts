@@ -2,11 +2,13 @@ import { renderGuide } from "../guides/render.js";
 import type { Guide } from "../types.js";
 import { GUIDE_SCOPE } from "./api.js";
 import type { SavedGuide, toolbarApi } from "./api.js";
-import { addStep, newDraft, stableSelector, toDoc, toPreview, validateDraft } from "./guide-draft.js";
+import { addStep, checkAutomation, newDraft, stableSelector, toDoc, toPreview, validateDraft } from "./guide-draft.js";
 import type { GuideDraft } from "./guide-draft.js";
+import { guideTools } from "./guide-tools.js";
 
 /** Every guide kind lc-api accepts (guides_model::KINDS). */
-const KINDS: Guide["kind"][] = ["tooltip", "modal", "banner", "tour", "checklist", "resource_center", "announcement", "hotspot", "beacon", "badge", "launcher", "slideout", "inline"];
+const KINDS: Guide["kind"][] = ["tooltip", "modal", "banner", "tour", "checklist", "resource_center", "announcement", "hotspot", "beacon", "badge", "launcher", "slideout", "inline", "carousel", "form_validation"];
+const RULES = ["required", "email", "url", "phone", "regex", "min_length", "max_length", "number"] as const;
 
 export interface BuilderDeps {
   api: ReturnType<typeof toolbarApi>;
@@ -14,6 +16,8 @@ export interface BuilderDeps {
   /** Element chosen with the toolbar's inspector, if any. */
   picked: () => Element | undefined;
   note: (t: string) => void;
+  /** Stable data attributes for selectors (toolbar config). */
+  attrs?: readonly string[];
 }
 
 const mk = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}): HTMLElementTagNameMap[K] =>
@@ -35,6 +39,7 @@ export function guideBuilder(d: BuilderDeps): HTMLElement {
   let draft: GuideDraft = newDraft();
   let stopPreview: (() => void) | undefined;
   const canWrite = !!d.scopes?.includes(GUIDE_SCOPE);
+  const tools = guideTools({ api: d.api, canWrite, note: d.note, load: (x) => load(x), ...(d.attrs ? { attrs: d.attrs } : {}) });
 
   const name = mk("input", { placeholder: "Guide name" });
   const kind = mk("select");
@@ -46,6 +51,17 @@ export function guideBuilder(d: BuilderDeps): HTMLElement {
   for (const e of [name, title, body, image, alt]) e.setAttribute("aria-label", e.placeholder);
   const placement = mk("select");
   for (const p of ["bottom", "top", "left", "right"]) placement.append(mk("option", { value: p, textContent: p }));
+  // automation (N-DAP-15): action + its own picked target + constant for fill
+  const autoAction = mk("select");
+  for (const a of ["", "click", "focus", "fill"]) autoAction.append(mk("option", { value: a, textContent: a ? `Automation: ${a}` : "No automation" }));
+  const autoValue = mk("input", { placeholder: "Fill value (constant)" });
+  let autoSelector = "";
+  // form_validation (P-L9): the picked element is the field; one rule per step
+  const rule = mk("select");
+  for (const r of RULES) rule.append(mk("option", { value: r, textContent: `Rule: ${r}` }));
+  const ruleValue = mk("input", { placeholder: "Rule value (regex / length)" });
+  const ruleMsg = mk("input", { placeholder: "Message shown on a bad value" });
+  for (const e of [autoValue, ruleValue, ruleMsg]) e.setAttribute("aria-label", e.placeholder);
   const sel = mk("div");
   const list = mk("div");
   list.style.whiteSpace = "pre-wrap";
@@ -67,8 +83,8 @@ export function guideBuilder(d: BuilderDeps): HTMLElement {
     const noop = { shown() {}, step() {}, completed() {}, dismissed() {}, event() {} };
     stopPreview = renderGuide(g, noop, () => (stopPreview = undefined)); // hooks send no events: previews never reach analytics
   };
-  const load = (g: SavedGuide): void => {
-    draft = { id: g.id, name: g.name, kind: g.kind, steps: g.steps };
+  const load = (g: SavedGuide | GuideDraft): void => {
+    draft = { ...(g.id ? { id: g.id } : {}), name: g.name, kind: g.kind, steps: g.steps, ...("targeting" in g && g.targeting ? { targeting: g.targeting } : {}) };
     name.value = g.name;
     kind.value = g.kind;
     refresh();
@@ -95,7 +111,7 @@ export function guideBuilder(d: BuilderDeps): HTMLElement {
     kind,
     btn("Pick element", () => {
       const el = d.picked();
-      selector = el ? stableSelector(el) : "";
+      selector = el ? stableSelector(el, d.attrs) : "";
       refresh();
       if (!el) d.note("Use Inspect element first, then Pick element");
     }),
@@ -105,16 +121,48 @@ export function guideBuilder(d: BuilderDeps): HTMLElement {
     image,
     alt,
     placement,
+    autoAction,
+    btn("Pick automation target", () => {
+      const el = d.picked();
+      autoSelector = el ? stableSelector(el, d.attrs) : "";
+      d.note(el ? `Automation target ${autoSelector}` : "Use Inspect element first");
+    }),
+    autoValue,
+    btn("Check automation", () => {
+      const a = autoAction.value;
+      if (!a) return d.note("Choose an automation action first");
+      d.note(checkAutomation({ action: a as "click", selector: autoSelector, ...(autoValue.value ? { value: autoValue.value } : {}) }) ?? "The automation target is valid on this page");
+    }),
+    rule,
+    ruleValue,
+    ruleMsg,
     btn("Add step", () => {
       sync();
+      const auto = autoAction.value && autoSelector ? { action: autoAction.value as "click", selector: autoSelector, ...(autoAction.value === "fill" ? { value: autoValue.value } : {}) } : undefined;
+      if (auto) {
+        const err = checkAutomation(auto);
+        if (err) return d.note(err); // validated in the page before it is ever saved
+      }
+      if (draft.kind === "form_validation") {
+        if (!selector || !ruleMsg.value.trim()) return d.note("Pick the field and write the message");
+        const v = rule.value === "min_length" || rule.value === "max_length" ? Number(ruleValue.value) : ruleValue.value;
+        addStep(draft, {
+          title: title.value || "Field check",
+          validation: { selector, rules: [{ type: rule.value as "required", message: ruleMsg.value.trim().slice(0, 200), ...(ruleValue.value ? { value: v } : {}) }] },
+        });
+        selector = ruleValue.value = ruleMsg.value = title.value = "";
+        return refresh();
+      }
       addStep(draft, {
+        ...(auto ? { automation: auto } : {}),
         ...(title.value ? { title: title.value } : {}),
         ...(body.value ? { body: body.value } : {}),
         ...(selector ? { selector, placement: placement.value as "top" } : {}),
         ...(image.value.startsWith("https://") && alt.value.trim() ? { media: [{ type: "image" as const, url: image.value, alt: alt.value.trim() }] } : {}),
       });
-      title.value = body.value = image.value = alt.value = "";
-      selector = "";
+      title.value = body.value = image.value = alt.value = autoValue.value = "";
+      selector = autoSelector = "";
+      autoAction.value = "";
       refresh();
     }),
     btn("Remove last", () => (draft.steps.pop(), refresh())),
@@ -130,6 +178,7 @@ export function guideBuilder(d: BuilderDeps): HTMLElement {
     }),
     btn("New", () => ((draft = newDraft()), (name.value = ""), refresh())),
     mk("div", { textContent: canWrite ? "" : `Saving requires the ${GUIDE_SCOPE} scope on the toolbar token.` }),
+    tools.node,
   );
   refresh();
   return root;

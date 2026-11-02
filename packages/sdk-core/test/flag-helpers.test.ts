@@ -70,7 +70,15 @@ describe("ai config", () => {
   it("renders the served variation or the fallback", () => {
     const res = { value: "v2", variant: "v2", reason: "condition_match" as const, condition_index: 0, payload: { model: "m-large", version: 3, messages: [{ role: "system", content: "Hi {{name}} {{missing}}" }], parameters: { temperature: 0.2 } } };
     const c = aiConfig(res, { model: "m-small", messages: [], parameters: {} }, { name: "Ada" });
-    expect(c).toEqual({ enabled: true, variation: "v2", version: 3, model: "m-large", messages: [{ role: "system", content: "Hi Ada {{missing}}" }], parameters: { temperature: 0.2 } });
-    expect(aiConfig(undefined, { model: "m-small", messages: [], parameters: {} })).toMatchObject({ enabled: false, model: "m-small" });
+    expect(c).toEqual({ enabled: true, variation: "v2", version: 3, mode: "completion", model: "m-large", messages: [{ role: "system", content: "Hi Ada {{missing}}" }], tools: [], parameters: { temperature: 0.2 } });
+    expect(aiConfig(undefined, { model: "m-small", messages: [], parameters: {} })).toMatchObject({ enabled: false, model: "m-small", mode: "completion", tools: [] });
+  });
+
+  it("renders agent mode instructions and tools", () => {
+    const tool = { name: "search_docs", description: "Find docs", parameters: { type: "object" } };
+    const res = { value: "a", variant: "a", reason: "condition_match" as const, condition_index: 0, payload: { model: "m", mode: "agent", instructions: "Help {{name}}", tools: [tool] } };
+    const c = aiConfig(res, { model: "fb", messages: [], parameters: {} }, { name: "Ada" });
+    expect(c).toMatchObject({ enabled: true, mode: "agent", instructions: "Help Ada", tools: [tool], messages: [] });
+    expect(aiConfig(undefined, { model: "fb", messages: [], instructions: "Be brief", parameters: {} })).toMatchObject({ enabled: false, mode: "agent", instructions: "Be brief" });
   });
 });

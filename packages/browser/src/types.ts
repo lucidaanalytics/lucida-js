@@ -1,4 +1,4 @@
-import type { Core, ConsentCategory, ConsentMode, ConsentState, ConsentStatus, EarlyAccessService, EvalContext, FlagDefinition, FlagResult, Props, Storage, Transport, WireEvent } from "@lucida/sdk-core";
+import type { AgentConversation, AgentConversationOptions, Core, ConsentCategory, ConsentMode, ConsentState, ConsentStatus, EarlyAccessService, EvalContext, FlagDefinition, FlagResult, Intervention, Props, Storage, Transport, WireEvent } from "@lucida/sdk-core";
 import type { ConsentUi } from "./consent/options.js";
 import type { ReplayConfig, ReplayOwner } from "./replay/config.js";
 import type { TriggerGroup } from "./replay/groups.js";
@@ -6,6 +6,7 @@ import type { CanvasMaskRule } from "./replay/canvas.js";
 import type { BeforeSend, PersonProfiles } from "./policy.js";
 import type { RateLimitConfig } from "./ratelimit.js";
 import type { AutocaptureConfig, DeliveryConfig, StorageConfig } from "./config-types.js";
+import type { RecommendationOptions, Recommendations, RecsService } from "./recs/index.js";
 
 export type { AutocaptureConfig, DeliveryConfig, FrustrationConfig, LazyModuleName, Persistence, StorageConfig } from "./config-types.js";
 
@@ -57,8 +58,8 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   /** Toolbar: data attributes preferred when it builds an element selector (default data-lc-id, data-testid, data-test, data-cy, data-qa). */
   toolbar?: { dataAttributes?: string[] };
   autocapture?: boolean | AutocaptureConfig;
-  /** 'history' = initial + SPA route changes, true = initial only, false = none. Default 'history'. */
-  capturePageview?: "history" | boolean;
+  /** 'history' = initial + SPA route changes, 'hash' = history plus hash routes (`$pathname` includes the `#/route` fragment, fires on `hashchange`), true = initial only, false = none. Default 'history'. */
+  capturePageview?: "history" | "hash" | boolean;
   consent?: {
     mode?: ConsentMode;
     queueBeforeConsent?: boolean;
@@ -75,6 +76,12 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
      * cookieless mode on). Granting later switches to normal identity. Default false: a decline drops events.
      */
     cookielessOnReject?: boolean;
+    /**
+     * Geo consent defaults (N-ANA-17): before anything is stored or sent, ask `GET /v1/config` which mode the
+     * project's rules give this visitor's country / US state (opt-in, opt-out or cookieless). Events wait in memory
+     * meanwhile (at most 3 s; then the local `mode` applies). A stored decision skips the wait. Default false.
+     */
+    geo?: boolean;
   };
   /** Treat Do Not Track as a consent denial in opt_out mode (default false; falls back to consent.respectDnt). */
   respectDnt?: boolean;
@@ -90,11 +97,17 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   /** Send nothing from known crawler / headless user agents (default true; the server still classifies anything that gets through). */
   blockBots?: boolean;
   /** Guides module: render=false leaves display to the host app. */
-  guides?: { render?: boolean; /** Keep progress and dismissals on the server so they follow a person across devices (default true; needs consent and a distinct id). */ syncState?: boolean; /** Preferred guide language (BCP 47); default: person property `locale`, then the browser's. */ locale?: string };
+  guides?: { render?: boolean; /** Keep progress and dismissals on the server so they follow a person across devices (default true; needs consent and a distinct id). */ syncState?: boolean; /** Preferred guide language (BCP 47); default: person property `locale`, then the browser's. */ locale?: string; /** In a child frame: draw guides in the top window at this exact origin (its SDK must list this frame's origin in `frameOrigins`). */ renderInTop?: string; /** Top window: child-frame origins allowed to forward guides here. */ frameOrigins?: string[] };
   /** Visual-editor / personalization changes (the `experiments` module). antiFlickerMs hides the page until flags load (0 = off). */
-  visualChanges?: { antiFlickerMs?: number };
+  visualChanges?: {
+    antiFlickerMs?: number;
+    /** Run per-variant custom JS that the project approved (`experiment.custom_code`); default false, so no experiment code runs unless the site opts in. */
+    allowCustomJs?: boolean;
+  };
   /** Split-URL tests (the `splitUrl` experiments module): see experiments/split-url.ts. */
   splitUrl?: { antiFlickerMs?: number; allowedOrigins?: string[]; navigate?: (url: string) => void };
+  /** Product recommendations (the `recommendations` module): the event and property that mark an item view (default `$product_viewed` / `item_id`). */
+  recommendations?: { viewEvent?: string; itemIdProperty?: string };
   /** Skip the flags request at init; flags load on reloadFlags(), identify(), group() or reset(). */
   disableFlagsOnFirstLoad?: boolean;
   /** Attach `$feature/<key>` and `$active_feature_flags` to captured events (default true). */
@@ -119,7 +132,8 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   /** Client token bucket (off by default): drops events beyond eventsPerSecond (10) with a burst of 100. */
   rateLimit?: RateLimitConfig;
   /** Session rotation limits in ms (defaults 30 min idle, 24 h total). */
-  session?: { idleMs?: number; maxMs?: number };
+  /** Session rotation; unset values follow the project's session definition in the remote config (N-ANA-6). */
+  session?: { idleMs?: number; maxMs?: number; newOnEvents?: string[] };
   /**
    * Hostnames (`api.example.com`, or `.example.com` for the domain and subdomains) whose fetch/XHR requests carry
    * `X-Lucida-Distinct-Id` and `X-Lucida-Session-Id`. Opt-in, consent-gated, never sent to the ingest host.
@@ -156,9 +170,17 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   localFlags?: FlagDefinition[];
   /** Person/group/device properties the local evaluator may use (it knows nothing else about the user). */
   localFlagsContext?: Partial<EvalContext>;
+  /** Agent analytics (`client.ai`). `captureText` sends message text and feedback comments, redacted (cards, emails, phones); default false (length, hash and sentiment only). */
+  ai?: { captureText?: boolean };
   /** Test/advanced overrides. */
   transport?: Transport;
   fetch?: typeof fetch;
+}
+
+/** `client.ai`: agent / chatbot conversation analytics (product side; LLM traces stay in Watchtower). */
+export interface AgentAnalytics {
+  /** Emits `$ai_conversation_started` and returns the handle for `message`, `feedback`, `end` and `outcome`. */
+  startConversation(opts?: AgentConversationOptions): AgentConversation;
 }
 
 export interface RemoteConfig {
@@ -185,6 +207,14 @@ export interface RemoteConfig {
   replay_canvas_mask?: CanvasMaskRule[];
   /** Optional extended replay settings (same names as ReplayConfig). */
   replay?: Partial<ReplayConfig>;
+  /** Project session definition (N-ANA-6): idle minutes, longest session in minutes, events that start a session. */
+  session_idle_minutes?: number;
+  session_max_minutes?: number;
+  session_new_on_events?: string[];
+  /** Geo consent default resolved for this visitor (N-ANA-17), and the location it was resolved from. */
+  consent_default?: "opt_in" | "opt_out" | "cookieless";
+  consent_country?: string;
+  consent_region?: string;
   [k: string]: unknown;
 }
 
@@ -246,15 +276,19 @@ export interface TargetConditions {
   seen_guides?: string[];
   not_seen_guides?: string[];
   /** Window (RFC 3339), weekdays 0=Sunday and local hours [from, to) the guide may show in. */
-  schedule?: { start?: string; end?: string; days?: number[]; hours?: { from?: number; to?: number } };
+  schedule?: { start?: string; end?: string; days?: number[]; hours?: { from?: number; to?: number }; timezone?: string };
   /** At most `max_views` shows per rolling `per_days` (omitted: lifetime). Lifts the default show-once. */
   frequency?: { max_views?: number; per_days?: number };
   /** Share of eligible people held back as the control group (`$guide_holdout`). */
   holdout_pct?: number;
+  /** `variant`: each A/B variant holds back its own control group (default: pooled across the group). */
+  holdout_scope?: "group" | "variant";
   /** Guides sharing a group are A/B variants: one is picked per person, by `ab_weight`. */
   ab_group?: string;
   ab_weight?: number;
   goal?: { event: string; window_days?: number };
+  /** Project-wide exclusions (served by the gateway): never on a URL matching any glob (`*`); a pattern starting with `/` matches the path. */
+  exclude_url_patterns?: string[];
 }
 
 /** Announcements: published banner guides. */
@@ -272,8 +306,10 @@ export interface GuidesService {
 
 export interface GuideButton {
   label: string;
-  action: "next" | "back" | "dismiss" | "link" | "event" | "start_tour";
+  action: "next" | "back" | "dismiss" | "link" | "event" | "start_tour" | "snooze";
   url?: string;
+  /** With `snooze`: hide the guide and show it again after this many hours (1..720). */
+  snooze_hours?: number;
   event?: string;
   /** With `next`: jump to a LATER step id, or "end". */
   goto?: string;
@@ -288,14 +324,24 @@ export interface GuideStep {
   fallback_selectors?: string[];
   /** Tooltip / tour: wait up to this long (ms, default 3000, max 15000) for the target to appear before showing the step unanchored. */
   wait_ms?: number;
-  /** How the step moves on: its buttons (default), or a click on the target element. */
-  advance?: "button" | "click";
+  /** How the step moves on: its buttons (default), a click on the target, or a `change` of the target field (value never read). */
+  advance?: "button" | "click" | "input";
+  /** Close the step (as dismissed, reason `auto_close`) after this many seconds (1..600). */
+  auto_close_s?: number;
+  /** Last step: a short confetti burst on completion (skipped under prefers-reduced-motion). */
+  confetti?: boolean;
+  /** Act on the page when the step shows. Never on password / masked / card fields; values are never read. */
+  automation?: GuideAutomation;
+  /** Mobile anchor (accessibility identifier / view tag / Flutter key / RN testID); the web ignores it. */
+  native_id?: string;
+  /** `form_validation` guides: the field and its format rules. */
+  validation?: { selector: string; rules: GuideRule[] };
   placement?: "top" | "bottom" | "left" | "right";
   /** Page (URL substring) this step lives on; a tour waits for it across navigations. */
   url?: string;
   buttons?: GuideButton[];
   /** First matching rule wins when Next is pressed on a step with no `goto`. Keys are person properties. */
-  branch?: Array<{ key: string; op: PropFilter["op"]; value?: unknown; goto: string }>;
+  branch?: Array<{ key: string; op: PropFilter["op"] | "element_present" | "element_absent" | "flag_on" | "flag_off"; value?: unknown; goto: string }>;
   /** Checklist item: completes itself when this event is captured (all `props` equal). */
   complete_on?: { event: string; props?: Record<string, string | number | boolean> };
   /** Per-locale text; `buttons` are labels by position. */
@@ -310,13 +356,42 @@ export interface GuideStep {
   search_url?: string;
 }
 
+export interface GuideAutomation {
+  action: "click" | "focus" | "fill";
+  selector: string;
+  /** `fill` only: a builder-set constant. */
+  value?: string;
+}
+
+/** One format rule of a `form_validation` step (checked in the page; the value never leaves it). */
+export interface GuideRule {
+  type: "required" | "email" | "url" | "phone" | "regex" | "min_length" | "max_length" | "number";
+  value?: string | number;
+  message: string;
+}
+
+/** Colors (#hex), radius and font applied to the rendered guide. */
+export interface GuideTokens {
+  background?: string;
+  text?: string;
+  accent?: string;
+  radius?: number;
+  /** CSS font-family list (letters, digits, spaces, commas, quotes, hyphens). */
+  font?: string;
+  shadow?: "none" | "sm" | "lg";
+  button_radius?: number;
+  /** Secondary (non-first) buttons. */
+  secondary?: string;
+  secondary_text?: string;
+}
+
 export interface GuideMedia {
   type: "image" | "video" | "embed";
   url: string;
   alt?: string;
 }
 
-export type GuideKind = "tooltip" | "modal" | "banner" | "tour" | "checklist" | "resource_center" | "announcement" | "hotspot" | "beacon" | "badge" | "launcher" | "slideout" | "inline";
+export type GuideKind = "tooltip" | "modal" | "banner" | "tour" | "checklist" | "resource_center" | "announcement" | "hotspot" | "beacon" | "badge" | "launcher" | "slideout" | "inline" | "carousel" | "form_validation";
 
 /** Shape of go/gateway GET /v1/guides; conditions are the client targeting keys. */
 export interface Guide {
@@ -328,20 +403,12 @@ export interface Guide {
   appearance?: {
     i18n?: Record<string, { name?: string }>;
     launcher_label?: string;
-    /** Colors (#hex) and corner radius (px) applied to the rendered guide. */
-    tokens?: {
-      background?: string;
-      text?: string;
-      accent?: string;
-      radius?: number;
-      /** CSS font-family list (letters, digits, spaces, commas, quotes, hyphens). */
-      font?: string;
-      shadow?: "none" | "sm" | "lg";
-      button_radius?: number;
-      /** Secondary (non-first) buttons. */
-      secondary?: string;
-      secondary_text?: string;
-    };
+    tokens?: GuideTokens;
+    /** Dark variant, used when `theme_mode` is dark, or auto and the visitor prefers dark. */
+    dark?: { tokens?: GuideTokens };
+    theme_mode?: "auto" | "light" | "dark";
+    /** Theme font (resolved by the gateway from `theme_id`); `tokens.font` wins. */
+    font_family?: string;
     /** Dim the page behind the guide (default: modal only). */
     overlay?: boolean;
     /** Close (as dismissed) on a click outside the guide (default: modal only). */
@@ -355,6 +422,10 @@ export interface Guide {
   published_at?: string;
   /** A draft served to one of its QA users (gateway): targeting is skipped, events carry `$guide_preview`. */
   preview?: boolean;
+  /** This person is in the guide's holdout (decided by the gateway); the guide carries no steps. */
+  held_out?: boolean;
+  /** A workflow queued this guide for this person (gateway): it shows on the next eligible page view, skipping delay, sampling and wait_days. */
+  queued?: boolean;
 }
 
 /** What a manual `replay.start()` may bypass (default: sampling only). */
@@ -419,6 +490,10 @@ export interface Host {
   replay?: ReplayControl;
   /** The toolbar module registers its manual loader here. */
   toolbar?: { load(token: string): Promise<boolean> };
+  /** The visualChanges module registers manual experiment activation here. */
+  experiments?: { activate(flagKey: string): void };
+  /** The recommendations module registers its service here. */
+  recs?: RecsService;
 }
 
 /** A module is a function; it may return a teardown. Unused modules are tree-shaken. */
@@ -490,6 +565,8 @@ export interface Client {
    */
   getLayerParam<T = unknown>(layer: string, param: string, fallback: T): T;
   onFlags(cb: (flags: Record<string, FlagValue>) => void): () => void;
+  /** In-session interventions (N-ANA-2) fired for this person: opens GET /v1/interventions/stream on the first listener (after analytics consent). Returns unsubscribe. */
+  onIntervention(cb: (i: Intervention) => void): () => void;
   reloadFlags(): Promise<void>;
   /** Every known flag value, without recording exposures. */
   getAllFlags(): Record<string, FlagValue>;
@@ -508,6 +585,8 @@ export interface Client {
    */
   setContext(kind: FlagContextKind, key: string, properties?: Props): void;
   clearContext(kind: FlagContextKind): void;
+  /** Agent analytics: `$ai_*` conversation events through the normal capture path (consent, opt-out, beforeSend apply). */
+  readonly ai: AgentAnalytics;
   /** Early-access opt-in (no-ops until the `earlyAccess` module is installed). */
   readonly earlyAccess: EarlyAccessService;
   /** Changelog widget (no-ops until the `guides` module is installed). */
@@ -520,6 +599,13 @@ export interface Client {
    * `?__lc_toolbar=`). Pass the token or the `{token}` object; resolves false when rejected or the `toolbar` module is absent.
    */
   loadToolbar(params: string | { token: string }): Promise<boolean>;
+  /**
+   * Activate a web experiment whose `lc_trigger` waits (SPAs: call it when the view the experiment targets renders);
+   * also re-applies an active experiment's changes after a re-render. Needs the `visualChanges` module.
+   */
+  activateExperiment(flagKey: string): void;
+  /** Recommended items for a placement (empty without the `recommendations` module or on any failure). */
+  recommendations(placement: string, opts?: RecommendationOptions): Promise<Recommendations>;
   flush(): Promise<void>;
   shutdown(): Promise<void>;
 }

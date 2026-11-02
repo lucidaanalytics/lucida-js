@@ -70,6 +70,15 @@ describe("consent", () => {
     expect(core.hasConsent("analytics")).toBe(true);
     expect(core.hasConsent("replay")).toBe(false);
   });
+
+  it("stamps $consent on events only after an explicit decision, and on the person with the consent log", () => {
+    const { core } = make();
+    expect(core.capture("before")?.properties.$consent).toBeUndefined();
+    core.setConsent({ analytics: true, marketing: false });
+    const e = core.capture("after");
+    expect(e?.properties.$consent).toMatchObject({ analytics: true, marketing: false });
+    expect(core.capture("$consent_updated", { categories: {} })?.$set).toMatchObject({ $consent: { analytics: true, marketing: false } });
+  });
 });
 
 describe("identity flows", () => {

@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { FlagFreshness, flagResult } from "../src/index.js";
+import { FlagFreshness, fallbackValue, flagResult, withFallback } from "../src/index.js";
+
+describe("fallbacks", () => {
+  const fb = { a: "control", b: false };
+  it("serves the fallback with reason fallback when nothing decided the flag", () => {
+    expect(withFallback(flagResult("a", undefined, undefined, "remote"), fb)).toEqual({ key: "a", value: "control", enabled: true, variant: "control", reason: "fallback" });
+    expect(withFallback(flagResult("b", false, undefined, "requires_server"), fb)).toMatchObject({ value: false, reason: "fallback" });
+    expect(withFallback(flagResult("a", false, undefined, "prerequisite_cycle"), fb).reason).toBe("fallback");
+  });
+  it("keeps decided results and flags without a fallback", () => {
+    expect(withFallback(flagResult("a", "test", undefined, "condition_match"), fb).value).toBe("test");
+    expect(withFallback(flagResult("a", false, undefined, "no_condition_match"), fb).reason).toBe("no_condition_match");
+    expect(withFallback(flagResult("z", undefined, undefined, "remote"), fb).reason).toBe("not_found");
+    expect(withFallback(flagResult("a", undefined, undefined, "remote"), undefined).reason).toBe("not_found");
+    expect(fallbackValue("a", undefined, "not_found", fb)).toBe("control");
+    expect(fallbackValue("a", true, "remote", fb)).toBe(true);
+  });
+});
 
 describe("flagResult", () => {
   it("derives enabled and variant from the value", () => {

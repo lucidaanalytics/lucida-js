@@ -1,5 +1,5 @@
-import { EventQueue, FlagSnapshot, backoffDelay, isRetryable, uuidv7, withFlagProps } from "@lucida/sdk-core";
-import type { BackoffOptions, FlagDefinition, FlagValue, Props, StickyStore, Transport, WireEvent } from "@lucida/sdk-core";
+import { AgentConversation, EventQueue, FlagSnapshot, backoffDelay, isRetryable, uuidv7, withFlagProps } from "@lucida/sdk-core";
+import type { AgentConversationOptions, BackoffOptions, FlagDefinition, FlagValue, Props, StickyStore, Transport, WireEvent } from "@lucida/sdk-core";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { getContext } from "./context.js";
@@ -7,7 +7,7 @@ import type { FlagDefinitionCacheProvider } from "./defcache.js";
 import { DefinitionsPoller } from "./definitions.js";
 import type { DefinitionsResponse } from "./definitions.js";
 import { ServerFlags } from "./flags.js";
-import type { FlagOptions } from "./flags.js";
+import type { FlagDetails, FlagOptions } from "./flags.js";
 import { LruSet } from "./lru.js";
 import { nodeTransport } from "./transport.js";
 
@@ -73,6 +73,19 @@ export interface LucidaOptions {
   immediateRetryDelayMs?: number;
   /** App contexts this server declares; flags limited to other contexts are not served. */
   appContexts?: string[];
+  /** Flag key -> value served (reason "fallback", no exposure event) when nothing decides the flag: network error, cold start, unknown key. Beats `defaultValue`. */
+  fallbacks?: Record<string, FlagValue>;
+  /** Agent analytics (`lucida.ai`). `captureText` sends message text and feedback comments, redacted (cards, emails, phones); default false. */
+  ai?: { captureText?: boolean };
+}
+
+/** `lucida.ai.startConversation(...)` options: the distinct id is named like `capture` (or comes from `withContext`). */
+export type AgentConversationInput = AgentConversationOptions & { distinctId?: string };
+
+/** `lucida.ai`: agent / chatbot conversation analytics (product side; LLM traces stay in Watchtower). */
+export interface AgentAnalytics {
+  /** Emits `$ai_conversation_started` and returns the handle for `message`, `feedback`, `end` and `outcome`. */
+  startConversation(opts?: AgentConversationInput): AgentConversation;
 }
 
 export interface CaptureInput {
@@ -131,6 +144,7 @@ export class Lucida {
   readonly captured: WireEvent[] = [];
   /** Resolves after the first definitions fetch (immediately when local evaluation is off). */
   readonly ready: Promise<void>;
+  readonly ai: AgentAnalytics;
 
   constructor(
     private readonly apiKey: string,
@@ -189,7 +203,13 @@ export class Lucida {
       capture: (distinctId, event, properties) => this.capture({ distinctId, event, properties }),
       ...(o.stickyStore ? { sticky: o.stickyStore } : {}),
       ...(o.appContexts ? { appContexts: o.appContexts } : {}),
+      ...(o.fallbacks ? { fallbacks: o.fallbacks } : {}),
     });
+    const captureText = o.ai?.captureText === true;
+    this.ai = {
+      startConversation: ({ distinctId, ...rest } = {}) =>
+        new AgentConversation((event, properties) => this.capture({ ...(distinctId !== undefined ? { distinctId } : {}), event, properties }), rest, captureText).start(),
+    };
   }
 
   private fail(error: Error, events: WireEvent[]): void {
@@ -335,6 +355,11 @@ export class Lucida {
 
   getFeatureFlag(key: string, distinctId: string, o?: FlagOptions): Promise<FlagValue | undefined> {
     return this.off ? Promise.resolve(undefined) : this.flags.get(key, distinctId, o);
+  }
+
+  /** Value, payload, variant, reason, condition index, request id and local/remote provenance; undefined when nothing decides the flag. */
+  getFeatureFlagDetails(key: string, distinctId: string, o?: FlagOptions): Promise<FlagDetails | undefined> {
+    return this.off ? Promise.resolve(undefined) : this.flags.details(key, distinctId, o);
   }
 
   async isFeatureEnabled(key: string, distinctId: string, o?: FlagOptions): Promise<boolean | undefined> {

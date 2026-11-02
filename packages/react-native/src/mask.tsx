@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useRef } from "react";
 import type { ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { LucidaContext } from "./provider.js";
@@ -38,19 +38,42 @@ export function LucidaUnmask({ children, style }: MarkProps) {
   );
 }
 
+type TouchLike = { nativeEvent?: { pageX?: number; pageY?: number } };
+const point = (e: TouchLike): { x: number; y: number } | null => {
+  const n = e.nativeEvent;
+  return n && typeof n.pageX === "number" && typeof n.pageY === "number" ? { x: n.pageX, y: n.pageY } : null;
+};
+const TOUCH_SLOP = 10;
+
 /**
- * Wrap the app root to feed taps to `client.replay.tap` (the replay touch overlay). It only observes `onTouchEnd`
- * bubbling up from children; it never becomes the responder, so no touch is cancelled or delayed.
+ * Wrap the app root to feed taps to `client.replay.tap` (the replay touch overlay) and swipes to the `$dead_swipe` check.
+ * It only observes touch events bubbling up from children; it never becomes the responder, so no touch is cancelled or delayed.
  */
 export function LucidaTouchCapture({ children, style }: MarkProps) {
   const client = useContext(LucidaContext)?.client;
+  const swipe = useRef<{ x: number; y: number; began: boolean } | null>(null);
   return (
     <View
       collapsable={false}
       style={style ?? { flex: 1 }}
-      onTouchEnd={(e: { nativeEvent?: { pageX?: number; pageY?: number } }) => {
-        const n = e.nativeEvent;
-        if (client && n && typeof n.pageX === "number" && typeof n.pageY === "number") client.replay.tap(n.pageX, n.pageY);
+      onTouchStart={(e: TouchLike) => {
+        const p = point(e);
+        swipe.current = p ? { ...p, began: false } : null;
+      }}
+      onTouchMove={(e: TouchLike) => {
+        const s = swipe.current;
+        const p = point(e);
+        if (!client || !s || !p || s.began || Math.hypot(p.x - s.x, p.y - s.y) <= TOUCH_SLOP) return;
+        s.began = true;
+        client.replay.swipeBegan();
+      }}
+      onTouchEnd={(e: TouchLike) => {
+        const p = point(e);
+        const s = swipe.current;
+        swipe.current = null;
+        if (!client || !p) return;
+        client.replay.tap(p.x, p.y);
+        if (s?.began) client.replay.swipeEnded(p.x - s.x, p.y - s.y);
       }}
     >
       {children}

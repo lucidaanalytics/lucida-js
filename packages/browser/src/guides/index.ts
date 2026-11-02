@@ -7,15 +7,32 @@ import { showChangelog } from "./changelog.js";
 import { localize } from "./locale.js";
 import { guideState } from "./progress.js";
 import { GUIDE_KEYS, SEEN_KEY, guideSync } from "./sync.js";
-import { renderGuide, type GuideHandle, type GuideHooks } from "./render.js";
+import { renderGuide, type GuideHandle, type GuideHooks, type RenderOpts } from "./render.js";
+import { assistFor, takePermalink } from "./assist.js";
+import { FORWARDABLE, forwardGuide, framed, listenFrames } from "./frame.js";
 
 export { renderGuide } from "./render.js";
+export { branchOk, runAutomation, sensitive } from "./step-extras.js";
+export { resolveTokens } from "./theme.js";
+export { PERMALINK_PARAM } from "./assist.js";
 
 const LAST_KEY = "lc_guide_last";
 /** Kinds that stay on the page until closed (loaded lazily, see persistent.ts). */
 const PERSISTENT = new Set(["hotspot", "beacon", "badge", "launcher"]);
-/** Shown alongside anything else (no arbiter claim): the persistent kinds and inline content. */
-const unclaimed = (g: Guide): boolean => PERSISTENT.has(g.kind) || g.kind === "inline";
+
+/** The viewer's IANA zone, so the gateway decides weekday / hour recurrence itself (G55). */
+const tzParam = (): string => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return tz ? `&tz=${encodeURIComponent(tz)}` : "";
+  } catch {
+    return "";
+  }
+};
+/** Kinds that apply on every page until dismissed (not shown once): the persistent kinds and form validation. */
+const STAYS = new Set([...PERSISTENT, "form_validation"]);
+/** Shown alongside anything else (no arbiter claim): the persistent kinds, form validation and inline content. */
+const unclaimed = (g: Guide): boolean => STAYS.has(g.kind) || g.kind === "inline";
 /** Kinds that resume on the next page until finished. */
 const RESUMABLE = new Set(["tour", "checklist"]);
 const SESSION_MS = 30 * 60_000;
@@ -35,7 +52,10 @@ const deviceOf = (): "desktop" | "mobile" | "tablet" => {
  * modules can open other guides. A `preview` guide (a draft served to one of its QA users) skips
  * targeting, shows once per page load and sends no events, so QA never reaches the results. config.guides.render === false leaves display to the host app.
  * Events: $guide_shown, $guide_step ($guide_step_id/_index: step reached; checklist item done),
- * $guide_completed, $guide_dismissed, $guide_holdout (control group), all carrying $guide_id.
+ * $guide_completed, $guide_dismissed (`reason` auto_close / snooze), $guide_holdout (control group),
+ * $guide_target_missing, $guide_validation_failed (rule type only), $guide_search (query length only by default),
+ * all carrying $guide_id. Also: `?lc_guide=<id>` permalinks, snooze, form validation, carousels, and drawing in
+ * the top window for a child frame (`renderInTop` / `frameOrigins`).
  */
 export const guides: Module = (host: Host) => {
   const { core } = host;
@@ -43,6 +63,8 @@ export const guides: Module = (host: Host) => {
   let gone = false;
   const active = new Set<string>();
   const handles = new Map<string, GuideHandle>();
+  let linked = takePermalink(); // ?lc_guide=<id>, stripped before anything else runs
+  let captureQuery = false; // project setting guide_search_capture_query, served with the list
   // Local changes to guide keys are pushed to the server copy (G55); the consent-gated storage stays the source of truth.
   const store: Storage = {
     get: (k) => core.storage.get(k),
@@ -76,7 +98,8 @@ export const guides: Module = (host: Host) => {
       const noop = (): void => {};
       return { shown: noop, step: noop, completed: noop, dismissed: noop, event: noop };
     }
-    const persistent = PERSISTENT.has(g.kind);
+    const persistent = STAYS.has(g.kind);
+    const stepProps = (id: string) => ({ guide_id: g.id, step_id: id, $guide_step_id: id });
     const close = (): void => {
       state.tour.set(g.id, undefined);
       state.checked.set(g.id, undefined);
@@ -89,6 +112,7 @@ export const guides: Module = (host: Host) => {
         // a persistent guide re-renders on every page: report it once per (rough) session
         const repeat = persistent && (views.at(-1) ?? 0) > now - SESSION_MS;
         seen.add(g.id);
+        if (state.snoozed.get(g.id)) state.snoozed.set(g.id, undefined); // the snooze is over once it shows again
         store.set(SEEN_KEY, JSON.stringify([...seen]));
         core.storage.set(LAST_KEY, String(now));
         if (g.kind === "checklist" && !state.checked.get(g.id)) state.checked.set(g.id, []);
@@ -102,8 +126,16 @@ export const guides: Module = (host: Host) => {
       },
       progress: (id) => g.kind === "tour" && state.tour.set(g.id, id),
       completed: () => (close(), core.capture("$guide_completed", props(g))),
-      dismissed: (i, id) => (close(), core.capture("$guide_dismissed", props(g, { $guide_step_id: id, $guide_step_index: i }))),
+      dismissed: (i, id, reason) => {
+        // a snooze keeps the tour position; it is not a goodbye
+        if (reason !== "snooze") close();
+        core.capture("$guide_dismissed", props(g, { $guide_step_id: id, $guide_step_index: i, ...(reason ? { reason } : {}) }));
+      },
       event: (name) => host.client.capture(name, { $guide_id: g.id }),
+      snoozed: (_id, hours) => state.snoozed.set(g.id, Date.now() + hours * 3_600_000),
+      targetMissing: (id, selector) => core.capture("$guide_target_missing", props(g, { ...stepProps(id), selector })),
+      validationFailed: (id, rule) => core.capture("$guide_validation_failed", props(g, { ...stepProps(id), rule })),
+      automated: (id, result) => result !== "done" && host.log(`guide ${g.id} step ${id}: automation ${result}`),
     };
   };
 
@@ -116,7 +148,16 @@ export const guides: Module = (host: Host) => {
       const x = list.find((y) => y.id === id);
       if (x && !active.has(x.id)) (active.add(x.id), show(x));
     };
-    const opts = { start, person, checked: state.checked.get(g.id) ?? [], library: list, launch, ...(host.config.nonce ? { nonce: host.config.nonce } : {}) };
+    const opts: RenderOpts = {
+      start,
+      person,
+      checked: state.checked.get(g.id) ?? [],
+      library: list,
+      launch,
+      flag: flagOn,
+      ...(host.config.nonce ? { nonce: host.config.nonce } : {}),
+      ...(g.kind === "resource_center" && !g.preview ? { assist: assistFor(host, g, () => captureQuery, host.config.guides?.locale ?? navigator.language) } : {}),
+    };
     const resumed = start > 0 || (g.kind === "checklist" && state.checked.get(g.id) !== undefined);
     const finished = (): void => {
       teardowns.delete(stop);
@@ -134,28 +175,42 @@ export const guides: Module = (host: Host) => {
       });
       return;
     }
-    const handle = renderGuide(lg, hooksFor(g, resumed), finished, opts);
+    if (g.kind === "form_validation") {
+      // lazy, like the persistent kinds: validation binds fields on every page until dismissed
+      void import("./validation.js").then((m) => {
+        stop = m.renderValidation(lg, hooksFor(g, resumed), finished, opts);
+        if (gone) stop();
+        else teardowns.add(stop);
+      });
+      return;
+    }
+    const top = host.config.guides?.renderInTop;
+    const handle = top && FORWARDABLE.has(g.kind) && framed() ? forwardGuide(lg, hooksFor(g, resumed), finished, opts, top) : renderGuide(lg, hooksFor(g, resumed), finished, opts);
     stop = handle;
     handles.set(g.id, handle);
     teardowns.add(stop);
   };
 
-  /** Targeting, A/B pick and holdout for one guide; true = show it now. */
-  const admit = (g: Guide): boolean => {
-    const persistent = PERSISTENT.has(g.kind);
+  /** Targeting, A/B pick and holdout for one guide; true = show it now. A permalink skips seen and snooze, never targeting. */
+  const admit = (g: Guide, permalink = false): boolean => {
+    const persistent = STAYS.has(g.kind);
     const c = g.conditions;
     const anchor = g.steps[0]?.selector;
     if (g.kind === "inline" && !(anchor && document.querySelector(anchor))) return false; // waits for its element
     if (g.preview) return !previewed.has(g.id) && (previewed.add(g.id), true);
     const views = state.views.get(g.id) ?? [];
-    if (persistent ? state.dismissed.get(g.id) : seen.has(g.id) && !c.frequency) return false;
+    const snoozedUntil = state.snoozed.get(g.id);
+    if (!permalink && snoozedUntil && snoozedUntil > Date.now()) return false;
+    // an expired snooze lets a seen guide show once more
+    if (!permalink && (persistent ? state.dismissed.get(g.id) : seen.has(g.id) && !c.frequency && !snoozedUntil)) return false;
+    // a workflow-queued guide skips sampling and the wait since the last guide (gateway N-DAP-11)
     const ctx = {
       url: location.href,
       flags: flagOn,
       flagValue: (k: string) => host.flags?.get(k),
-      lastShownMs: Number(core.storage.get(LAST_KEY)) || undefined,
+      lastShownMs: g.queued ? undefined : Number(core.storage.get(LAST_KEY)) || undefined,
       nowMs: Date.now(),
-      random: Math.random,
+      random: g.queued ? () => 0 : Math.random,
       person,
       groups,
       device: deviceOf(),
@@ -164,7 +219,7 @@ export const guides: Module = (host: Host) => {
     };
     if (!eligible(g, ctx)) return false;
     if (variantOf(g, list, key()) !== g) return false; // another A/B variant is this person's
-    if (heldOut(g, key())) {
+    if (g.held_out || heldOut(g, key())) {
       if (!state.held.get(g.id)) {
         state.held.set(g.id, Date.now());
         core.capture("$guide_holdout", props(g, c.ab_group ? { $guide_group: c.ab_group } : {}));
@@ -172,6 +227,15 @@ export const guides: Module = (host: Host) => {
       return false;
     }
     return true;
+  };
+
+  /** The permalinked guide, once: shown now (no delay, no wait) when it is in the served list and its targeting passes. */
+  const openLinked = (): void => {
+    const g = linked ? list.find((x) => x.id === linked) : undefined;
+    linked = null;
+    if (!g || active.has(g.id) || host.config.guides?.render === false || !admit(g, true)) return;
+    active.add(g.id);
+    show(g);
   };
 
   const evaluate = (): void => {
@@ -190,10 +254,11 @@ export const guides: Module = (host: Host) => {
       active.add(g.id);
       show(g);
     }
-    for (const g of list) {
+    // workflow-queued guides go first and skip their delay
+    for (const g of [...list.filter((x) => x.queued), ...list.filter((x) => !x.queued)]) {
       if (active.has(g.id) || unclaimed(g) || !admit(g)) continue;
       active.add(g.id);
-      timers.push(setTimeout(() => show(g), (g.conditions.delay_seconds ?? 0) * 1000));
+      timers.push(setTimeout(() => show(g), g.queued ? 0 : (g.conditions.delay_seconds ?? 0) * 1000));
       return; // one at a time; the next waits for a later evaluation
     }
   };
@@ -221,13 +286,15 @@ export const guides: Module = (host: Host) => {
 
   const load = (): void => {
     const guidesReq = host
-      .fetch(`${host.config.apiHost}/v1/guides?api_key=${encodeURIComponent(host.apiKey)}${core.distinctId ? `&distinct_id=${encodeURIComponent(core.distinctId)}` : ""}`, { credentials: "omit" })
-      .then((r) => (r.ok ? (r.json() as Promise<{ guides?: Guide[] }>) : Promise.reject(new Error(`status ${r.status}`))));
+      .fetch(`${host.config.apiHost}/v1/guides?api_key=${encodeURIComponent(host.apiKey)}${core.distinctId ? `&distinct_id=${encodeURIComponent(core.distinctId)}` : ""}${tzParam()}&url=${encodeURIComponent(location.origin + location.pathname)}`, { credentials: "omit" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ guides?: Guide[]; settings?: { guide_search_capture_query?: boolean } }>) : Promise.reject(new Error(`status ${r.status}`))));
     // the server-side state (progress, dismissals, seen) is merged in before anything is evaluated
     Promise.all([guidesReq, sync.pull()])
       .then(([j]) => {
         for (const id of readSeen()) seen.add(id);
         list = j.guides ?? [];
+        captureQuery = j.settings?.guide_search_capture_query === true;
+        openLinked();
         evaluate();
       })
       .catch((e) => host.log("guides fetch failed", e));
@@ -260,6 +327,9 @@ export const guides: Module = (host: Host) => {
     },
   };
   host.whenConsented(load);
+  // top window: draw guides that allowed child frames forward here (N-DAP-16)
+  const frameOrigins = host.config.guides?.frameOrigins;
+  if (frameOrigins?.length && typeof document !== "undefined") teardowns.add(listenFrames(frameOrigins, host.config.nonce));
   host.onCapture((e) => {
     if (e.event === "$identify") load(); // who they are changed: cohorts and attributes too
     if (e.$set) Object.assign(person, e.$set);

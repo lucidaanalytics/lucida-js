@@ -1,10 +1,10 @@
 import { Consent, GatedStorage } from "./consent.js";
-import type { ConsentCategory, ConsentMode, ConsentState, ConsentStatus } from "./consent.js";
+import type { ConsentCategory, ConsentDefault, ConsentMode, ConsentState, ConsentStatus } from "./consent.js";
 import { Identity } from "./identity.js";
 import { EventQueue } from "./queue.js";
 import type { QueueOptions } from "./queue.js";
 import { SessionManager } from "./session.js";
-import type { SessionInfo } from "./session.js";
+import type { RemoteSessionSettings, SessionInfo } from "./session.js";
 import { Groups, SuperProps } from "./state.js";
 import type { Clock, Props, Storage, Transport, WireEvent } from "./ports.js";
 import { uuidv7 } from "./uuid.js";
@@ -39,6 +39,8 @@ export interface CoreConfig {
      * are withheld. A later grant switches to normal identity.
      */
     cookielessOnReject?: boolean;
+    /** Hold storage and events until applyRemote() delivers the project's geo consent default (N-ANA-17). */
+    awaitRemote?: boolean;
   };
   queue?: Pick<QueueOptions, "flushAt" | "flushIntervalMs" | "maxQueueSize" | "maxRetries" | "backoff">;
   bootstrapDistinctId?: string;
@@ -48,8 +50,8 @@ export interface CoreConfig {
   enrich?: (event: string, props: Props) => Enrichment | undefined;
   /** Current campaign signature (e.g. joined UTM params); a change rotates the session. */
   campaignKey?: () => string | undefined;
-  /** Session rotation limits (default 30 min idle, 24 h total) and a bootstrapped session id. */
-  session?: { idleMs?: number; maxMs?: number; bootstrapId?: string };
+  /** Session rotation limits (default 30 min idle, 24 h total), events that start a session, a bootstrapped session id. */
+  session?: { idleMs?: number; maxMs?: number; newOnEvents?: string[]; bootstrapId?: string };
   /** bootstrapDistinctId belongs to a signed-in user. */
   bootstrapIdentified?: boolean;
   log?: (...a: unknown[]) => void;
@@ -143,8 +145,8 @@ export class Core {
     return this.touchSession().sessionId;
   }
 
-  private touchSession(): SessionInfo {
-    const s = this.session.touch(this.c.campaignKey?.());
+  private touchSession(event?: string): SessionInfo {
+    const s = this.session.touch(this.c.campaignKey?.(), event);
     if (s.sessionId !== this.lastSession) {
       this.lastSession = s.sessionId;
       for (const l of this.sessionListeners) l(s.sessionId, s.windowId);
@@ -201,8 +203,9 @@ export class Core {
 
   capture(event: string, props: Props = {}, extra: CaptureExtras = {}): WireEvent | undefined {
     const granted = this.consent.has("analytics");
-    const anon = !granted && this.anonymousOnReject;
-    if (!granted && !anon && !(this.consent.pending && this.consent.queueBeforeConsent)) {
+    const anon = !granted && (this.anonymousOnReject || this.consent.anonymous);
+    const hold = this.consent.pending && (this.consent.queueBeforeConsent || this.consent.resolving);
+    if (!granted && !anon && !hold) {
       this.c.log?.("dropped (no consent)", event);
       return undefined;
     }
@@ -210,9 +213,12 @@ export class Core {
       this.c.log?.("withheld (declined, anonymous mode)", event);
       return undefined;
     }
-    const s = this.touchSession();
+    const s = this.touchSession(event);
     const en = this.c.enrich?.(event, props);
-    const $set = anon ? {} : { ...en?.$set, ...extra.$set };
+    // The consent log also stores the decision on the person, so server-side events and audience syncs
+    // can be checked against it (per-destination consent, P-H7).
+    const decided = this.consent.status() !== "pending";
+    const $set = anon ? {} : { ...en?.$set, ...extra.$set, ...(event === "$consent_updated" && decided ? { $consent: this.consent.get() } : {}) };
     const $set_once = anon ? {} : { ...en?.$set_once, ...extra.$set_once };
     const groups = this.groupState.all();
     const did = anon ? "" : this.identity.distinctId;
@@ -229,6 +235,8 @@ export class Core {
         $window_id: s.windowId,
         $lib: this.c.library.name,
         $lib_version: this.c.library.version,
+        // Destinations deliver only what the visitor consented to; no explicit decision = no `$consent`.
+        ...(decided ? { $consent: this.consent.get() } : {}),
       },
       ...(Object.keys($set).length ? { $set } : {}),
       ...(Object.keys($set_once).length ? { $set_once } : {}),
@@ -319,7 +327,7 @@ export class Core {
       void this.queue.flush();
     }
     // Anonymous events go out in their own batch, never mixed with identified ones.
-    if (!was && will && this.anonymousOnReject) void this.queue.flush();
+    if (!was && will && (this.anonymousOnReject || this.consent.anonymous)) void this.queue.flush();
     this.consent.set(update);
     if (!was && will) {
       this.gated.flushBuffered();
@@ -329,6 +337,42 @@ export class Core {
       this.queue.clear();
     }
     if (!will) this.pre.length = 0;
+    this.emit("consent");
+  }
+
+  /** Apply the project settings of `GET /v1/config`: the session definition and the geo consent default. */
+  applyRemote(r: RemoteSessionSettings & { consent_default?: string }): void {
+    this.session.configure(r);
+    const d = r.consent_default;
+    this.resolveConsent(d === "opt_in" || d === "opt_out" || d === "cookieless" ? d : undefined);
+  }
+
+  /**
+   * Settle a consent that awaits its geo default (no-op otherwise). Granted: buffered state is stored and held events
+   * are sent. Cookieless: buffered state is dropped and held events go out without ids. Opt-in: events stay held
+   * (queueBeforeConsent) or are dropped, and nothing is stored until the visitor decides.
+   */
+  resolveConsent(def: ConsentDefault | undefined): void {
+    if (!this.consent.resolving) return;
+    const granted = this.consent.resolve(def);
+    const held = this.pre.splice(0);
+    if (granted) {
+      this.gated.flushBuffered();
+      for (const e of held) this.queue.enqueue(e);
+    } else if (this.consent.anonymous) {
+      this.gated.discardBuffered();
+      for (const e of held) {
+        if (e.event === "$identify" || e.event === "$create_alias") continue;
+        const anon: WireEvent = { ...e };
+        delete anon.distinct_id;
+        delete anon.$set;
+        delete anon.$set_once;
+        delete anon.$unset;
+        this.queue.enqueue(anon);
+      }
+    } else if (this.consent.queueBeforeConsent) {
+      this.pre.push(...held);
+    }
     this.emit("consent");
   }
 

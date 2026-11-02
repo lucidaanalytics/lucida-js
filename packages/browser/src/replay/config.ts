@@ -4,6 +4,7 @@ import type { AssetCapture } from "./assets.js";
 import type { CanvasMaskRule, CanvasRegion } from "./canvas.js";
 import type { MutationThrottle } from "./throttle.js";
 import type { SupportWidgets } from "./support.js";
+import type { UrlPrivacyRule } from "./urlrules.js";
 
 export type ReplayOwner = "lucida" | "watchtower" | "both";
 
@@ -36,6 +37,8 @@ export interface ReplayConfig {
   mask_all_inputs?: boolean;
   /** Mask every text node and text attribute (LC-EXP-40). Remote `replay_mask_all_text: true` forces it on. */
   mask_all_text?: boolean;
+  /** Extra masking on pages matching a URL pattern (P-M16), added to the remote `replay_url_privacy_rules`; only tightens. */
+  url_privacy_rules?: UrlPrivacyRule[];
   /** With mask_all_text: CSS selectors whose text stays visible, on top of [data-lc-unmask]. Local config only. */
   unmask_selectors?: string[];
   /** Ring buffer length before a trigger fires. Default 60 000. */
@@ -141,6 +144,11 @@ export function resolveReplay(local: ReplayConfig, remote: RemoteConfig | null):
     mask_all_text:
       local.mask_all_text === true || remote?.replay_mask_all_text === true || r.mask_all_text === true || maskSelectors.includes("*"),
     unmask_selectors: [...(local.unmask_selectors ?? [])],
+    // sanitized by the recorder (urlRules): remote config is untrusted input
+    url_privacy_rules: [
+      ...(Array.isArray(remote?.replay_url_privacy_rules) ? (remote?.replay_url_privacy_rules as UrlPrivacyRule[]) : []),
+      ...(local.url_privacy_rules ?? []),
+    ],
     buffer_ms: pick("buffer_ms", 60_000),
     flush_interval_ms: pick("flush_interval_ms", 5000),
     chunk_bytes: Math.min(pick("chunk_bytes", 256 * 1024), MAX_CHUNK_BYTES - 16_384),

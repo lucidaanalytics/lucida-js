@@ -28,6 +28,26 @@ export function flagResult(key: string, value: FlagValue | undefined, payload: u
   };
 }
 
+/** Init-time fallback values (`fallbacks: {key: value}`, N-EXP-16), served when nothing decides a flag. */
+export type FlagFallbacks = Record<string, FlagValue>;
+
+/** Reasons meaning nothing decided the flag: unknown, or its evaluation failed (needed the server, broken prerequisites). */
+const FAILED = new Set(["not_found", "requires_server", "prerequisite_missing", "prerequisite_cycle"]);
+
+/**
+ * `r`, unless nothing decided the flag and `fallbacks` has it: then the fallback value with reason `fallback`
+ * (no payload). SDKs send no exposure for a fallback result.
+ */
+export function withFallback(r: FlagResult, fallbacks: FlagFallbacks | undefined): FlagResult {
+  if (!FAILED.has(r.reason) || !fallbacks || !Object.hasOwn(fallbacks, r.key)) return r;
+  return flagResult(r.key, fallbacks[r.key], undefined, "fallback");
+}
+
+/** The value a `getFlag` call returns: `value` when something decided it, else the fallback, else undefined. */
+export function fallbackValue(key: string, value: FlagValue | undefined, reason: string, fallbacks: FlagFallbacks | undefined): FlagValue | undefined {
+  return withFallback(flagResult(key, value, undefined, reason), fallbacks).value;
+}
+
 /** The cached flags response is stored with its time and the distinct id it was fetched for. */
 export interface FlagCacheStamp {
   at: number;

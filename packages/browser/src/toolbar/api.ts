@@ -46,6 +46,11 @@ export interface ScrollReach {
   sessions: number;
   reach: Array<{ depth_pct: number; sessions: number }>;
 }
+/** `GET /heatmaps/confetti`: `dots` are `[x share of the width, y in page px, legend index]` (N-DXA-3). */
+export interface Confetti {
+  legend: Array<{ value: string; clicks: number }>;
+  dots: Array<[number, number, number]>;
+}
 export interface HeatElement {
   selector: string;
   clicks: number;
@@ -81,6 +86,14 @@ export interface GuideDoc {
 export interface SavedGuide extends GuideDoc {
   id: string;
   status?: string;
+}
+
+/** `POST /guides/draft`: an unsaved guide the builder loads for editing. */
+export interface GuideDraftReply {
+  kind: Guide["kind"];
+  name: string;
+  steps: GuideStep[];
+  targeting?: Record<string, unknown>;
 }
 
 /** Scope the guide builder needs. */
@@ -166,6 +179,9 @@ export function toolbarApi(host: Host, s: ToolbarSession) {
     heat: (path: string, viewport: string, type: Exclude<HeatType, "scroll">) =>
       call<HeatBins>(`/heatmaps?${heatQ(path, viewport)}&type=${type}`),
     scroll: (path: string, viewport: string) => call<ScrollReach>(`/heatmaps?${heatQ(path, viewport)}&type=scroll`),
+    /** Click dots coloured by `breakdown` (`channel`, `device`, ..., `event:<key>`, `person:<key>`). */
+    confetti: (path: string, viewport: string, breakdown: string) =>
+      call<Confetti>(`/heatmaps/confetti?${heatQ(path, viewport)}&breakdown=${encodeURIComponent(breakdown)}`),
     elements: (path: string, viewport: string, cursor?: string | null, byHref = false) =>
       call<ElementPage>(
         `/heatmaps/elements?${heatQ(path, viewport)}&limit=50${byHref ? "&key=href" : ""}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
@@ -174,6 +190,12 @@ export function toolbarApi(host: Host, s: ToolbarSession) {
     createGuide: (g: GuideDoc) => call<SavedGuide>("/guides", { method: "POST", body: JSON.stringify(g) }),
     updateGuide: (id: string, g: GuideDoc) =>
       call<SavedGuide>(`/guides/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(g) }),
+    /** Unsaved AI draft from a prompt and/or recorded clicks (deterministic when no LLM is configured). */
+    draftGuide: (req: { prompt?: string; recorded_steps?: Array<{ selector: string; url: string; text?: string }> }) =>
+      call<GuideDraftReply>("/guides/draft", { method: "POST", body: JSON.stringify(req) }),
+    /** Save a project guide theme (toolbar "derive theme from this page"). */
+    createTheme: (t: { name: string; tokens: Record<string, unknown>; font_family?: string; radius?: number; custom_css?: string; is_default?: boolean }) =>
+      call<{ id: string; name: string }>("/guide-themes", { method: "POST", body: JSON.stringify(t) }),
     experiment: (id: string) => call<EditorExperiment>(`/experiments/${encodeURIComponent(id)}`),
     /** Draft experiments only (the API answers 409 once it runs). */
     saveVariants: (id: string, variants: EditorExperiment["variants"]) =>
@@ -181,6 +203,20 @@ export function toolbarApi(host: Host, s: ToolbarSession) {
     /** Point-and-click goal: click action + proportion metric attached to the experiment. */
     addGoal: (id: string, g: { name: string; selector: string; text?: string; url?: string; role?: "primary" | "secondary" }) =>
       call<{ metric_id: string }>(`/experiments/${encodeURIComponent(id)}/goals`, { method: "POST", body: JSON.stringify(g) }),
+    /** Upload an image for an `image` change (PNG, JPEG, GIF or WebP, up to 2 MiB); resolves to its public URL. */
+    uploadAsset: async (img: Blob): Promise<string | null> => {
+      try {
+        const r = await host.fetch(`${base}/experiments/assets`, {
+          method: "POST",
+          credentials: "omit",
+          headers: { Authorization: `Bearer ${s.session_token}`, "Content-Type": img.type || "application/octet-stream" },
+          body: img,
+        });
+        return r.ok ? ((await r.json()) as { url: string }).url : null;
+      } catch {
+        return null;
+      }
+    },
   };
 }
 

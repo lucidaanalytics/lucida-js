@@ -8,4 +8,6 @@ declare module "react-native" {
   export const Pressable: ComponentType<Props>;
   export const Platform: { OS: string };
   export const Linking: { openURL(url: string): Promise<unknown> };
+  export const Dimensions: { get(dim: "window" | "screen"): { width: number; height: number } };
+  export function useColorScheme(): "light" | "dark" | null | undefined;
 }

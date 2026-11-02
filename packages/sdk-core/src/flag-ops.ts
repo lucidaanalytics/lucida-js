@@ -1,10 +1,12 @@
 /** Operator semantics: port of go/internal/flageval/ops.go (the reference). */
+import { matchList, type FilterOpList } from "./flag-ops-list.js";
 import { matchV2, type FilterOpV2 } from "./flag-ops-v2.js";
 
 export type FilterOp =
   | "eq" | "neq" | "contains" | "ncontains" | "regex" | "nregex"
   | "gt" | "gte" | "lt" | "lte" | "is_set" | "is_not_set" | "in" | "not_in"
-  | FilterOpV2;
+  | FilterOpV2
+  | FilterOpList;
 
 const NUM = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
@@ -102,5 +104,6 @@ export function matchOp(op: FilterOp, prop: unknown, present: boolean, want: unk
       return want.some((w) => equal(prop, w)) === (op === "in");
     }
   }
+  if (op.startsWith("array_") || op.startsWith("ip_")) return matchList(op, prop, want, equal);
   return matchV2(op, prop, want, nowMs, { toFloat, parseVersion, cmpVersion });
 }

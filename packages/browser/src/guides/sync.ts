@@ -3,7 +3,7 @@ import type { Host } from "../types.js";
 
 /** Storage keys that make up a person's guide state (see progress.ts and index.ts). */
 export const SEEN_KEY = "lc_guide_seen";
-const MAP_KEYS = ["lc_guide_views", "lc_guide_progress", "lc_guide_checked", "lc_guide_dismissed", "lc_guide_holdout"] as const;
+const MAP_KEYS = ["lc_guide_views", "lc_guide_progress", "lc_guide_checked", "lc_guide_dismissed", "lc_guide_holdout", "lc_guide_snoozed"] as const;
 export const GUIDE_KEYS: readonly string[] = [SEEN_KEY, ...MAP_KEYS];
 const PUSH_DELAY_MS = 2000;
 

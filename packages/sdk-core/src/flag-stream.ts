@@ -4,6 +4,8 @@ import type { BackoffOptions } from "./retry.js";
 export interface SseMessage {
   event: string;
   data: string;
+  /** The `id:` field, when the server sent one (resume point for Last-Event-ID). */
+  id?: string;
 }
 
 /** Incremental SSE parser: feed text chunks, get complete messages (comments/keepalives are dropped). */
@@ -17,6 +19,7 @@ export function sseParser(onMessage: (m: SseMessage) => void): (chunk: string) =
       const block = buf.slice(0, m.index);
       buf = buf.slice(m.index + m[0].length);
       let event = "message";
+      let id: string | undefined;
       const data: string[] = [];
       for (const line of block.split(/\r?\n/)) {
         if (line.startsWith(":")) continue;
@@ -24,8 +27,9 @@ export function sseParser(onMessage: (m: SseMessage) => void): (chunk: string) =
         const [k, v] = i < 0 ? [line, ""] : [line.slice(0, i), line.slice(i + 1).replace(/^ /, "")];
         if (k === "event") event = v ?? "";
         else if (k === "data") data.push(v ?? "");
+        else if (k === "id") id = v;
       }
-      if (data.length) onMessage({ event, data: data.join("\n") });
+      if (data.length) onMessage(id === undefined ? { event, data: data.join("\n") } : { event, data: data.join("\n"), id });
     }
   };
 }

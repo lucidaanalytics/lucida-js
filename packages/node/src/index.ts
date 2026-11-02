@@ -1,6 +1,7 @@
 export { Lucida, LIB_VERSION } from "./client.js";
-export type { LucidaOptions, CaptureInput, ImportEvent } from "./client.js";
-export type { FlagOptions } from "./flags.js";
+export type { LucidaOptions, CaptureInput, ImportEvent, AgentAnalytics, AgentConversationInput } from "./client.js";
+export type { AgentConversation, AgentConversationOptions, AgentFeedback, AgentOutcome, AgentRole } from "@lucida/sdk-core";
+export type { FlagOptions, FlagDetails } from "./flags.js";
 export type { DefinitionsResponse } from "./definitions.js";
 export { FlagSnapshot } from "@lucida/sdk-core";
 export type { FlagValue, StickyStore, MigrationStage, MigrationOps, MigrationReport } from "@lucida/sdk-core";

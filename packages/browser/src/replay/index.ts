@@ -5,7 +5,9 @@ import { replayStatus } from "./status.js";
 import { sampled } from "./groups.js";
 import { attachReplayUrl } from "./support.js";
 
-export { resolveReplay, urlAllowed, lucidaRecords } from "./config.js";
+export { resolveReplay, urlAllowed, lucidaRecords, policyMatches } from "./config.js";
+export { pagePrivacy, urlRules } from "./urlrules.js";
+export type { PagePrivacy, UrlPrivacyRule } from "./urlrules.js";
 export { fnv1a32, sampled } from "./groups.js";
 export type { TriggerGroup, TriggerState } from "./groups.js";
 export type { RecordingStatus, StartReason } from "./status.js";

@@ -60,6 +60,27 @@ describe("SPA pageviews", () => {
     await client.shutdown();
     expect(history.pushState).toBe(orig);
   });
+
+  it("hash mode: hashchange fires a pageview and $pathname carries the fragment route", async () => {
+    const raw = history.pushState;
+    history.replaceState({}, "", "/app#/inbox");
+    const { client, t } = start({ autocapture: false, capturePageview: "hash" });
+    live = client;
+    raw.call(history, {}, "", "/app#/settings?tab=2"); // unpatched: only the hashchange below may fire
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    window.dispatchEvent(new HashChangeEvent("hashchange")); // same URL: nothing
+    await client.flush();
+    const views = t.events().filter((e) => e.event === "$pageview");
+    expect(views.map((e) => e.properties.$pathname)).toEqual(["/app#/inbox", "/app#/settings"]);
+  });
+
+  it("history mode keeps $pathname without the fragment", async () => {
+    history.replaceState({}, "", "/app#/inbox");
+    const { client, t } = start({ autocapture: false });
+    live = client;
+    await client.flush();
+    expect(t.events()[0]!.properties.$pathname).toBe("/app");
+  });
 });
 
 describe("pageleave and scroll depth", () => {

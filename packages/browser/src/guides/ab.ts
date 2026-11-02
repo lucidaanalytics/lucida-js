@@ -26,8 +26,10 @@ export function variantOf(g: Guide, all: Guide[], key: string): Guide {
   return peers[peers.length - 1]!;
 }
 
-/** Held back as the control group of `g` (the same people for the whole A/B group). */
+/** Held back as the control group of `g`: the same people for the whole A/B group, or per variant with `holdout_scope: "variant"`. */
 export function heldOut(g: Guide, key: string): boolean {
-  const pct = g.conditions.holdout_pct ?? 0;
-  return pct > 0 && bucket(key, `holdout:${g.conditions.ab_group ?? g.id}`) * 100 < pct;
+  const c = g.conditions;
+  const pct = c.holdout_pct ?? 0;
+  const salt = c.holdout_scope === "variant" ? g.id : (c.ab_group ?? g.id);
+  return pct > 0 && bucket(key, `holdout:${salt}`) * 100 < pct;
 }

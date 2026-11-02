@@ -4,6 +4,8 @@ import { createChunker } from "./chunker.js";
 import { urlAllowed } from "./config.js";
 import type { ResolvedReplay } from "./config.js";
 import { textMasker } from "./masktext.js";
+import type { TextMasker } from "./masktext.js";
+import { pagePrivacy, urlRules } from "./urlrules.js";
 import { guardIframeMessages, inIframe, mayPostToParent } from "./iframes.js";
 import { pageHeightEmitter } from "./pageheight.js";
 import { createRing } from "./ring.js";
@@ -112,8 +114,18 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
     }
   });
 
-  const maskSel = ["[data-lc-mask]", ...cfg.mask_selectors].join(",");
-  const masker = cfg.mask_all_text ? textMasker(maskSel, ["[data-lc-unmask]", ...cfg.unmask_selectors].join(",")) : undefined;
+  // URL-scoped rules (P-M16) add masking per page; applyPage() recomputes the selectors before each rrweb start
+  const rules = urlRules(cfg.url_privacy_rules);
+  let page = pagePrivacy(rules, location.href);
+  let maskSel = "";
+  let blockSel = "";
+  let masker: TextMasker | undefined;
+  const applyPage = (): void => {
+    maskSel = ["[data-lc-mask]", ...cfg.mask_selectors, ...page.mask].join(",");
+    blockSel = ["[data-lc-block]", ...cfg.block_selectors, ...page.block].join(",");
+    masker = cfg.mask_all_text || page.maskAllText ? textMasker(maskSel, ["[data-lc-unmask]", ...cfg.unmask_selectors].join(",")) : undefined;
+  };
+  applyPage();
 
   status.bufferBytes = () => chunker.unsent;
   const throttle = cfg.mutationThrottle ? mutationThrottle(cfg.mutationThrottle) : undefined;
@@ -125,9 +137,8 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
       return [];
     }
   };
-  const assets = resolveAssets(cfg.assets, cfg.mask_all_text, [location.origin, ...origin(base), ...origin(host.config.uiHost)]);
+  const assets = resolveAssets(cfg.assets, cfg.mask_all_text || rules.some((r) => r.mask_all_text), [location.origin, ...origin(base), ...origin(host.config.uiHost)]);
   const assetScrub = assets && (assets.proxy || assets.inlineImages) ? assetScrubber(assets) : undefined;
-  const blockSel = ["[data-lc-block]", ...cfg.block_selectors].join(",");
   // mask regions: rrweb's canvas capture is replaced by the masking sampler (see canvas.ts)
   const maskedCanvas = !!cfg.canvas && (cfg.canvasMask.length > 0 || !!cfg.canvasMaskRegions);
   let sampler: ReturnType<typeof maskedCanvasSampler> | undefined;
@@ -247,6 +258,13 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
   const checkUrl = (): void => {
     if (location.href === url) return;
     url = location.href;
+    const next = pagePrivacy(rules, url);
+    const remask = next.key !== page.key;
+    if (remask) {
+      page = next;
+      applyPage();
+    }
+    const wasRunning = !!stopRrweb;
     const ok = urlAllowed(url, cfg.include_urls, cfg.exclude_urls);
     if (!ok && !urlPaused) {
       urlPaused = paused = true;
@@ -261,10 +279,16 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
       sync();
     }
     if (ok) trigger.checkUrl(url);
+    if (remask && wasRunning && stopRrweb) {
+      halt(); // the new page's masking needs a fresh full snapshot
+      begin();
+    }
   };
   const urlTimer = setInterval(checkUrl, 1000);
 
   host.onCapture((e) => {
+    // shortcut: between a client-side route change and this check the old page's masking applies; the $pageview hook keeps that gap short
+    if (e.event === "$pageview") checkUrl();
     const marker = MARKERS[e.event];
     if (!marker || paused || stopped || !stopRrweb) return;
     try {

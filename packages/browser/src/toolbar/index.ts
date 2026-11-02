@@ -9,12 +9,15 @@ import { createEditor } from "./editor.js";
 import { flagsPanel } from "./flags-ui.js";
 import { STABLE_ATTRS } from "./guide-draft.js";
 import { heatPanel } from "./heat.js";
+import { snapshotPicker } from "./snapshot-picker.js";
 
 export * from "./api.js";
 
 const SESSION_KEY = "lc_toolbar_session";
 const EDIT_KEY = "lc_toolbar_edit";
 const CHECK_KEY = "lc_toolbar_check";
+// duplicated from guide-tools.ts so the builder stays in its lazy chunk
+const RECORDING_KEY = "lc_toolbar_recording";
 // duplicated from guide-check.ts so the check code stays in its lazy chunk
 const CHECK_PARAM = "__lc_check";
 
@@ -63,6 +66,7 @@ function stripToken(): string | null {
  * root marked data-lc-ignore so SDK capture never sees it. View-only sessions (toolbar `read`) get overlays only.
  */
 export const toolbar: Module = (host: Host) => {
+  if (location.hash === "#lc-device-preview") return; // the visual editor's device-width preview frame
   const token = stripToken();
   let cleanup: (() => void) | undefined;
   const start = async (t: string | null): Promise<boolean> => {
@@ -174,6 +178,13 @@ function mount(host: Host, session: ToolbarSession): () => void {
     panel.prepend(expEditor);
   });
 
+  const guideBtn = btn("Guide builder", async () => {
+    if (builder) return void (builder.remove(), (builder = undefined));
+    const { guideBuilder } = await import("./guide-ui.js"); // lazy: only loaded when the builder is opened
+    builder = guideBuilder({ api, scopes: session.permissions, picked: () => picked, note, attrs });
+    panel.append(builder);
+  });
+
   panel.append(
     el("b", `Lucida toolbar${session.user?.email ? ` - ${session.user.email}` : ""}${can("actions:write") ? "" : " (view only)"}`),
     el("br"),
@@ -195,13 +206,9 @@ function mount(host: Host, session: ToolbarSession): () => void {
     ),
     section("Feature flags", () => flagsPanel(host, api)),
     section("Event debugger", () => eventDebugger(host)),
+    ...(can("actions:write") ? [section("Snapshot properties", () => snapshotPicker({ host, session, picked: () => picked, note }))] : []),
     // the guide builder and experiment editor explain a missing scope themselves
-    btn("Guide builder", async () => {
-      if (builder) return void (builder.remove(), (builder = undefined));
-      const { guideBuilder } = await import("./guide-ui.js"); // lazy: only loaded when the builder is opened
-      builder = guideBuilder({ api, scopes: session.permissions, picked: () => picked, note });
-      panel.append(builder);
-    }),
+    guideBtn,
     editBtn,
     el("hr"),
     el("b", "Visual editor"),
@@ -223,6 +230,7 @@ function mount(host: Host, session: ToolbarSession): () => void {
   );
   document.body.append(root);
   if (sessionStorage.getItem(EDIT_KEY)) editBtn.click(); // opened from the app: start in the editor
+  else if (sessionStorage.getItem(RECORDING_KEY)) guideBtn.click(); // a guide recording continues on this page
   const check = sessionStorage.getItem(CHECK_KEY);
   if (check) {
     sessionStorage.removeItem(CHECK_KEY);

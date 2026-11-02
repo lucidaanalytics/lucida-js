@@ -30,6 +30,22 @@ interface Resolved {
   payload?: unknown;
   locally: boolean;
   requestId?: string;
+  reason: string;
+  conditionIndex: number;
+}
+
+/** A flag read with the evidence behind it (`getFeatureFlagDetails`). */
+export interface FlagDetails {
+  key: string;
+  value: FlagValue;
+  payload?: unknown;
+  variant?: string;
+  /** Raw Lucida reason ("condition_match", "kill_switch", ... or "fallback"). */
+  reason: string;
+  /** Deciding condition, -1 when none. */
+  conditionIndex: number;
+  requestId?: string;
+  evaluatedLocally: boolean;
 }
 
 interface RemoteFlag {
@@ -37,6 +53,8 @@ interface RemoteFlag {
   variant?: string;
   value?: FlagValue;
   payload?: unknown;
+  reason?: string;
+  condition_index?: number;
 }
 
 export interface FlagsDeps {
@@ -54,6 +72,8 @@ export interface FlagsDeps {
   sticky?: StickyStore;
   /** App contexts declared when a call passes none. */
   appContexts?: string[];
+  /** Served (reason "fallback", no exposure) when nothing decides a flag. */
+  fallbacks?: Record<string, FlagValue>;
 }
 
 const ctxOf = (id: string, o: FlagOptions): EvalContext => ({
@@ -111,6 +131,8 @@ export class ServerFlags {
           value: f.value ?? f.variant ?? !!f.enabled,
           payload: f.payload,
           locally: false,
+          reason: f.reason ?? "",
+          conditionIndex: f.condition_index ?? -1,
           ...(j.request_id ? { requestId: j.request_id } : {}),
         });
       }
@@ -137,24 +159,46 @@ export class ServerFlags {
   private async resolve(key: string, id: string, o: FlagOptions): Promise<Resolved | undefined> {
     o = this.opts(o);
     const r = this.local(id, o)?.[key];
-    if (r && !requiresServer(r)) return { value: r.value, payload: r.payload, locally: true };
-    if (o.onlyEvaluateLocally) return undefined;
-    return (await this.remote(id, o, [key])).get(key);
+    if (r && !requiresServer(r)) return { value: r.value, payload: r.payload, locally: true, reason: r.reason, conditionIndex: r.condition_index };
+    const served = o.onlyEvaluateLocally ? undefined : (await this.remote(id, o, [key])).get(key);
+    if (served) return served;
+    const fb = this.d.fallbacks;
+    return fb && Object.hasOwn(fb, key) ? { value: fb[key]!, locally: true, reason: "fallback", conditionIndex: -1 } : undefined;
+  }
+
+  private expose(key: string, id: string, r: Resolved): void {
+    if (r.reason === "fallback" || !this.seen.add(`${id}\0${key}\0${String(r.value)}`)) return;
+    const props: Props = {
+      $feature_flag: key,
+      $feature_flag_response: r.value,
+      locally_evaluated: r.locally,
+      ...(r.requestId ? { $feature_flag_request_id: r.requestId } : {}),
+    };
+    this.d.capture(id, "$feature_flag_called", props);
+    this.d.capture(id, "$exposure", props);
   }
 
   async get(key: string, id: string, o: FlagOptions = {}): Promise<FlagValue | undefined> {
     const r = await this.resolve(key, id, o);
-    if (r && o.sendExposure !== false && this.seen.add(`${id}\0${key}\0${String(r.value)}`)) {
-      const props: Props = {
-        $feature_flag: key,
-        $feature_flag_response: r.value,
-        locally_evaluated: r.locally,
-        ...(r.requestId ? { $feature_flag_request_id: r.requestId } : {}),
-      };
-      this.d.capture(id, "$feature_flag_called", props);
-      this.d.capture(id, "$exposure", props);
-    }
+    if (r && o.sendExposure !== false) this.expose(key, id, r);
     return r?.value ?? o.defaultValue;
+  }
+
+  /** `get` with payload, variant, reason and provenance; same exposure rules. undefined when nothing decides the flag. */
+  async details(key: string, id: string, o: FlagOptions = {}): Promise<FlagDetails | undefined> {
+    const r = await this.resolve(key, id, o);
+    if (!r) return undefined;
+    if (o.sendExposure !== false) this.expose(key, id, r);
+    return {
+      key,
+      value: r.value,
+      ...(r.payload !== undefined ? { payload: r.payload } : {}),
+      ...(typeof r.value === "string" ? { variant: r.value } : {}),
+      reason: r.reason,
+      conditionIndex: r.conditionIndex,
+      ...(r.requestId ? { requestId: r.requestId } : {}),
+      evaluatedLocally: r.locally,
+    };
   }
 
   /** Payload of a remote-config flag; the server opens encrypted payloads for secret keys only. */
@@ -182,7 +226,7 @@ export class ServerFlags {
     const loc = this.local(id, o);
     const res = new Map<string, Resolved>();
     for (const [k, r] of Object.entries(loc ?? {})) {
-      if (!requiresServer(r)) res.set(k, { value: r.value, payload: r.payload, locally: true });
+      if (!requiresServer(r)) res.set(k, { value: r.value, payload: r.payload, locally: true, reason: r.reason, conditionIndex: r.condition_index });
     }
     const undecided = !loc || Object.values(loc).some(requiresServer);
     if (undecided && !o.onlyEvaluateLocally) {

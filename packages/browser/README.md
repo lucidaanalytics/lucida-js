@@ -61,6 +61,30 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   are A/B variants (`ab_weight`); `holdout_pct` people get `$guide_holdout` and no guide, the control for goal impact.
   `steps[].i18n` picks text by `config.guides.locale`, person property `locale`, then the browser language. Checklist items
   with `complete_on: {event, props?}` tick themselves from captured events, also when the list is not on screen.
+- **Guide behaviour extras** (W11): `branch[].op` also `element_present` / `element_absent` (CSS selector, checked when Next is
+  pressed) and `flag_on` / `flag_off` (evaluated flags). Buttons `action: "snooze"` (`snooze_hours` 1..720, kept with the guide
+  state and synced across devices), step `advance: "input"` (moves on when the target field fires `change`; the value is never
+  read), `auto_close_s` (dismissed with `reason: "auto_close"`), `confetti` on the last step (skipped under reduced motion) and
+  `automation: {action: click|focus|fill, selector, value?}` (never on `input[type=password]`, `[data-lc-mask]`, `.lc-mask`,
+  `[autocomplete^=cc-]`; values never read). Kinds `carousel` (dot pager, Back / Next, arrow keys, swipe) and `form_validation`
+  (`validation: {selector, rules}` checked on blur and submit; a failing submit is held back and only
+  `$guide_validation_failed {rule}` is sent, never a value). `appearance.theme_mode` (auto / light / dark) with
+  `appearance.dark.tokens` and the gateway-resolved theme `font_family`. Anchored steps that never find their target send
+  `$guide_target_missing {step_id, selector}`.
+- **Guide permalinks**: `?lc_guide=<id>` opens that guide at once (no delay) when the gateway served it and its targeting
+  passes; the param is stripped with `history.replaceState`, and nothing runs before consent.
+- **Resource-center AI answers**: a `search` module asks `POST /v1/guides/answer` (publishable key; 503 = no LLM, the box hides
+  and plain search stays), shows the answer, https citations, suggested guides and Helpful / Not helpful. Each search sends
+  `$guide_search {query_length, results, answered, feedback?}`; the query text only with the project setting
+  `guide_search_capture_query`.
+- **Guides in iframes**: in a child frame set `guides.renderInTop: "https://app.example.com"` (the top origin); in the top
+  window set `guides.frameOrigins: ["https://embed.example.com"]`. The child keeps targeting, state and events and posts its
+  guides to the top window, which draws them over the whole page with target rects mapped through the iframe position.
+  Messages go to one exact origin and are accepted only from the expected window and origin.
+- **Toolbar guide tools**: "Record clicks" turns a click path (across page loads in the tab) into tour steps with stable
+  selectors and step urls, then `POST /v1/projects/{id}/guides/draft` writes the copy (a plain recorded tour when the route
+  fails); "Draft from prompt" asks the same route; "Derive theme from this page" reads computed body / primary-button styles
+  and saves `POST /guide-themes`. Automation targets and form-validation fields are checked in the page before saving.
 
 ## Experiments and early access
 
@@ -97,6 +121,23 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **Internal traffic**: `client.optOutInternal()` stores an exclude-me flag (consent-gated) and adds `$internal: true` to
   every event from that browser; `optOutInternal(false)` undoes it. The toolbar has a toggle. `$lc_*` properties are stripped
   at the gateway, hence `$internal`: lc-worker must drop or flag these events.
+
+## Snapshot properties, page privacy rules and agent actions
+
+- **Snapshot properties** (no code, set in project settings or picked in the toolbar): each rule reads an element's visible
+  text (whitespace collapsed, at most 255 characters) or one attribute onto `$autocapture` clicks and/or `$pageview` as
+  `<name>`. `scope: "target"` reads the match nearest the clicked element, `url` limits the rule to matching pages. Form
+  fields, editable or masked elements, `value`/`password`/`on*` attributes and card-like digit runs are never read. SPA
+  pageviews wait one tick so the new page renders; the first pageview of a hard load can miss values the page renders later.
+- **Page privacy rules** (`replay.url_privacy_rules`, or `replay_url_privacy_rules` from the remote config): `[{url,
+  mask_all_text?, mask_selectors?, block_selectors?}]`. On matching pages the recorder adds those masks on top of the global
+  policy and restarts recording with a fresh full snapshot when the rule set changes on navigation. Patterns use the URL
+  blocklist syntax (`*` wildcard, `re:` regex).
+- **WebMCP agent actions** (`import { webmcp } from "@lucida/browser/webmcp"`, add it to `modules`): wraps
+  `navigator.modelContext.provideContext` / `registerTool` so each tool call an AI agent makes on the page captures
+  `$agent_action {tool, status: ok|error, duration_ms, $agent_protocol: "webmcp"}`. Tool arguments and results are never
+  sent. From the first call the session is marked: every later event carries `$agent_session: true`, and the enricher sets
+  `$agent_source = webmcp` so replays and insights can filter agent-driven sessions.
 
 ## Event hooks, person modes and request controls
 
@@ -158,6 +199,29 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **Flags**: `flagsApiHost` (separate origin for `/v1/flags`), `flagOptions: {timeoutMs, refreshMs, keys, evaluationContexts,
   disableRemote}`. `keys` scopes both the request (`flag_keys`) and what the client exposes; `disableRemote` leaves values to
   bootstrap, `localFlags` and `updateFlags`.
+
+## Agent analytics
+
+```ts
+const lucida = init("lc_pk_...", { ai: { captureText: false } });
+const convo = lucida.ai.startConversation({ agentName: "support-bot", agentVersion: "3", traceId, topic: "billing" });
+convo.message("user", question);
+convo.message("assistant", answer);
+convo.feedback({ kind: "thumbs", value: -1 });
+convo.end("resolved");
+```
+
+Events: `$ai_conversation_started`, `$ai_message` (role, auto-incremented index, text length; for user
+messages a simhash `$ai_text_hash` and a lexicon `$ai_sentiment` so rephrases and frustration show without the
+text), `$ai_feedback` (thumbs 1/-1, rating 1..5, comment), `$ai_conversation_ended` and `$ai_outcome`
+(`resolved`, `unresolved`, `escalated`, `abandoned`, `error`). Message text and feedback comments are sent only
+with `ai: { captureText: true }`, after cards, emails and phone numbers are masked. `traceId` (a W3C trace id) links the
+conversation to its trace in Watchtower; tokens, latency, cost and model names are never captured here.
+Events use the normal capture path, so consent and opt-out apply.
+
+## Interventions
+
+`client.onIntervention((i) => ...)` receives the in-session interventions fired for the current person (`{id, intervention_id, name, event, payload, fired_at}`, each once). The first listener opens `GET /v1/interventions/stream` (after analytics consent); it resumes after the last fire on reconnect and follows `identify` / `reset`. Returns an unsubscribe function. See `docs/guides/interventions.md`.
 
 ## Develop
 

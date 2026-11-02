@@ -1,7 +1,8 @@
-import { Core, flagEventProps, offlineTransport } from "@lucida/sdk-core";
+import { Core, flagEventProps, interventionHub, offlineTransport } from "@lucida/sdk-core";
 import type { Transport } from "@lucida/sdk-core";
 import { appLifecycle, asyncStorageAdapter, encryptedStorage, fetchTransport, memoryStorage, splitBatches, withTimeout } from "./adapters.js";
 import { createAutocapture } from "./autocapture.js";
+import { resolveInstallProps } from "./install.js";
 import { installPolicy } from "./policy.js";
 import { tracedFetch, tracingHeaders } from "./host-headers.js";
 import { createFlags } from "./flags.js";
@@ -150,6 +151,8 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
 
   const replay = config.replay?.enabled && !config.disabled ? createReplay({ core, fetch: fetchImpl, apiHost, apiKey, config: config.replay, isFlagOn: (k) => { const v = flags.all()[k]; return v !== undefined && v !== false; } }) : undefined;
 
+  // React Native fetch has no streaming body: the hub falls back to polling GET /v1/interventions.
+  const interventions = interventionHub(core, { apiHost, apiKey, fetch: fetchImpl, whenConsented, log, disabled: !!config.disabled });
   const client: NativeClient = {
     get distinctId() {
       return core.distinctId;
@@ -205,6 +208,7 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
       return v !== undefined && v !== false;
     },
     onFlags: (cb) => flags.onChange(cb),
+    onIntervention: (cb) => interventions.on(cb),
     reloadFlags: () => flags.reload(),
     updateFlags: (f, p, o) => flags.update(f, p, o),
     getAllFlags: () => flags.all(),
@@ -221,12 +225,16 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
       tag: (name) => void core.capture("$replay_tag", { name, session_id: core.sessionId }),
       isRecording: () => replay?.isRecording() ?? false,
       tap: (x, y) => replay?.tap(x, y),
+      swipeBegan: () => replay?.swipeBegan(),
+      swipeEnded: (dx, dy) => void replay?.swipeEnded(dx, dy),
     },
+    captureSensitive: (field, value) => replay?.captureSensitive(field, value) ?? false,
     guides,
     flush: () => core.flush(),
     shutdown: async () => {
       stopLifecycle();
       flags.stop();
+      interventions.stop();
       replay?.stop();
       await core.shutdown();
     },
@@ -235,10 +243,12 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
   const opened = (): void => void core.capture("$app_opened");
   const prev = core.storage.get(VERSION_KEY);
   if (config.appVersion && prev !== config.appVersion) {
-    core.capture(prev === null ? "$app_installed" : "$app_updated", {
-      $app_version: config.appVersion,
-      ...(prev === null ? {} : { $previous_app_version: prev }),
-    });
+    const base = { $app_version: config.appVersion };
+    if (prev !== null) core.capture("$app_updated", { ...base, $previous_app_version: prev });
+    else if (config.installInfo && config.installAttribution !== false) {
+      // The version key is stored below, so the install fires once even though attribution resolves later.
+      void resolveInstallProps(config.installInfo, { fetch: fetchImpl }).then((extra) => core.capture("$app_installed", { ...base, ...extra }));
+    } else core.capture("$app_installed", base);
     core.storage.set(VERSION_KEY, config.appVersion);
   }
   opened();

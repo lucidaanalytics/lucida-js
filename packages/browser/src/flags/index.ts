@@ -1,29 +1,18 @@
 import { FlagFreshness, evaluateAll, flagResult, requiresServer, servable, startFlagSync } from "@lucida/sdk-core";
-import type { Props } from "@lucida/sdk-core";
+import type { EvalResult, Props } from "@lucida/sdk-core";
 import type { FlagContextKind, FlagValue, Host, Module } from "../types.js";
 import { readPreview } from "./preview.js";
 import { flagAutoProps, flagDeviceProps, flagWebProps } from "./request-props.js";
+import { hasEventFilters, norm, runtimeTargeting, toEvalResult } from "./runtime.js";
+import type { FlagOut } from "./runtime.js";
 
 const CACHE_KEY = "lc_flags";
 const OVERRIDE_KEY = "lc_flag_overrides_api";
-
-/** Shape of go/gateway POST /v1/flags: per-flag objects; payload is per flag. */
-interface FlagOut {
-  enabled?: boolean;
-  variant?: string;
-  value?: FlagValue;
-  payload?: unknown;
-  reason?: string;
-}
 interface FlagsResponse {
   flags?: Record<string, FlagOut | FlagValue>;
   request_id?: string;
   /** Plan quota exhausted: nothing was evaluated, keep what we have. */
   quota_limited?: boolean;
-}
-
-function norm(v: FlagOut | FlagValue): FlagValue {
-  return typeof v === "object" ? (v.value ?? v.variant ?? !!v.enabled) : v;
 }
 
 /** Flag overrides set from the toolbar (same key as toolbar/api.ts). */
@@ -73,20 +62,22 @@ export const flags: Module = (host: Host) => {
   const scope = <T,>(m: Record<string, T>): Record<string, T> =>
     wanted ? Object.fromEntries(Object.entries(m).filter(([k]) => wanted.has(k))) : m;
 
-  const apply = (v: Record<string, FlagValue>, p: Record<string, unknown>): void => {
+  const apply = (v: Record<string, FlagValue>, p: Record<string, unknown>, notify = true): void => {
     values = scope(v);
     payloads = scope(p);
     loaded = true;
-    for (const s of subs) s(merged());
+    if (notify) for (const s of subs) s(merged());
   };
+  const rt = runtimeTargeting(host, config.localFlags);
 
   const cached = host.flagStorage.get(CACHE_KEY);
   if (cached) {
     try {
-      const c = JSON.parse(cached) as { values: Record<string, FlagValue>; payloads: Record<string, unknown>; at?: number; id?: string };
+      const c = JSON.parse(cached) as { values: Record<string, FlagValue>; payloads: Record<string, unknown>; rt?: Record<string, EvalResult>; at?: number; id?: string };
       values = c.values;
       payloads = c.payloads;
       reasons = Object.fromEntries(Object.keys(values).map((k) => [k, "cached"]));
+      if (c.rt) rt.setServer(c.rt);
       fresh.restore(c);
     } catch {
       /* ignore corrupt cache */
@@ -116,11 +107,12 @@ export const flags: Module = (host: Host) => {
     ...personOverride,
   });
   const appContexts = opts.evaluationContexts?.length ? { app_contexts: opts.evaluationContexts } : {};
-  const evalLocal = (): boolean => {
+  const evalLocal = (notify = true): boolean => {
     const defs = config.localFlags;
     if (!defs?.length) return true;
     const ctx = config.localFlagsContext;
     const res = evaluateAll(defs, {
+      runtime_events: rt.counts(), // event filters (P-H6) are decided here, on this browser's counts
       distinct_id: core.distinctId,
       ...(core.groups ? { groups: core.groups } : {}),
       ...(core.deviceId ? { device_id: core.deviceId } : {}),
@@ -142,9 +134,33 @@ export const flags: Module = (host: Host) => {
       }
     }
     localV = v;
-    apply({ ...values, ...v }, { ...payloads, ...p });
+    apply({ ...values, ...v }, { ...payloads, ...p }, notify);
     return server;
   };
+
+  /** Server results with event branches, resolved on the current counts, folded into the flag set. */
+  const applyRuntime = (notify: boolean): void => {
+    const v = { ...values };
+    const p = { ...payloads };
+    for (const [k, r] of Object.entries(rt.resolved())) {
+      v[k] = r.value;
+      reasons[k] = r.reason;
+      if (r.payload !== undefined) p[k] = r.payload;
+      else delete p[k];
+    }
+    apply(v, p, notify);
+  };
+  const localEvents = hasEventFilters(config.localFlags);
+  // Every captured event updates the runtime counts; a flag whose value changes notifies once.
+  host.onCapture((e) => {
+    const watching = localEvents || Object.keys(rt.server()).length > 0;
+    rt.record(e.event, e.properties, watching);
+    if (!watching) return;
+    const before = JSON.stringify([merged(), payloads]);
+    if (localEvents) evalLocal(false);
+    applyRuntime(false);
+    if (JSON.stringify([merged(), payloads]) !== before) for (const s of subs) s(merged());
+  });
 
   /** `force=false` honours `flagOptions.cacheTtlMs`: no request while the last response for this id is fresh. */
   const reload = (force = true): Promise<void> => {
@@ -184,14 +200,18 @@ export const flags: Module = (host: Host) => {
             if (j.quota_limited) return host.log("flags quota limited; keeping cached values");
             const v: Record<string, FlagValue> = {};
             const p: Record<string, unknown> = {};
+            const branched: Record<string, EvalResult> = {};
             for (const [k, x] of Object.entries(j.flags ?? {})) {
               v[k] = norm(x);
               if (typeof x === "object" && x.payload !== undefined) p[k] = x.payload;
               reasons[k] = typeof x === "object" && typeof x.reason === "string" ? x.reason : "remote";
+              if (typeof x === "object" && x.runtime?.length) branched[k] = toEvalResult(x);
             }
             requestId = j.request_id;
-            apply({ ...localV, ...v }, p);
-            host.flagStorage.set(CACHE_KEY, JSON.stringify({ values: v, payloads: p, ...fresh.mark(core.distinctId) }));
+            rt.setServer(branched);
+            apply({ ...localV, ...v }, p, false);
+            applyRuntime(true);
+            host.flagStorage.set(CACHE_KEY, JSON.stringify({ values: v, payloads: p, rt: branched, ...fresh.mark(core.distinctId) }));
             host.log("flags loaded", v);
           })
           .catch((e) => host.log("flags fetch failed", e))
@@ -261,6 +281,7 @@ export const flags: Module = (host: Host) => {
     reload,
     update(f, p, merge = true) {
       for (const k of Object.keys(f)) reasons[k] = "pushed";
+      rt.drop(Object.keys(f)); // a pushed value replaces the server's runtime branches
       apply(merge ? { ...values, ...f } : { ...f }, merge ? { ...payloads, ...p } : { ...p });
     },
     override(map, opts) {

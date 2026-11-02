@@ -52,8 +52,9 @@ describe("flag controls", () => {
   it("flagsApiHost serves the flags request", async () => {
     const { client, f } = start({ ...base, _h: ok, flagsApiHost: "https://flags.test/" } as never);
     live = client;
-    await vi.waitFor(() => expect(f.calls).toHaveLength(1));
-    expect(f.calls[0]!.url).toBe("https://flags.test/v1/flags");
+    // init() also reads /v1/config for the flag targeting sources (N-EXP-7); that one stays on apiHost
+    await vi.waitFor(() => expect(f.calls).toHaveLength(2));
+    expect(f.calls.map((c) => c.url).sort()).toEqual(["https://flags.test/v1/flags", "https://ingest.test/v1/config?api_key=lc_pk_test"]);
   });
 
   it("aborts a slow request after timeoutMs and keeps current flags", async () => {

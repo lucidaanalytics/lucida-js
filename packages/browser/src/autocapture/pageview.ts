@@ -1,5 +1,6 @@
 import type { Host } from "../types.js";
 import { engagementTimer } from "./engagement.js";
+import { hasPageviewRules, pageviewSnapshot } from "./snapshot-props.js";
 
 /** Tracks the deepest point of the page the viewport has reached. */
 function scrollTracker(): { read(): { pct: number; px: number }; stop(): void } {
@@ -23,10 +24,10 @@ function scrollTracker(): { read(): { pct: number; px: number }; stop(): void } 
 }
 
 /**
- * $pageview on load and (mode 'history') on pushState/replaceState/popstate; $pageleave with
+ * $pageview on load and (mode 'history' | 'hash') on pushState/replaceState/popstate, plus hashchange in mode 'hash'; $pageleave with
  * $scroll_depth (max %), $scroll_depth_px and $engagement_time_ms (visible time) when leaving a page, SPA route or real unload.
  */
-export function startPageviews(host: Host, mode: "history" | boolean, parts: { views?: boolean; leave?: boolean } = {}): () => void {
+export function startPageviews(host: Host, mode: "history" | "hash" | boolean, parts: { views?: boolean; leave?: boolean } = {}): () => void {
   const views = parts.views ?? true;
   const leaves = parts.leave ?? true;
   let url = location.href;
@@ -62,7 +63,8 @@ export function startPageviews(host: Host, mode: "history" | boolean, parts: { v
       }
       return;
     }
-    host.client.capture("$pageview", referrer === undefined ? {} : { $referrer: referrer });
+    // shortcut: the first pageview of a page load fires before remote config arrives, so it carries no snapshot properties
+    host.client.capture("$pageview", { ...pageviewSnapshot(host), ...(referrer === undefined ? {} : { $referrer: referrer }) });
   };
 
   const navigated = (): void => {
@@ -73,12 +75,14 @@ export function startPageviews(host: Host, mode: "history" | boolean, parts: { v
     url = location.href;
     scroll = scrollTracker();
     engaged.reset();
-    view(prev);
+    // snapshot properties read the new route, which most routers render right after pushState
+    if (hasPageviewRules(host)) setTimeout(() => view(prev), 0);
+    else view(prev);
   };
 
   host.onUnload(leave);
   view();
-  if (mode !== "history") return () => (scroll.stop(), engaged.stop());
+  if (mode !== "history" && mode !== "hash") return () => (scroll.stop(), engaged.stop());
 
   const { pushState, replaceState } = history;
   history.pushState = function (...a: Parameters<History["pushState"]>) {
@@ -90,7 +94,10 @@ export function startPageviews(host: Host, mode: "history" | boolean, parts: { v
     navigated();
   };
   window.addEventListener("popstate", navigated);
+  // popstate usually fires too for fragment navigation; navigated() dedupes by URL so the pair never double-counts.
+  if (mode === "hash") window.addEventListener("hashchange", navigated);
   return () => {
+    window.removeEventListener("hashchange", navigated);
     history.pushState = pushState;
     history.replaceState = replaceState;
     window.removeEventListener("popstate", navigated);

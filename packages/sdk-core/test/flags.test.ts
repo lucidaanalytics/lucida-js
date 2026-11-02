@@ -21,7 +21,7 @@ describe("sha256", () => {
   });
 });
 
-for (const file of ["vectors_basic.json", "vectors_g10.json", "vectors_g18.json", "vectors_sticky.json", "vectors_ops.json", "vectors.json"]) {
+for (const file of ["vectors_basic.json", "vectors_g10.json", "vectors_g18.json", "vectors_sticky.json", "vectors_ops.json", "vectors_list.json", "vectors.json"]) {
   const v = load(file);
   describe(`shared flag vectors: ${file}`, () => {
     it("hash vectors", () => {

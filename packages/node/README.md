@@ -66,6 +66,8 @@ Definition changes arrive over `GET /v1/flags/stream` (SSE `definitions` events)
 
 `getFeatureFlag` emits `$feature_flag_called` and `$exposure` once per `(distinctId, flag, value)` (bounded LRU, 10 000);
 `sendExposure: false` disables it. `getFeatureFlagPayload`, `getAllFlags` and `getAllFlagsAndPayloads` never emit.
+`fallbacks: { key: value }` is served (reason `"fallback"`, no exposure) when nothing decides a flag (network error, cold start, unknown key); it beats `defaultValue`.
+`getFeatureFlagDetails(key, distinctId, o)` returns `{ value, payload, variant, reason, conditionIndex, requestId, evaluatedLocally }` (same exposure rules as `getFeatureFlag`), or `undefined`.
 `getRemoteConfigPayload(key)` (needs `secretKey`) reads a remote-config flag's payload, decrypted if stored encrypted.
 
 ### Definition cache provider
@@ -83,6 +85,27 @@ const lc = new Lucida("lc_pk_...", { secretKey, flagDefinitionCacheProvider: cac
 
 Known limit: a flag depending (prerequisite / `flag` filter) on a cohort-gated flag is decided locally against that flag's
 `false` placeholder; pass those through the remote path if it matters.
+
+## Agent analytics
+
+```ts
+const lucida = new Lucida("lc_pk_...", { ai: { captureText: false } });
+const convo = lucida.ai.startConversation({ distinctId: user.id, agentName: "support-bot", traceId });
+convo.message("user", question);
+convo.message("assistant", answer);
+convo.feedback({ kind: "rating", value: 4 });
+convo.end("escalated", "handed to support");
+convo.outcome("resolved", "ticket closed"); // later, when the outcome is known
+```
+
+`distinctId` works like `capture` (or comes from `withContext`).
+Events: `$ai_conversation_started`, `$ai_message` (role, auto-incremented index, text length; for user
+messages a simhash `$ai_text_hash` and a lexicon `$ai_sentiment` so rephrases and frustration show without the
+text), `$ai_feedback` (thumbs 1/-1, rating 1..5, comment), `$ai_conversation_ended` and `$ai_outcome`
+(`resolved`, `unresolved`, `escalated`, `abandoned`, `error`). Message text and feedback comments are sent only
+with `ai: { captureText: true }`, after cards, emails and phone numbers are masked. `traceId` (a W3C trace id) links the
+conversation to its trace in Watchtower; tokens, latency, cost and model names are never captured here.
+Events use the normal capture path, so consent and opt-out apply.
 
 ## Test mode
 

@@ -24,7 +24,9 @@
     "./replay": "./src/replay/index.ts",
     "./guides": "./src/guides/index.ts",
     "./experiments": "./src/experiments/index.ts",
-    "./early-access": "./src/early-access/index.ts"
+    "./early-access": "./src/early-access/index.ts",
+    "./webmcp": "./src/webmcp/index.ts",
+    "./recommendations": "./src/recs/index.ts"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -89,6 +91,14 @@
       "./early-access": {
         "types": "./dist/early-access.d.ts",
         "default": "./dist/early-access.js"
+      },
+      "./webmcp": {
+        "types": "./dist/webmcp.d.ts",
+        "default": "./dist/webmcp.js"
+      },
+      "./recommendations": {
+        "types": "./dist/recommendations.d.ts",
+        "default": "./dist/recommendations.js"
       }
     }
   },

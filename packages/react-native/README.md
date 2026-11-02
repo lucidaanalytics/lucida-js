@@ -41,6 +41,17 @@ const { onReady, onStateChange } = screenTracker(client, ref);
 
 Route params are not sent unless `includeParams: true` (they often contain PII).
 
+## Install attribution
+
+Pass `installInfo: () => NativeModules.LucidaReplay.installInfo()` to `createClient` and the first-open
+`$app_installed` carries: Android Play Install Referrer (`$install_store=google_play`, `$install_referrer`,
+`$install_referrer_click_ts`, `$install_begin_ts`, parsed `$utm_*`, click ids `$gclid`/`$gbraid`/`$wbraid`/`$fbclid`/
+`$ttclid`/`$msclkid`) or iOS Apple Search Ads via AdServices (`$install_store=app_store`, `$install_adservices_attribution`,
+`$utm_*`, `$asa_*`; the token is POSTed as text/plain with a 10 s timeout, 404 retried). Any failure still sends the
+event with `$install_store` only. Disable with `installAttribution: false`. The Android module needs
+`com.android.installreferrer:installreferrer` (Apache-2.0) in the app's Gradle dependencies. Pure parsers are exported:
+`installReferrerProps`, `appStoreInstallProps`.
+
 ## Hooks, person profiles, flags, privacy, autocapture
 
 - `beforeSend: [hook, ...]`: ordered `(event) => event | null`; return a changed event to amend, `null` to drop. A hook that throws is
@@ -51,6 +62,8 @@ Route params are not sent unless `includeParams: true` (they often contain PII).
 - Flags: `flagOptions: { bootstrap: { distinctId, isIdentified, flags, payloads }, sendFeatureFlagEvent, preload, evaluationContexts }`,
   `disableRemoteFeatureFlags: true` (never calls `/v1/flags`) with `client.updateFlags(flags, payloads, { merge })` for flags your own backend
   evaluated, `onFlags`, `setPersonPropertiesForFlags(props, reload?)`, `setGroupPropertiesForFlags`, reset variants.
+- Interventions: `client.onIntervention((i) => ...)` receives in-session interventions fired for this person (`{id, name, event, payload, fired_at}`);
+  polls `GET /v1/interventions` every 15 s while a listener is set, after analytics consent. See `docs/guides/interventions.md`.
 - Queue/network: `flushAt`, `flushIntervalMs`, `maxQueueSize`, `maxBatchSize`, `maxRetries`, `retryDelayMs`, `requestTimeoutMs`,
   `dataMode: "wifi"` + `network: { isWifi() }` (inject NetInfo), `sessionIdleMs` / `sessionMaxMs`, `disableGeoip`, `disabled`, `client.debug(true)`.
 - Person helpers: `setPersonProperties`, `capture(event, props, { set, setOnce })`, `getAnonymousId`, `reuseAnonymousId`, `isOptedOut`, `openURL(url, referrer)` (`$deep_link_opened`).
@@ -92,6 +105,28 @@ be captured. Reference implementations, linked as ordinary React Native native m
 These two files are not compiled in this repository (no React Native toolchain); everything they call is covered
 by `swift test` (ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest). Verify them in a real app before shipping.
 
+### Session replay: privacy additions
+
+Every remote value below arrives in `GET /v1/config` and only ever adds masking to what the app configured.
+
+- **Masked screens** (P-M17): `replay: { maskScreens: ["Checkout", "Pay*"] }` plus the project's `replay_mask_screens`
+  (case-insensitive, `*` = any run of characters, whole screen name as passed to `client.screen`). On a matching screen the
+  native encoder masks every text, input value and image whatever `maskText` or `<LucidaUnmask>` say (`maskScreen: true` in
+  the capture options); screenshots paint them all over.
+- **Text patterns** (P-M46): `replay: { maskTextPatterns: ["\\d{4,}"] }` plus `replay_mask_text_patterns` (regular
+  expressions; one that does not compile is ignored). The native encoder stars matches in shown text and paints matching views
+  in screenshots (`maskTextPatterns` in the capture options); JS stars them again in the returned wireframe.
+- **`$dead_swipe`** (P-M46, `captureDeadSwipes`, default true, fed by `<LucidaTouchCapture>` or
+  `client.replay.swipeBegan()` / `swipeEnded(dx, dy)`): a swipe of 48 pt or more after which the starred wireframe is unchanged
+  ~700 ms later. Properties: `$screen_name`, `$swipe_direction` (`left|right|up|down`), `$swipe_distance`. Never text or
+  view content; at most one per 2 s.
+- **Controlled exposure** (P-L12): when the project sends `replay_exposure_fields` and `replay_exposure_key`,
+  `client.captureSensitive("card_number", value)` (field = your `testID`) encrypts the value natively with RSA-OAEP-SHA256
+  (`encryptSensitive(pkcs1, n, e, plain)`, a blocking synchronous method of the LucidaReplay module) and sends
+  `$sensitive_capture` (`$exposure_field`, `$exposure_kid`, `$exposure_ciphertext`, `$screen_name`, `$exposure_truncated`
+  when cut to 190 bytes). Only an audited reveal on the server can read it. Never pass a secure field; identical values are
+  sent once per session; nothing is persisted; a missing or failing native method sends nothing.
+
 ### Encrypting the offline queue at rest
 
 The same native module exposes two blocking synchronous methods, `encryptQueue` / `decryptQueue`: AES-256-GCM with a key the
@@ -120,6 +155,15 @@ Not done in this repository (no RN toolchain, no Xcode/Gradle builds on the dev 
 5. Queue cipher: with `queueCipher: nativeQueueCipher(NativeModules.LucidaReplay)` go offline, capture an event, and confirm the `lc_offline` AsyncStorage value is
    opaque base64 (no event name in it) and that the event is delivered after reconnecting and an app restart.
 6. Native unit coverage that exists today: `swift test` (sdks/ios, ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest).
+
+## In-app guides
+
+Kinds `modal`, `banner`, `announcement`, `slideout`, `tour`, `carousel` (Back / Next with a slide pager) and, with an
+anchoring presenter, `tooltip` / `hotspot`. A step's `native_id` anchors it to a native view: wrap it in `<GuideAnchor testID="checkout">` (React Native cannot look views up by testID from JS) and mount `<LucidaGuides />` as the last child of the app root: the bubble is drawn next
+to the view and follows it on scroll and relayout; a hotspot is a pulsing dot that opens the step. When the view does not
+appear within `wait_ms` (default 3 s, max 15 s) the SDK sends `$guide_target_missing {step_id, selector}` and shows the step
+unanchored; a view gone for 2 s closes the step. The resolved `appearance` tokens (background, text, accent, radius,
+font) apply, with `appearance.dark.tokens` when `theme_mode` is dark, or auto and the device is dark.
 
 ## Out of scope
 

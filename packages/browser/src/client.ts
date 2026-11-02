@@ -1,9 +1,10 @@
-import { Core, GatedStorage, flagEventProps, flagResult, offlineTransport } from "@lucida/sdk-core";
+import { AgentConversation, Core, GatedStorage, flagEventProps, flagResult, interventionHub, offlineTransport } from "@lucida/sdk-core";
 import type { Props, Storage, Transport } from "@lucida/sdk-core";
 import { isBotUserAgent } from "./bot-ua.js";
 import { clickIdTracker } from "./clickids.js";
 import { captureCspViolations, cspHint } from "./csp.js";
 import { isExtensionPage, withRewrite } from "./delivery.js";
+import { connectDevtools } from "./devtools-hook.js";
 import { campaignKey, enrich } from "./env.js";
 import { takeLinker } from "./linker.js";
 import { installPolicy } from "./policy.js";
@@ -14,6 +15,8 @@ import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, Re
 export const LIB = "lucida-browser";
 export const LIB_VERSION = "0.1.0";
 const INTERNAL_KEY = "lc_internal";
+/** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
+const GEO_WAIT_MS = 3000;
 export const DEFAULT_HOST = "https://app.lucida.dev";
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype;
@@ -77,7 +80,13 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     persistProperty: (k) => !live.persistedProperties || live.persistedProperties.includes(k),
     ...(persistence === "none" ? { cookieless: true } : {}),
     library: { name: LIB, version: LIB_VERSION },
-    consent: { ...(config.cookieless === "on_reject" ? { cookielessOnReject: true } : {}), ...config.consent, respectDnt: true, dnt },
+    consent: {
+      ...(config.cookieless === "on_reject" ? { cookielessOnReject: true } : {}),
+      ...config.consent,
+      ...(config.consent?.geo && !disabled ? { awaitRemote: true } : {}),
+      respectDnt: true,
+      dnt,
+    },
     queue: {
       ...(config.flushAt ? { flushAt: config.flushAt } : {}),
       ...(config.flushIntervalMs ? { flushIntervalMs: config.flushIntervalMs } : {}),
@@ -86,7 +95,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     ...(config.bootstrap?.isIdentified && !linked ? { bootstrapIdentified: true } : {}),
     session: { ...config.session, ...(sessionBoot ? { bootstrapId: sessionBoot } : {}) },
     enrich: (event, props) => {
-      const e = enrich(event, props, live.customCampaignParams);
+      const e = enrich(event, props, live.customCampaignParams, config.capturePageview === "hash");
       // Proxy coverage: which events came through a custom ingest host.
       if (apiHost !== DEFAULT_HOST) e.properties = { ...e.properties, $lib_custom_api_host: apiHost };
       if (eventExtras.length) {
@@ -166,11 +175,34 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
         whenConsented(() => {
           fetchImpl(`${apiHost}/v1/config?api_key=${encodeURIComponent(apiKey)}`)
             .then((r) => (r.ok ? (r.json() as Promise<RemoteConfig>) : null))
+            // shortcut: the session definition (N-ANA-6) applies when a module loads the config (autocapture, replay,
+            // heatmaps, consent.geo); a core-only bundle keeps the local session options. Upgrade: an explicit boot fetch.
+            .then((r) => {
+              if (r) core.applyRemote(r);
+              return r;
+            })
             .then(resolve, () => resolve(null));
         }),
       )),
   };
 
+  if (core.consent.resolving) {
+    // Geo consent (N-ANA-17): the config is read before consent (one GET carrying only the public key) so the
+    // project's rule applies before any write; past GEO_WAIT_MS the local mode applies and the answer only adds
+    // the session definition. The same response serves loadConfig() later.
+    const early = fetchImpl(`${apiHost}/v1/config?api_key=${encodeURIComponent(apiKey)}`, { credentials: "omit" })
+      .then((r) => (r.ok ? (r.json() as Promise<RemoteConfig>) : null))
+      .catch(() => null);
+    cfg = early;
+    const timer = setTimeout(() => core.applyRemote({}), GEO_WAIT_MS);
+    void early.then((r) => {
+      clearTimeout(timer);
+      core.applyRemote(r ?? {});
+    });
+  }
+
+  const interventions = interventionHub(core, { apiHost, apiKey, fetch: fetchImpl, whenConsented, log, disabled });
+  teardowns.push(() => interventions.stop());
   const client: Client = {
     get distinctId() {
       return core.distinctId;
@@ -263,6 +295,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       return v !== undefined && v !== false;
     },
     onFlags: (cb) => host.flags?.onChange(cb) ?? (() => {}),
+    onIntervention: (cb) => interventions.on(cb),
     reloadFlags: () => host.flags?.reload() ?? Promise.resolve(),
     getAllFlags: () => host.flags?.all() ?? {},
     overrideFlags: (m, o) => host.flags?.override(m, o),
@@ -276,6 +309,9 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       showChangelog: () => host.guides?.showChangelog() ?? 0,
       show: (id) => host.guides?.show(id) ?? false,
       reset: (id) => host.guides?.reset(id),
+    },
+    ai: {
+      startConversation: (o) => new AgentConversation((e, p) => client.capture(e, p), o, live.ai?.captureText === true).start(),
     },
     earlyAccess: {
       list: () => host.earlyAccess?.list() ?? Promise.resolve([]),
@@ -295,6 +331,9 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       hideBanner: () => host.consentUi?.hideBanner(),
     },
     loadToolbar: (p) => host.toolbar?.load(typeof p === "string" ? p : p.token) ?? Promise.resolve(false),
+    activateExperiment: (k) => host.experiments?.activate(k),
+    recommendations: (placement, o) =>
+      host.recs?.get(placement, o) ?? Promise.resolve({ placement, strategy: "", items: [], shown() {}, clicked() {} }),
     flush: () => core.flush(),
     shutdown: async () => {
       for (const t of teardowns) t();
@@ -334,6 +373,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       if (t) teardowns.push(t);
     }
     flagsSvc = host.flags;
+    connectDevtools(host, client, apiHost);
   }
   log("initialised", { apiHost, consent: core.getConsent() });
   return client;

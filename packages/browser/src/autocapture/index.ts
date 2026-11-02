@@ -1,10 +1,12 @@
 import type { AutocaptureConfig, Module } from "../types.js";
+import { startArticleCapture } from "./article.js";
 import { startContentCapture } from "./content.js";
 import { startEditCopyCapture } from "./edit-copy.js";
 import { startEventCapture, urlMatches } from "./events.js";
 import { startLinkCapture } from "./links.js";
 import { startMediaCapture } from "./media.js";
 import { startPageviews } from "./pageview.js";
+import { startSnapshots } from "./snapshot-props.js";
 
 export { attrProps, buildChain, chainToString, MASKED } from "./chain.js";
 export { cssSelector } from "./click.js";
@@ -12,6 +14,8 @@ export { maskCopied } from "./edit-copy.js";
 export { isStepper } from "./frustration.js";
 export { tag404, DOWNLOAD_EXTENSIONS, SEARCH_PARAMS } from "./links.js";
 export { mediaSrc } from "./media.js";
+export { readSnapshot, snapshotRules } from "./snapshot-props.js";
+export type { SnapshotRule } from "./snapshot-props.js";
 export type { ElementInfo, MaskOptions } from "./chain.js";
 
 /**
@@ -30,7 +34,9 @@ export const autocapture: Module = (host) => {
       startEditCopyCapture(host, cfg, on),
       startLinkCapture(host, cfg, on),
       startContentCapture(host, cfg, on),
+      startArticleCapture(host, cfg, on),
       startMediaCapture(host, cfg, on),
+      startSnapshots(host),
     );
     // Remote config can switch autocapture off unless the page set it explicitly.
     if (ac === undefined) void host.loadConfig().then((r) => (remoteOff = r?.autocapture === false));

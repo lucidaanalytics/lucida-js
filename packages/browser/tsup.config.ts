@@ -17,6 +17,8 @@ export default defineConfig([
       flags: "src/flags/index.ts",
       experiments: "src/experiments/index.ts",
       "early-access": "src/early-access/index.ts",
+      webmcp: "src/webmcp/index.ts",
+      recommendations: "src/recs/index.ts",
       heatmaps: "src/heatmaps/index.ts",
       forms: "src/forms/index.ts",
       toolbar: "src/toolbar/index.ts",

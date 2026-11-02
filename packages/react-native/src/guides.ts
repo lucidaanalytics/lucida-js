@@ -1,13 +1,15 @@
 import type { Core, Props } from "@lucida/sdk-core";
 
-const KINDS = ["modal", "banner", "announcement", "slideout", "tour"];
+const KINDS = ["modal", "banner", "announcement", "slideout", "tour", "carousel", "tooltip", "hotspot"];
+/** Kinds whose steps may point at a view (`<GuideAnchor testID>`). */
+const ANCHORABLE = ["tooltip", "hotspot", "tour"];
 /** Targeting keys this engine honours; a guide using any other (non-empty) key is skipped, never shown to the wrong people. */
-const HANDLED = ["url", "url_match", "flag_key", "sample_pct", "devices", "seen_guides", "not_seen_guides", "delay_seconds", "goal"];
+const HANDLED = ["url", "url_match", "flag_key", "sample_pct", "devices", "seen_guides", "not_seen_guides", "delay_seconds", "goal", "exclude_url_patterns"];
 const SEEN_KEY = "lc_guide_seen";
 
 export interface GuideButton {
   label: string;
-  /** next | dismiss | link | event (start_tour behaves like next on mobile). */
+  /** next | back | dismiss | link | event (start_tour behaves like next on mobile). */
   action: string;
   url?: string;
   event?: string;
@@ -18,6 +20,19 @@ export interface GuideStep {
   title?: string | null;
   body?: string | null;
   buttons?: GuideButton[] | null;
+  /** Anchor view: the `testID` of a `<GuideAnchor>` (tooltip, hotspot and tour steps; web selectors are ignored). */
+  native_id?: string | null;
+  placement?: string | null;
+  /** How long to wait for the anchor (ms, default 3000, max 15000) before showing the step unanchored. */
+  wait_ms?: number | null;
+}
+
+/** Where an anchored step points. `hotspot`: a pulsing dot on the view opens the step. */
+export interface GuideAnchorSpec {
+  nativeId: string;
+  placement?: string;
+  waitMs: number;
+  hotspot: boolean;
 }
 
 /** A guide as `GET /v1/guides` serves it. */
@@ -29,6 +44,10 @@ export interface MobileGuide {
   conditions: Record<string, unknown>;
   /** A draft served to a QA user: no targeting, shown once per launch, no events. */
   preview?: boolean;
+  /** Resolved appearance (the gateway merges the project theme in): tokens, dark.tokens, theme_mode, font_family. */
+  appearance?: Record<string, unknown> | null;
+  /** A workflow queued this guide for this person (gateway): it goes first and skips sampling. */
+  queued?: boolean;
 }
 
 /** What `<LucidaGuides />` draws. */
@@ -36,6 +55,8 @@ export interface GuideView {
   guide: MobileGuide;
   step: number;
   buttons: GuideButton[];
+  /** Set when this step points at a view. */
+  anchor?: GuideAnchorSpec;
 }
 
 export interface GuidesService {
@@ -49,6 +70,8 @@ export interface GuidesService {
   act(button: GuideButton | null): void;
   /** How https links open (the view wires Linking.openURL). */
   setOpener(fn: (url: string) => void): void;
+  /** The view could not find the current step's anchor in time (emits `$guide_target_missing`; it then shows unanchored). */
+  targetMissing(): void;
 }
 
 export interface GuidesDeps {
@@ -76,7 +99,25 @@ export function guideButtons(g: MobileGuide, i: number): GuideButton[] {
   const b = g.steps[i]?.buttons;
   if (b && b.length) return b;
   if (g.kind === "banner" || g.kind === "announcement") return [{ label: "Dismiss", action: "dismiss" }];
+  if (g.kind === "carousel") {
+    const last = i === g.steps.length - 1;
+    return [...(i > 0 ? [{ label: "Back", action: "back" }] : []), { label: last ? "Done" : "Next", action: "next" }, { label: "Dismiss", action: "dismiss" }];
+  }
   return [{ label: i === g.steps.length - 1 ? "Done" : "Next", action: "next" }, { label: "Dismiss", action: "dismiss" }];
+}
+
+/** Project-wide exclusions matched against the screen name: `*` globs, the same patterns the web matches against URLs. */
+export function screenExcluded(screen: string, patterns: readonly string[]): boolean {
+  return patterns.some((p) => !!p && new RegExp("^" + p.split("*").map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$").test(screen));
+}
+
+/** The anchor of step `i`, when its guide kind anchors and the step names a view. */
+export function guideAnchor(g: MobileGuide, i: number): GuideAnchorSpec | undefined {
+  const s = g.steps[i];
+  const id = s?.native_id;
+  if (!s || !id || !ANCHORABLE.includes(g.kind)) return undefined;
+  const wait = Math.min(Math.max(s.wait_ms ?? 3000, 0), 15_000);
+  return { nativeId: id, ...(s.placement ? { placement: s.placement } : {}), waitMs: wait, hotspot: g.kind === "hotspot" };
 }
 
 // null, "" and [] are the editor's "not set"
@@ -107,6 +148,8 @@ export function createGuides(d: GuidesDeps): GuidesService {
 
   const eligible = (g: MobileGuide, name: string): boolean => {
     if (!KINDS.includes(g.kind) || !g.steps?.length) return false;
+    // tooltip / hotspot exist only next to a view
+    if ((g.kind === "tooltip" || g.kind === "hotspot") && !g.steps[0]?.native_id) return false;
     if (g.preview) return !previewed.has(g.id);
     const c = g.conditions ?? {};
     if (seen.has(g.id) || !Object.keys(c).every((k) => unset(c[k]) || HANDLED.includes(k))) return false;
@@ -114,8 +157,9 @@ export function createGuides(d: GuidesDeps): GuidesService {
     if (typeof url === "string" && url && !matches(name, url, typeof c["url_match"] === "string" ? c["url_match"] : "contains")) return false;
     const f = c["flag_key"];
     if (typeof f === "string" && f && !d.flag(f)) return false;
+    if (screenExcluded(name, strs(c["exclude_url_patterns"]))) return false;
     const pct = c["sample_pct"];
-    if (typeof pct === "number" && random() * 100 >= pct) return false;
+    if (!g.queued && typeof pct === "number" && random() * 100 >= pct) return false;
     if (!unset(c["devices"]) && !strs(c["devices"]).some((x) => x === "mobile" || x === "tablet")) return false;
     if (!unset(c["seen_guides"]) && !strs(c["seen_guides"]).every((x) => seen.has(x))) return false;
     if (!unset(c["not_seen_guides"]) && strs(c["not_seen_guides"]).some((x) => seen.has(x))) return false;
@@ -127,7 +171,10 @@ export function createGuides(d: GuidesDeps): GuidesService {
     core.storage.set(SEEN_KEY, JSON.stringify([...seen].sort()));
   };
 
-  const present = (g: MobileGuide, i: number): void => set({ guide: g, step: i, buttons: guideButtons(g, i) });
+  const present = (g: MobileGuide, i: number): void => {
+    const anchor = guideAnchor(g, i);
+    set({ guide: g, step: i, buttons: guideButtons(g, i), ...(anchor ? { anchor } : {}) });
+  };
 
   const finish = (): void => {
     set(null);
@@ -152,7 +199,8 @@ export function createGuides(d: GuidesDeps): GuidesService {
       screen = name;
       // no <LucidaGuides /> mounted: leave the guide unseen until one is
       if (view || !subs.size) return;
-      const g = guides.find((x) => eligible(x, name));
+      // workflow-queued guides go first
+      const g = [...guides.filter((x) => x.queued), ...guides.filter((x) => !x.queued)].find((x) => eligible(x, name));
       if (!g) return;
       if (g.preview) previewed.add(g.id);
       else {
@@ -170,6 +218,13 @@ export function createGuides(d: GuidesDeps): GuidesService {
     setOpener(fn) {
       open = fn;
     },
+    targetMissing() {
+      if (!view?.anchor || view.guide.preview) return;
+      const { guide: g, step: i, anchor } = view;
+      const id = g.steps[i]!.id;
+      void core.capture("$guide_target_missing", props(g, { guide_id: g.id, step_id: id, $guide_step_id: id, selector: anchor.nativeId }));
+      set({ guide: g, step: i, buttons: view.buttons }); // the same step, unanchored
+    },
     act(b) {
       if (!view) return;
       const { guide: g, step: i } = view;
@@ -183,6 +238,7 @@ export function createGuides(d: GuidesDeps): GuidesService {
         cap("$guide_dismissed", props(g, sp));
         return finish();
       }
+      if (b.action === "back") return present(g, Math.max(i - 1, 0));
       if (b.action === "link" && b.url && /^https:\/\//i.test(b.url)) open(b.url);
       else if (b.action === "event" && b.event) cap(b.event, { $guide_id: g.id });
       cap("$guide_step", props(g, sp));

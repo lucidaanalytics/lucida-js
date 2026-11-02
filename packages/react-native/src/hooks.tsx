@@ -13,7 +13,7 @@ export function useCapture(): NativeClient["capture"] {
   return useCallback((event, props) => client?.capture(event, props), [client]);
 }
 
-const NO_REPLAY: ReplayControl = { start() {}, stop() {}, pause() {}, resume() {}, tag() {}, tap() {}, isRecording: () => false };
+const NO_REPLAY: ReplayControl = { start() {}, stop() {}, pause() {}, resume() {}, tag() {}, tap() {}, swipeBegan() {}, swipeEnded() {}, isRecording: () => false };
 
 /** Recording control; inert until the client is ready. */
 export function useReplay(): ReplayControl {

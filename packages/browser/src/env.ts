@@ -31,12 +31,18 @@ function referringDomain(ref: string): string {
 /** The one-time toolbar token must never reach analytics. */
 const cleanUrl = (): string => location.href.replace(/([?&])__lc_toolbar=[^&#]*&?/, "$1").replace(/[?&]$/, "");
 
+/** Hash-route mode: `/app` + `#/settings?tab=1` -> `/app#/settings` (the fragment's own query is dropped like the page query). */
+export function hashPathname(): string {
+  const h = location.hash;
+  return h.length > 1 ? location.pathname + h.split("?")[0] : location.pathname;
+}
+
 /** Properties for every event; $pageview also gets campaign params (UTM, click ids, your `customCampaignParams`) and $set_once initial_*. */
-export function enrich(event: string, props: Record<string, unknown>, customParams: readonly string[] = []): Enrichment {
+export function enrich(event: string, props: Record<string, unknown>, customParams: readonly string[] = [], hashRoutes = false): Enrichment {
   const properties: Record<string, unknown> = {
     $current_url: cleanUrl(),
     $host: location.host,
-    $pathname: location.pathname,
+    $pathname: hashRoutes ? hashPathname() : location.pathname,
     $referrer: document.referrer,
     $screen_width: screen.width,
     $screen_height: screen.height,
