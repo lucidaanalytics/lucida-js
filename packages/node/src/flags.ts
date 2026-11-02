@@ -1,5 +1,5 @@
-import { evaluateAll, evaluateAllSticky, requiresServer, servable } from "@lucida/sdk-core";
-import type { EvalContext, EvalResult, FlagDefinition, FlagValue, Props, StickyStore } from "@lucida/sdk-core";
+import { evaluateAll, evaluateAllSticky, requiresServer, servable } from "@lucida-analytics/sdk-core";
+import type { EvalContext, EvalResult, FlagDefinition, FlagValue, Props, StickyStore } from "@lucida-analytics/sdk-core";
 import { LruSet } from "./lru.js";
 
 export interface FlagOptions {

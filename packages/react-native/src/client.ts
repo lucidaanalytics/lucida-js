@@ -1,5 +1,5 @@
-import { Core, flagEventProps, interventionHub, offlineTransport } from "@lucida/sdk-core";
-import type { Transport } from "@lucida/sdk-core";
+import { Core, flagEventProps, interventionHub, offlineTransport } from "@lucida-analytics/sdk-core";
+import type { Transport } from "@lucida-analytics/sdk-core";
 import { appLifecycle, asyncStorageAdapter, encryptedStorage, fetchTransport, memoryStorage, splitBatches, withTimeout } from "./adapters.js";
 import { createAutocapture } from "./autocapture.js";
 import { resolveInstallProps } from "./install.js";

@@ -1,6 +1,6 @@
-# @lucida/tanstack-start
+# @lucida-analytics/tanstack-start
 
-Lucida for TanStack Start (and plain TanStack Router apps). Re-exports `@lucida/react` and adds route-template
+Lucida for TanStack Start (and plain TanStack Router apps). Re-exports `@lucida-analytics/react` and adds route-template
 pageviews, a server request context and an SSR bootstrap helper. It imports neither TanStack package, so it follows
 whatever version you run.
 
@@ -8,7 +8,7 @@ whatever version you run.
 
 ```tsx
 // routes/__root.tsx
-import { LucidaProvider, LucidaPageviews } from "@lucida/tanstack-start";
+import { LucidaProvider, LucidaPageviews } from "@lucida-analytics/tanstack-start";
 import { useRouter } from "@tanstack/react-router";
 
 function Root() {
@@ -29,7 +29,7 @@ to the previous page. `trackRouter(router, client)` does the same outside React.
 
 ```ts
 import { createMiddleware } from "@tanstack/react-start";
-import { lucidaServerContext } from "@lucida/tanstack-start";
+import { lucidaServerContext } from "@lucida-analytics/tanstack-start";
 
 export const lucidaMiddleware = createMiddleware().server(({ next, request }) =>
   next({ context: lucidaServerContext(request, { trustProxy: true }) }),

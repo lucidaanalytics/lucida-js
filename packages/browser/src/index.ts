@@ -8,7 +8,7 @@ import { crossDomain } from "./linker.js";
 import type { BrowserConfig, Client, Module } from "./types.js";
 
 /** Full client: core + autocapture + flags + Watchtower correlation (inert unless watchtower.correlate).
- * Opt-in modules (replay, heatmaps, forms, toolbar, inspector, consent adapters) have their own entry points. Import "@lucida/browser/core" for the minimal build. */
+ * Opt-in modules (replay, heatmaps, forms, toolbar, inspector, consent adapters) have their own entry points. Import "@lucida-analytics/browser/core" for the minimal build. */
 export function init(apiKey: string, config: BrowserConfig = {}, extra: Module[] = []): Client {
   return createClient(apiKey, config, [autocapture, flags, flagSources, correlate, hostHeaders, crossDomain, ...extra]);
 }
@@ -32,4 +32,4 @@ export type { RecommendationItem, RecommendationOptions, Recommendations, RecsSe
 export type {
   AgentAnalytics, BrowserConfig, AutocaptureConfig, StorageConfig, DeliveryConfig, LazyModuleName, CaptureOptions, BootstrapConfig, FlagOptions, FrustrationConfig, Client, Host, Module, Persistence, FlagValue, FlagsService, ReplayControl, Guide, GuideKind, GuideStep, GuideAutomation, GuideRule, GuideTokens, TargetConditions, GuideButton, PropFilter, GuidesService, RemoteConfig,
 } from "./types.js";
-export type { AgentConversation, AgentConversationOptions, AgentFeedback, AgentOutcome, AgentRole, EarlyAccessFeature, EarlyAccessService, FlagResult, Intervention } from "@lucida/sdk-core";
+export type { AgentConversation, AgentConversationOptions, AgentFeedback, AgentOutcome, AgentRole, EarlyAccessFeature, EarlyAccessService, FlagResult, Intervention } from "@lucida-analytics/sdk-core";

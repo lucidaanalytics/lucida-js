@@ -14,7 +14,7 @@ import {
   truncateUtf8,
 } from "../src/index.js";
 import type { NativeConfig, NativeReplayModule, ReplayConfig } from "../src/index.js";
-import type { WireEvent } from "@lucida/sdk-core";
+import type { WireEvent } from "@lucida-analytics/sdk-core";
 
 /** P-M17 masked screens, P-M46 text patterns and `$dead_swipe`, P-L12 controlled exposure. */
 

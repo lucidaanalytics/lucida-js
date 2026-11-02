@@ -1,5 +1,5 @@
-import { requestContext } from "@lucida/sdk-core";
-import type { RequestContext } from "@lucida/sdk-core";
+import { requestContext } from "@lucida-analytics/sdk-core";
+import type { RequestContext } from "@lucida-analytics/sdk-core";
 import { COOKIE_ID, HEADER_CTX, HEADER_FLAGS, HEADER_ID, mayStoreId, newDistinctId, resolveFlags } from "./shared.js";
 import type { Flags, LucidaNextOptions } from "./shared.js";
 

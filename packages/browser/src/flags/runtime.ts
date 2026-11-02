@@ -1,5 +1,5 @@
-import { RuntimeCounter, countedFilters, resolveRuntimeAll } from "@lucida/sdk-core";
-import type { EvalReason, EvalResult, FlagDefinition, Props, PropertyFilter, RuntimeEvents } from "@lucida/sdk-core";
+import { RuntimeCounter, countedFilters, resolveRuntimeAll } from "@lucida-analytics/sdk-core";
+import type { EvalReason, EvalResult, FlagDefinition, Props, PropertyFilter, RuntimeEvents } from "@lucida-analytics/sdk-core";
 import type { FlagValue, Host } from "../types.js";
 
 /** Shape of go/gateway POST /v1/flags: per-flag objects; payload is per flag. */

@@ -1,9 +1,9 @@
-import { requestContext } from "@lucida/sdk-core";
-import type { Props, RequestContext } from "@lucida/sdk-core";
+import { requestContext } from "@lucida-analytics/sdk-core";
+import type { Props, RequestContext } from "@lucida-analytics/sdk-core";
 
-export type { RequestContext } from "@lucida/sdk-core";
+export type { RequestContext } from "@lucida-analytics/sdk-core";
 
-/** The slice of `@lucida/node`'s client the middleware calls. */
+/** The slice of `@lucida-analytics/node`'s client the middleware calls. */
 export interface CaptureTarget {
   capture(i: { distinctId: string; event: string; properties?: Props }): void;
 }

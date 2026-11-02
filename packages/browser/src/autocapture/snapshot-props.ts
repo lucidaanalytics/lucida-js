@@ -1,4 +1,4 @@
-import type { Props } from "@lucida/sdk-core";
+import type { Props } from "@lucida-analytics/sdk-core";
 import { policyMatches } from "../replay/index.js";
 import type { Host } from "../types.js";
 

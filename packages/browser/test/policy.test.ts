@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { WireEvent } from "@lucida/sdk-core";
+import type { WireEvent } from "@lucida-analytics/sdk-core";
 import { denylistHook, runHooks, sampleHook } from "../src/policy.js";
 import { rateLimiter } from "../src/ratelimit.js";
 import type { Client } from "../src/index.js";

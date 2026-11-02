@@ -1,11 +1,11 @@
-# @lucida/next
+# @lucida-analytics/next
 
-Next.js helpers (App Router and Pages Router). Three entries: `@lucida/next` (edge and server-component safe),
-`@lucida/next/client` (provider + React hooks, `"use client"`), `@lucida/next/server` (Node only: local flag evaluation).
+Next.js helpers (App Router and Pages Router). Three entries: `@lucida-analytics/next` (edge and server-component safe),
+`@lucida-analytics/next/client` (provider + React hooks, `"use client"`), `@lucida-analytics/next/server` (Node only: local flag evaluation).
 
 ```ts
 // middleware.ts : resolve id + flags once per request, no flicker
-import { lucidaMiddleware } from "@lucida/next";
+import { lucidaMiddleware } from "@lucida-analytics/next";
 export async function middleware(req: NextRequest) {
   const lc = await lucidaMiddleware(req, { apiKey: process.env.NEXT_PUBLIC_LUCIDA_KEY!, middleware: true });
   return lc.apply(NextResponse.next({ request: { headers: lc.requestHeaders } }));

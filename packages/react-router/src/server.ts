@@ -1,5 +1,5 @@
-import { requestContext } from "@lucida/sdk-core";
-import type { RequestContext } from "@lucida/sdk-core";
+import { requestContext } from "@lucida-analytics/sdk-core";
+import type { RequestContext } from "@lucida-analytics/sdk-core";
 
 /**
  * Framework mode (loaders/actions, any runtime): the visitor and request context for server-side events.

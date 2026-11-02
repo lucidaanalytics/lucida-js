@@ -1,4 +1,4 @@
-import type { Transport } from "@lucida/sdk-core";
+import type { Transport } from "@lucida-analytics/sdk-core";
 
 /** Bodies under this size are not worth compressing. */
 const MIN_GZIP_BYTES = 1024;

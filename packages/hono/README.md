@@ -1,12 +1,12 @@
-# @lucida/hono
+# @lucida-analytics/hono
 
-Server middleware for [Hono](https://hono.dev) on top of `@lucida/node`. It reads the visitor the browser SDK sent and
+Server middleware for [Hono](https://hono.dev) on top of `@lucida-analytics/node`. It reads the visitor the browser SDK sent and
 adds request properties to every event you capture from a handler. Hono is not a dependency (the types are structural).
 
 ```ts
 import { Hono } from "hono";
-import { Lucida } from "@lucida/node";
-import { lucida, type LucidaRequest } from "@lucida/hono";
+import { Lucida } from "@lucida-analytics/node";
+import { lucida, type LucidaRequest } from "@lucida-analytics/hono";
 
 const client = new Lucida(process.env.LUCIDA_KEY!);
 const app = new Hono<{ Variables: { lucida: LucidaRequest } }>();

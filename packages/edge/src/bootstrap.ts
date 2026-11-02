@@ -1,5 +1,5 @@
 import type { EdgeClient, EdgeFlagOptions } from "./client.js";
-import type { FlagValue } from "@lucida/sdk-core";
+import type { FlagValue } from "@lucida-analytics/sdk-core";
 import { distinctIdSetCookie, mayPersist, visitorId } from "./visitor.js";
 
 export interface RequestBootstrap {

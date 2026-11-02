@@ -1,5 +1,5 @@
-import { COOKIE_ID, HEADER_ID, getBootstrap } from "@lucida/next";
-import type { Bootstrap, Flags, HeadersLike, LucidaNextOptions } from "@lucida/next";
+import { COOKIE_ID, HEADER_ID, getBootstrap } from "@lucida-analytics/next";
+import type { Bootstrap, Flags, HeadersLike, LucidaNextOptions } from "@lucida-analytics/next";
 import { OVERRIDES_COOKIE, readOverrides } from "./overrides.js";
 
 export { OVERRIDES_COOKIE, readOverrides } from "./overrides.js";

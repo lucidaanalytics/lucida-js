@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/openfeature",
+  "name": "@lucida-analytics/openfeature",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/openfeature" },
@@ -32,7 +32,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@lucida/node": "workspace:*",
+    "@lucida-analytics/node": "workspace:*",
     "@types/node": "^22.0.0",
     "tsup": "^8.5.0"
   }

@@ -1,13 +1,13 @@
-# @lucida/react-native
+# @lucida-analytics/react-native
 
-React Native SDK on top of `@lucida/sdk-core` (queue, batching, retry, identity, sessions, consent,
+React Native SDK on top of `@lucida-analytics/sdk-core` (queue, batching, retry, identity, sessions, consent,
 local flag evaluation). Native modules are injected, never imported, so the package has no native
 dependency and tests run without React Native.
 
 ```tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
-import { LucidaProvider, useFeatureFlag, useCapture } from "@lucida/react-native";
+import { LucidaProvider, useFeatureFlag, useCapture } from "@lucida-analytics/react-native";
 
 <LucidaProvider apiKey="lc_pk_..." options={{
   apiHost: "https://ingest.example.com",
@@ -56,7 +56,7 @@ event with `$install_store` only. Disable with `installAttribution: false`. The 
 
 - `beforeSend: [hook, ...]`: ordered `(event) => event | null`; return a changed event to amend, `null` to drop. A hook that throws is
   logged (when `debug`) and skipped: the event continues as it was before that hook. `sampleHook(0.1)` keeps ~10% and adds `$sample_rate`.
-  Hooks run as events enter the queue (a wrapper on the queue's `enqueue`, since `@lucida/sdk-core` is shared with the web SDK).
+  Hooks run as events enter the queue (a wrapper on the queue's `enqueue`, since `@lucida-analytics/sdk-core` is shared with the web SDK).
 - `personProfiles`: `"always"` (default), `"identified_only"` (events carry `$process_person_profile: false` until identify, alias, group or
   a person-property write; persisted, cleared by `reset()`), `"never"` (identify/alias/setPersonProperties are no-ops with a debug warning, `$set` is stripped).
 - Flags: `flagOptions: { bootstrap: { distinctId, isIdentified, flags, payloads }, sendFeatureFlagEvent, preload, evaluationContexts }`,

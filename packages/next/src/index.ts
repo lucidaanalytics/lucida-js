@@ -1,4 +1,4 @@
-// Edge- and server-component-safe surface. Browser components live in "@lucida/next/client", Node-only helpers in "@lucida/next/server".
+// Edge- and server-component-safe surface. Browser components live in "@lucida-analytics/next/client", Node-only helpers in "@lucida-analytics/next/server".
 export { lucidaMiddleware } from "./middleware.js";
 export type { LucidaMiddleware, RequestLike, ResponseLike } from "./middleware.js";
 export { getBootstrap, parseCookie } from "./bootstrap.js";

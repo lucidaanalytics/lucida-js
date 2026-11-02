@@ -1,4 +1,4 @@
-import type { WireEvent } from "@lucida/sdk-core";
+import type { WireEvent } from "@lucida-analytics/sdk-core";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DevtoolsTarget } from "../src/index.js";
 import { startWith, tick } from "./helpers.js";

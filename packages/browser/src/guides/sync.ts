@@ -1,4 +1,4 @@
-import type { Storage } from "@lucida/sdk-core";
+import type { Storage } from "@lucida-analytics/sdk-core";
 import type { Host } from "../types.js";
 
 /** Storage keys that make up a person's guide state (see progress.ts and index.ts). */

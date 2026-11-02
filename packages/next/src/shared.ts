@@ -1,5 +1,5 @@
-import { uuidv7 } from "@lucida/sdk-core";
-import type { FlagValue } from "@lucida/sdk-core";
+import { uuidv7 } from "@lucida-analytics/sdk-core";
+import type { FlagValue } from "@lucida-analytics/sdk-core";
 
 /** Request header the middleware forwards to server components / route handlers. */
 export const HEADER_ID = "x-lc-distinct-id";

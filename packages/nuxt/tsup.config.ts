@@ -6,5 +6,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   target: "es2022",
-  external: ["vue", "@lucida/browser", "@lucida/vue"],
+  external: ["vue", "@lucida-analytics/browser", "@lucida-analytics/vue"],
 });

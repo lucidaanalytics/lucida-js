@@ -3,7 +3,7 @@ import { splitContext, toDetails } from "./resolve.js";
 import type { EvaluationContext, Kind, LucidaDetails, ResolutionDetails } from "./resolve.js";
 import type { TrackingEventDetails } from "./server.js";
 
-/** The slice of the browser `Client` from @lucida/browser the provider uses; optional members degrade when absent. */
+/** The slice of the browser `Client` from @lucida-analytics/browser the provider uses; optional members degrade when absent. */
 export interface WebClient {
   identify(id: string): void;
   reset(): void;

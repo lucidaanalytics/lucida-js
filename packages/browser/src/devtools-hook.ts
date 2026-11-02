@@ -1,4 +1,4 @@
-import type { WireEvent } from "@lucida/sdk-core";
+import type { WireEvent } from "@lucida-analytics/sdk-core";
 import type { Client, Host } from "./types.js";
 
 /** What the SDK hands a devtools hook: enough to inspect events and open the toolbar or a replay. */

@@ -1,4 +1,4 @@
-import { createEdgeClient } from "@lucida/edge";
+import { createEdgeClient } from "@lucida-analytics/edge";
 
 /** Arguments of the component's capture action. The caller fixes uuid and timestamp, so a re-run dedupes. */
 export interface CaptureArgs {

@@ -1,5 +1,5 @@
-import { Lucida } from "@lucida/node";
-import type { LucidaOptions } from "@lucida/node";
+import { Lucida } from "@lucida-analytics/node";
+import type { LucidaOptions } from "@lucida-analytics/node";
 import type { Flags, LucidaNextOptions } from "./shared.js";
 
 export interface ServerOptions extends LucidaNextOptions {
@@ -37,4 +37,4 @@ export function nodeEvaluator(o: ServerOptions): (distinctId: string) => Promise
 }
 
 /** Server-side capture/flag access for route handlers and server actions. */
-export { Lucida } from "@lucida/node";
+export { Lucida } from "@lucida-analytics/node";

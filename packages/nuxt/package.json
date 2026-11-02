@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/nuxt",
+  "name": "@lucida-analytics/nuxt",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/nuxt" },
@@ -28,10 +28,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@lucida/vue": "workspace:*"
+    "@lucida-analytics/vue": "workspace:*"
   },
   "peerDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "nuxt": ">=3.8",
     "vue": ">=3.3"
   },
@@ -39,7 +39,7 @@
     "nuxt": { "optional": true }
   },
   "devDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "@types/node": "^22.0.0",
     "jsdom": "^26.1.0",
     "tsup": "^8.5.0",

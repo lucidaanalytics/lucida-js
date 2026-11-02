@@ -1,5 +1,5 @@
-import { Core, flagEventProps, offlineTransport } from "@lucida/sdk-core";
-import type { ConsentMode, ConsentState, FlagValue, Props, Storage, Transport } from "@lucida/sdk-core";
+import { Core, flagEventProps, offlineTransport } from "@lucida-analytics/sdk-core";
+import type { ConsentMode, ConsentState, FlagValue, Props, Storage, Transport } from "@lucida-analytics/sdk-core";
 import { appLifecycle, capacitorBridge, fetchTransport, memoryStorage, preferencesStorage, stripReserved } from "./adapters.js";
 import type { AppPluginLike, PreferencesLike } from "./adapters.js";
 import { createFlags } from "./flags.js";
@@ -57,7 +57,7 @@ export interface CapacitorClient {
 }
 
 /**
- * Hydrates Preferences, then builds the client on @lucida/sdk-core. `$app_opened` fires on creation and on every
+ * Hydrates Preferences, then builds the client on @lucida-analytics/sdk-core. `$app_opened` fires on creation and on every
  * return to the foreground, `$app_backgrounded` flushes the queue.
  */
 export async function createClient(apiKey: string, config: CapacitorConfig = {}): Promise<CapacitorClient> {

@@ -1,4 +1,4 @@
-import type { FlagDefinition } from "@lucida/sdk-core";
+import type { FlagDefinition } from "@lucida-analytics/sdk-core";
 
 type Maybe<T> = T | Promise<T>;
 

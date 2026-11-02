@@ -1,4 +1,4 @@
-import type { WireEvent } from "@lucida/sdk-core";
+import type { WireEvent } from "@lucida-analytics/sdk-core";
 import type { Host } from "../types.js";
 import { btn, el, input, labelled, select } from "./dom.js";
 

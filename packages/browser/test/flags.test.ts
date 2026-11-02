@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FlagDefinition } from "@lucida/sdk-core";
+import type { FlagDefinition } from "@lucida-analytics/sdk-core";
 import { start, startWith } from "./helpers.js";
 import { flags } from "../src/flags/index.js";
 

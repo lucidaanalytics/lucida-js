@@ -1,4 +1,4 @@
-import type { FlagDefinition } from "@lucida/sdk-core";
+import type { FlagDefinition } from "@lucida-analytics/sdk-core";
 import type { FlagDefinitionCacheProvider } from "./defcache.js";
 
 type Maybe<T> = T | Promise<T>;

@@ -1,4 +1,4 @@
-import type { Client } from "@lucida/browser";
+import type { Client } from "@lucida-analytics/browser";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

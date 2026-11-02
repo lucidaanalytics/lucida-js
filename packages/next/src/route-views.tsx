@@ -1,6 +1,6 @@
 "use client";
 
-import { useLucida } from "@lucida/react";
+import { useLucida } from "@lucida-analytics/react";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { routeTemplate } from "./route.js";

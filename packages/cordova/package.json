@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/cordova",
+  "name": "@lucida-analytics/cordova",
   "version": "0.1.0",
   "description": "Lucida analytics, feature flags and session replay for Cordova and Ionic (Cordova) apps, bridging the native Lucida iOS and Android SDKs.",
   "license": "Apache-2.0",
@@ -8,7 +8,7 @@
   "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
   "keywords": ["ecosystem:cordova", "cordova-android", "cordova-ios", "analytics", "feature-flags", "session-replay", "lucida"],
   "cordova": {
-    "id": "@lucida/cordova",
+    "id": "@lucida-analytics/cordova",
     "platforms": ["android", "ios"]
   },
   "main": "./www/lucida.js",

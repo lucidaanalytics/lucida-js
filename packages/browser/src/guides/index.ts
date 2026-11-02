@@ -1,6 +1,6 @@
 import { claim } from "../arbiter.js";
 import { eligible } from "../targeting.js";
-import type { Props, Storage } from "@lucida/sdk-core";
+import type { Props, Storage } from "@lucida-analytics/sdk-core";
 import type { Guide, Host, Module } from "../types.js";
 import { heldOut, variantOf } from "./ab.js";
 import { showChangelog } from "./changelog.js";

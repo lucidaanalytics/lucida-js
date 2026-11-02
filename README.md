@@ -3,7 +3,7 @@
 Every `@lucida/*` npm package (browser, node, edge, react, vue, svelte, next, and the other framework adapters) in one pnpm workspace under `packages/`.
 
 ```sh
-pnpm add @lucida/browser   # or @lucida/node, @lucida/react, ...
+pnpm add @lucida-analytics/browser   # or @lucida-analytics/node, @lucida-analytics/react, ...
 ```
 
 Develop: `pnpm install && pnpm -r test`. Packages reference each other with `workspace:*`; releases are tag-driven (`v*`) and publish every package whose version is not on npm yet, with provenance.

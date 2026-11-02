@@ -1,6 +1,6 @@
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
-import type { Transport } from "@lucida/sdk-core";
+import type { Transport } from "@lucida-analytics/sdk-core";
 
 const gz = promisify(gzip);
 /** Bodies under this size are not worth compressing. */

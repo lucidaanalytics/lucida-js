@@ -1,4 +1,4 @@
-import type { Core, FlagValue } from "@lucida/sdk-core";
+import type { Core, FlagValue } from "@lucida-analytics/sdk-core";
 
 const CACHE_KEY = "lc_flags";
 

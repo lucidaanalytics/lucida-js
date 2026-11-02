@@ -1,4 +1,4 @@
-import type { Core, Props, Storage, WireEvent } from "@lucida/sdk-core";
+import type { Core, Props, Storage, WireEvent } from "@lucida-analytics/sdk-core";
 import { rateLimiter } from "./ratelimit.js";
 import type { RateLimitConfig } from "./ratelimit.js";
 

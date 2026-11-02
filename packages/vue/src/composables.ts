@@ -1,4 +1,4 @@
-import type { Client, FlagValue } from "@lucida/browser";
+import type { Client, FlagValue } from "@lucida-analytics/browser";
 import { computed, onMounted, watch } from "vue";
 import type { ComputedRef } from "vue";
 import { useLucidaState } from "./plugin.js";

@@ -1,5 +1,5 @@
-import { sha256Hex } from "@lucida/sdk-core";
-import type { Core } from "@lucida/sdk-core";
+import { sha256Hex } from "@lucida-analytics/sdk-core";
+import type { Core } from "@lucida-analytics/sdk-core";
 import { DEAD_SWIPE_MIN_DISTANCE, DEAD_SWIPE_SETTLE_MS, deadSwipeDecision } from "./dead-swipe.js";
 import { hitTest } from "./replay-hit.js";
 import { compilePatterns, maskSnapshotText, screenMasked } from "./replay-masking.js";

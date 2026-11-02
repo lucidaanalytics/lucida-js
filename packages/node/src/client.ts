@@ -1,5 +1,5 @@
-import { AgentConversation, EventQueue, FlagSnapshot, backoffDelay, isRetryable, uuidv7, withFlagProps } from "@lucida/sdk-core";
-import type { AgentConversationOptions, BackoffOptions, FlagDefinition, FlagValue, Props, StickyStore, Transport, WireEvent } from "@lucida/sdk-core";
+import { AgentConversation, EventQueue, FlagSnapshot, backoffDelay, isRetryable, uuidv7, withFlagProps } from "@lucida-analytics/sdk-core";
+import type { AgentConversationOptions, BackoffOptions, FlagDefinition, FlagValue, Props, StickyStore, Transport, WireEvent } from "@lucida-analytics/sdk-core";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { getContext } from "./context.js";

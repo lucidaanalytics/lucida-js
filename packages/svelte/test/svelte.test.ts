@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Client } from "@lucida/browser";
+import type { Client } from "@lucida-analytics/browser";
 import { createLucida } from "../src/index.js";
 
 type FlagCb = (f: Record<string, boolean | string>) => void;
@@ -17,7 +17,7 @@ function fakeClient() {
   return { client, calls, push: (f: Record<string, boolean | string>) => cb(f) };
 }
 
-describe("@lucida/svelte", () => {
+describe("@lucida-analytics/svelte", () => {
   it("flag store starts from bootstrap, updates on reload, exposes only on a defined change", () => {
     const f = fakeClient();
     const l = createLucida({ client: f.client, bootstrapFlags: { beta: "b" } });

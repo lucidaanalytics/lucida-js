@@ -1,13 +1,13 @@
 "use client";
 
-import { LucidaProvider } from "@lucida/react";
-import type { BrowserConfig } from "@lucida/browser";
+import { LucidaProvider } from "@lucida-analytics/react";
+import type { BrowserConfig } from "@lucida-analytics/browser";
 import type { ReactNode } from "react";
 import { PAGE_PROP } from "./pages.js";
 import { LucidaPagesRouteViews, LucidaRouteViews } from "./route-views.js";
 import type { Bootstrap } from "./shared.js";
 
-export * from "@lucida/react";
+export * from "@lucida-analytics/react";
 export { LucidaRouteViews, LucidaPagesRouteViews } from "./route-views.js";
 export { routeTemplate } from "./route.js";
 

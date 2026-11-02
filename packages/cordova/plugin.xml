@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android"
-        id="@lucida/cordova" version="0.1.0">
+        id="@lucida-analytics/cordova" version="0.1.0">
   <name>Lucida</name>
   <description>Lucida analytics, feature flags and session replay (bridges the native Lucida iOS and Android SDKs)</description>
   <license>Apache-2.0</license>

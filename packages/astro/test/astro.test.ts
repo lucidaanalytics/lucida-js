@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEdgeClient } from "@lucida/edge";
+import { createEdgeClient } from "@lucida-analytics/edge";
 import { bootstrapScript, lucidaMiddleware } from "../src/index.js";
 
 const fetchStub = (async () =>

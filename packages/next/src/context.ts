@@ -1,5 +1,5 @@
-import { requestContext } from "@lucida/sdk-core";
-import type { RequestContext } from "@lucida/sdk-core";
+import { requestContext } from "@lucida-analytics/sdk-core";
+import type { RequestContext } from "@lucida-analytics/sdk-core";
 import type { HeadersLike } from "./bootstrap.js";
 import { HEADER_CTX } from "./shared.js";
 import type { LucidaNextOptions } from "./shared.js";

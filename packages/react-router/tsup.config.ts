@@ -6,6 +6,6 @@ export default defineConfig({
   dts: true,
   clean: true,
   target: "es2022",
-  noExternal: ["@lucida/sdk-core"],
-  external: ["react", "react/jsx-runtime", "@lucida/browser", "@lucida/react"],
+  noExternal: ["@lucida-analytics/sdk-core"],
+  external: ["react", "react/jsx-runtime", "@lucida-analytics/browser", "@lucida-analytics/react"],
 });

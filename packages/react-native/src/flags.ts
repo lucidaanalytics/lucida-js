@@ -1,5 +1,5 @@
-import { FlagFreshness, evaluateAll, flagResult, requiresServer, servable, startFlagSync } from "@lucida/sdk-core";
-import type { Core, EvalContext, FlagDefinition, FlagResult, Props } from "@lucida/sdk-core";
+import { FlagFreshness, evaluateAll, flagResult, requiresServer, servable, startFlagSync } from "@lucida-analytics/sdk-core";
+import type { Core, EvalContext, FlagDefinition, FlagResult, Props } from "@lucida-analytics/sdk-core";
 import type { AppStateLike } from "./adapters.js";
 import type { FlagOptions } from "./types.js";
 import type { FlagValue } from "./types.js";

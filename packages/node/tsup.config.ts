@@ -7,5 +7,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   target: "node20",
-  noExternal: ["@lucida/sdk-core"],
+  noExternal: ["@lucida-analytics/sdk-core"],
 });

@@ -1,4 +1,4 @@
-import type { Enrichment } from "@lucida/sdk-core";
+import type { Enrichment } from "@lucida-analytics/sdk-core";
 import { CLICK_IDS } from "./clickids.js";
 
 export const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"] as const;

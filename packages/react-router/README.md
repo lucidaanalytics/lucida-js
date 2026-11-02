@@ -1,13 +1,13 @@
-# @lucida/react-router
+# @lucida-analytics/react-router
 
 Lucida for React Router v6.4+ and v7 (declarative, data and framework mode). It re-exports everything from
-`@lucida/react` and adds route-aware pageviews and a server request context. It does not import React Router, so
+`@lucida-analytics/react` and adds route-aware pageviews and a server request context. It does not import React Router, so
 it works with any version.
 
 ## Client
 
 ```tsx
-import { LucidaProvider, LucidaPageviews, routeTemplateFromMatches } from "@lucida/react-router";
+import { LucidaProvider, LucidaPageviews, routeTemplateFromMatches } from "@lucida-analytics/react-router";
 import { Outlet, useLocation, useMatches } from "react-router";
 
 function Pageviews() {
@@ -35,7 +35,7 @@ export default function Root() {
 ## Framework mode (server)
 
 ```ts
-import { lucidaRequestContext } from "@lucida/react-router";
+import { lucidaRequestContext } from "@lucida-analytics/react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const ctx = lucidaRequestContext(request, { trustProxy: true });
@@ -46,5 +46,5 @@ export async function loader({ request }: LoaderFunctionArgs) {
 `ctx` carries the distinct id and session id the browser sent (enable `tracingHeaders: ["your-api-host"]` in the
 browser SDK; same-origin loaders need your own host listed too) and the request props `$current_url`,
 `$request_method`, `$request_path`, `$user_agent`, `$ip`. The tracing headers are client-controlled: use them to
-stitch analytics, never for auth. For flag bootstrap on the server use `@lucida/remix`'s `createLucida().load(request)`
+stitch analytics, never for auth. For flag bootstrap on the server use `@lucida-analytics/remix`'s `createLucida().load(request)`
 (the same edge helper works with React Router framework mode).

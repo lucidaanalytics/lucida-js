@@ -1,4 +1,4 @@
-import { uuidv7 } from "@lucida/sdk-core";
+import { uuidv7 } from "@lucida-analytics/sdk-core";
 import type { CaptureArgs, FlagArgs } from "./component/handlers.js";
 
 /** `components.lucida` from the app's generated api (function references are opaque here). */

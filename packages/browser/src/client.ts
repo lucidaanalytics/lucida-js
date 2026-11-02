@@ -1,5 +1,5 @@
-import { AgentConversation, Core, GatedStorage, flagEventProps, flagResult, interventionHub, offlineTransport } from "@lucida/sdk-core";
-import type { Props, Storage, Transport } from "@lucida/sdk-core";
+import { AgentConversation, Core, GatedStorage, flagEventProps, flagResult, interventionHub, offlineTransport } from "@lucida-analytics/sdk-core";
+import type { Props, Storage, Transport } from "@lucida-analytics/sdk-core";
 import { isBotUserAgent } from "./bot-ua.js";
 import { clickIdTracker } from "./clickids.js";
 import { captureCspViolations, cspHint } from "./csp.js";

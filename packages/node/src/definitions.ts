@@ -1,5 +1,5 @@
-import { FlagStream } from "@lucida/sdk-core";
-import type { BackoffOptions, FlagDefinition } from "@lucida/sdk-core";
+import { FlagStream } from "@lucida-analytics/sdk-core";
+import type { BackoffOptions, FlagDefinition } from "@lucida-analytics/sdk-core";
 import { adoptCached, publishCached } from "./defcache.js";
 import type { FlagDefinitionCacheProvider } from "./defcache.js";
 

@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 // platform browser: fflate's node entry would pull `module`/worker_threads into the lazy chunk
-const common = { format: ["esm" as const], dts: true, minify: true, target: "es2022", platform: "browser" as const, noExternal: ["@lucida/sdk-core"] };
+const common = { format: ["esm" as const], dts: true, minify: true, target: "es2022", platform: "browser" as const, noExternal: ["@lucida-analytics/sdk-core"] };
 
 // sdk-core is bundled in (noExternal) so the published package has no private runtime dependency.
 // Each non-replay entry is self-contained (splitting off) so its gzip size is its real cost.
@@ -33,7 +33,7 @@ export default defineConfig([
     entry: { replay: "src/replay/index.ts", consent: "src/consent/index.ts" },
     splitting: true,
     // the recorder is bundled with its deps (rrweb, fflate) into the lazy chunk
-    noExternal: ["@lucida/sdk-core", "@rrweb/record", "fflate"],
+    noExternal: ["@lucida-analytics/sdk-core", "@rrweb/record", "fflate"],
   },
   {
     // `guides` splits too: the persistent kinds (hotspot, beacon, badge, launcher) are a lazy chunk.

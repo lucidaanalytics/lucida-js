@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/flags-sdk",
+  "name": "@lucida-analytics/flags-sdk",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/flags-sdk" },
@@ -27,7 +27,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@lucida/next": "workspace:*"
+    "@lucida-analytics/next": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

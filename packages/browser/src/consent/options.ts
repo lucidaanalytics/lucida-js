@@ -1,4 +1,4 @@
-import type { ConsentCategory, ConsentState } from "@lucida/sdk-core";
+import type { ConsentCategory, ConsentState } from "@lucida-analytics/sdk-core";
 
 export type BannerPosition = "bottom" | "top" | "center" | "bottom-left" | "bottom-right";
 

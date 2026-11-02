@@ -1,5 +1,5 @@
-import { enrollmentCapture, enrollmentProp } from "@lucida/sdk-core";
-import type { EarlyAccessFeature } from "@lucida/sdk-core";
+import { enrollmentCapture, enrollmentProp } from "@lucida-analytics/sdk-core";
+import type { EarlyAccessFeature } from "@lucida-analytics/sdk-core";
 import type { Host, Module } from "../types.js";
 
 const KEY = "lc_early_access";

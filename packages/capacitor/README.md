@@ -1,17 +1,17 @@
-# @lucida/capacitor
+# @lucida-analytics/capacitor
 
 > Build-host note: this package was written without running a compiler, the tests or a Capacitor app.
-> Verify with `pnpm install`, `pnpm --filter @lucida/capacitor typecheck`, `pnpm --filter @lucida/capacitor test`,
+> Verify with `pnpm install`, `pnpm --filter @lucida-analytics/capacitor typecheck`, `pnpm --filter @lucida-analytics/capacitor test`,
 > then a smoke run in an iOS and an Android Capacitor app (events in Live events, `$os`, lifecycle events).
 
-Lucida for Capacitor apps, built on `@lucida/sdk-core` (same wire format, consent gate, queue and retry as the
+Lucida for Capacitor apps, built on `@lucida-analytics/sdk-core` (same wire format, consent gate, queue and retry as the
 browser and React Native SDKs). It does not depend on `@capacitor/core`: pass the plugins you already use, or the
 SDK reads them from the `window.Capacitor` bridge.
 
 ```ts
 import { Preferences } from "@capacitor/preferences";
 import { App } from "@capacitor/app";
-import { createClient } from "@lucida/capacitor";
+import { createClient } from "@lucida-analytics/capacitor";
 
 const lucida = await createClient("lc_pk_...", {
   apiHost: "https://app.lucida.dev",

@@ -1,4 +1,4 @@
-import type { Props, Storage, Transport } from "@lucida/sdk-core";
+import type { Props, Storage, Transport } from "@lucida-analytics/sdk-core";
 
 /** The slice of `@capacitor/preferences` the SDK uses (inject `Preferences`, or it is read from the Capacitor bridge). */
 export interface PreferencesLike {

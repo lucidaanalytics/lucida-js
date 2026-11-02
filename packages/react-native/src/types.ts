@@ -1,4 +1,4 @@
-import type { EvalContext, FlagDefinition, FlagResult, FlagValue, Intervention, Props, Transport } from "@lucida/sdk-core";
+import type { EvalContext, FlagDefinition, FlagResult, FlagValue, Intervention, Props, Transport } from "@lucida-analytics/sdk-core";
 import type { AppStateLike, AsyncStorageLike, QueueCipher } from "./adapters.js";
 import type { Autocapture, AutocaptureConfig } from "./autocapture.js";
 import type { GuidesService } from "./guides.js";

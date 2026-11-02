@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { FlagDefinition } from "@lucida/sdk-core";
+import type { FlagDefinition } from "@lucida-analytics/sdk-core";
 import { autocapture } from "../src/autocapture/index.js";
 import { gcmConsent, gcmToConsent, tcfConsent, tcfToConsent } from "../src/consent/index.js";
 import { flags } from "../src/flags/index.js";

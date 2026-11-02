@@ -1,5 +1,5 @@
-import { bootstrapScript, createEdgeClient, requestBootstrap } from "@lucida/edge";
-import type { BootstrapOptions, EdgeClient, EdgeOptions, RequestBootstrap } from "@lucida/edge";
+import { bootstrapScript, createEdgeClient, requestBootstrap } from "@lucida-analytics/edge";
+import type { BootstrapOptions, EdgeClient, EdgeOptions, RequestBootstrap } from "@lucida-analytics/edge";
 
 export { bootstrapScript };
 export type { RequestBootstrap };

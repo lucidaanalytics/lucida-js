@@ -1,5 +1,5 @@
-import { backoffDelay, isRetryable } from "@lucida/sdk-core";
-import type { BackoffOptions } from "@lucida/sdk-core";
+import { backoffDelay, isRetryable } from "@lucida-analytics/sdk-core";
+import type { BackoffOptions } from "@lucida-analytics/sdk-core";
 import { MAX_CHUNK_BYTES } from "./config.js";
 import { gzipAsync, gzipBytes } from "./gzip.js";
 

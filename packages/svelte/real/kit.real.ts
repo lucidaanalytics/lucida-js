@@ -2,7 +2,7 @@
 // our handle must satisfy SvelteKit's own `Handle` type and chain with another handle the way `sequence()` does.
 // sequence() itself is not called: since 2.x it needs the request store that only the Kit server runtime sets.
 import type { Handle } from "@sveltejs/kit";
-import { createEdgeClient } from "@lucida/edge";
+import { createEdgeClient } from "@lucida-analytics/edge";
 import { describe, expect, it } from "vitest";
 import { lucidaHandle } from "../src/server.js";
 

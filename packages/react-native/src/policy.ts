@@ -1,4 +1,4 @@
-import type { Core, Props, Storage, WireEvent } from "@lucida/sdk-core";
+import type { Core, Props, Storage, WireEvent } from "@lucida-analytics/sdk-core";
 
 /** A `beforeSend` hook: return the (possibly amended) event, or null to drop it. */
 export type BeforeSend = (event: WireEvent) => WireEvent | null;

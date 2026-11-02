@@ -1,4 +1,4 @@
-import type { LucidaPluginOptions } from "@lucida/vue";
+import type { LucidaPluginOptions } from "@lucida-analytics/vue";
 
 /** Module options. `apiKey` is a public key (safe in client bundles); `options` is the browser SDK config. */
 export type LucidaModuleOptions = Pick<LucidaPluginOptions, "apiKey" | "options" | "bootstrapFlags">;
@@ -18,14 +18,14 @@ export const COMPOSABLES = ["useLucida", "useCapture", "useFlag", "useFlagPayloa
 /**
  * Nuxt module (a plain `(options, nuxt)` function, which Nuxt accepts): `modules: [[lucidaModule, { apiKey }]]`.
  * Registers the runtime plugin, puts the options in `runtimeConfig.public.lucida` (so `NUXT_PUBLIC_LUCIDA_API_KEY`
- * overrides it per environment) and auto-imports the @lucida/vue composables.
+ * overrides it per environment) and auto-imports the @lucida-analytics/vue composables.
  */
 export function lucidaModule(options: LucidaModuleOptions, nuxt: NuxtLike): void {
   const pub = nuxt.options.runtimeConfig.public;
   pub.lucida = { ...(pub.lucida as object | undefined), ...options };
-  nuxt.options.plugins.push({ src: "@lucida/nuxt/runtime/plugin", mode: "all" });
+  nuxt.options.plugins.push({ src: "@lucida-analytics/nuxt/runtime/plugin", mode: "all" });
   nuxt.options.build.transpile.push(/@lucida\//);
   nuxt.hook("imports:extend", (imports) => {
-    for (const name of COMPOSABLES) imports.push({ name, from: "@lucida/vue" });
+    for (const name of COMPOSABLES) imports.push({ name, from: "@lucida-analytics/vue" });
   });
 }

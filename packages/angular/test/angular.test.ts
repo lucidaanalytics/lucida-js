@@ -1,4 +1,4 @@
-import type { Client } from "@lucida/browser";
+import type { Client } from "@lucida-analytics/browser";
 import { describe, expect, it } from "vitest";
 import { LucidaService, provideLucida } from "../src/index.js";
 
@@ -19,7 +19,7 @@ function fake() {
   return { client, calls, push: (f: Record<string, boolean | string>) => cb(f) };
 }
 
-describe("@lucida/angular", () => {
+describe("@lucida-analytics/angular", () => {
   it("provideLucida returns a provider literal that builds the service", () => {
     const f = fake();
     const [p] = provideLucida({ client: f.client });

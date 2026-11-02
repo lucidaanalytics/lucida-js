@@ -1,4 +1,4 @@
-import type { Props } from "@lucida/sdk-core";
+import type { Props } from "@lucida-analytics/sdk-core";
 import type { FrustrationConfig, Host } from "../types.js";
 
 const DEAD_WAIT_MS = 700;

@@ -15,7 +15,7 @@ export interface Rewrite {
  * strict CSPs see first-party traffic. Only the public SDK surface (/v1/*) is forwarded.
  *
  * ```js
- * const { lucidaRewrites } = require("@lucida/next");
+ * const { lucidaRewrites } = require("@lucida-analytics/next");
  * module.exports = { skipTrailingSlashRedirect: true, async rewrites() { return lucidaRewrites(); } };
  * ```
  * and init the browser SDK with `apiHost: "/ingest"`.

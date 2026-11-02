@@ -1,5 +1,5 @@
 import { gunzipSync } from "node:zlib";
-import type { FlagDefinition } from "@lucida/sdk-core";
+import type { FlagDefinition } from "@lucida-analytics/sdk-core";
 
 export interface Req {
   url: string;

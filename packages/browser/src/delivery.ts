@@ -1,4 +1,4 @@
-import type { Transport } from "@lucida/sdk-core";
+import type { Transport } from "@lucida-analytics/sdk-core";
 import type { LazyModuleName } from "./config-types.js";
 import type { Module } from "./types.js";
 

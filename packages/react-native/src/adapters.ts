@@ -1,4 +1,4 @@
-import type { Storage, Transport } from "@lucida/sdk-core";
+import type { Storage, Transport } from "@lucida-analytics/sdk-core";
 
 /** The slice of @react-native-async-storage/async-storage the SDK uses (inject the real module). */
 export interface AsyncStorageLike {

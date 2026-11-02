@@ -1,6 +1,6 @@
 import { createApp, defineComponent, h, nextTick } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Client } from "@lucida/browser";
+import type { Client } from "@lucida-analytics/browser";
 import { lucida, useActiveFlags, useCapture, useConsent, useFlag, useFlagPayload, useLucida } from "../src/index.js";
 
 type FlagCb = (f: Record<string, boolean | string>) => void;
@@ -37,7 +37,7 @@ function mount(setup: () => unknown, opts: object) {
   return out;
 }
 
-describe("@lucida/vue", () => {
+describe("@lucida-analytics/vue", () => {
   it("useFlag is reactive, exposes after mount, and follows flag reloads", async () => {
     const f = fakeClient();
     const r = mount(() => ({ flag: useFlag("beta"), active: useActiveFlags(), payload: useFlagPayload("beta") }), {

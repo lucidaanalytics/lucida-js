@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/browser",
+  "name": "@lucida-analytics/browser",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/browser" },
@@ -113,7 +113,7 @@
     "e2e": "pnpm build && vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
-    "@lucida/sdk-core": "workspace:*",
+    "@lucida-analytics/sdk-core": "workspace:*",
     "@rrweb/record": "2.2.0",
     "fflate": "0.8.3"
   },

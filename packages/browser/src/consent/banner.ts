@@ -1,4 +1,4 @@
-import type { ConsentCategory, ConsentState } from "@lucida/sdk-core";
+import type { ConsentCategory, ConsentState } from "@lucida-analytics/sdk-core";
 import type { Host } from "../types.js";
 import { applyConsent } from "./record.js";
 import type { BannerOptions, BannerPosition, BannerTexts } from "./options.js";

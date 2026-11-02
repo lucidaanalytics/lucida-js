@@ -1,4 +1,4 @@
-import type { AgentConversation, AgentConversationOptions, Core, ConsentCategory, ConsentMode, ConsentState, ConsentStatus, EarlyAccessService, EvalContext, FlagDefinition, FlagResult, Intervention, Props, Storage, Transport, WireEvent } from "@lucida/sdk-core";
+import type { AgentConversation, AgentConversationOptions, Core, ConsentCategory, ConsentMode, ConsentState, ConsentStatus, EarlyAccessService, EvalContext, FlagDefinition, FlagResult, Intervention, Props, Storage, Transport, WireEvent } from "@lucida-analytics/sdk-core";
 import type { ConsentUi } from "./consent/options.js";
 import type { ReplayConfig, ReplayOwner } from "./replay/config.js";
 import type { TriggerGroup } from "./replay/groups.js";
@@ -592,7 +592,7 @@ export interface Client {
   /** Changelog widget (no-ops until the `guides` module is installed). */
   readonly guides: GuidesService;
   readonly replay: ReplayControl;
-  /** First-party consent banner (no-ops until the `consentBanner` module from "@lucida/browser/consent" is installed). */
+  /** First-party consent banner (no-ops until the `consentBanner` module from "@lucida-analytics/browser/consent" is installed). */
   readonly consent: ConsentUi;
   /**
    * Start the toolbar from a launch token you carried yourself (frameworks that rewrite the URL before the SDK reads

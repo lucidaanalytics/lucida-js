@@ -1,4 +1,4 @@
-import { sha256Hex } from "@lucida/sdk-core";
+import { sha256Hex } from "@lucida-analytics/sdk-core";
 import type { Module } from "../types.js";
 
 const IGNORE = "[data-lc-ignore]";

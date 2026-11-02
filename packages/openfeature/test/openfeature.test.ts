@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Lucida } from "@lucida/node";
+import { Lucida } from "@lucida-analytics/node";
 import { LucidaServerProvider, LucidaWebProvider } from "../src/index.js";
 
 const flags = [

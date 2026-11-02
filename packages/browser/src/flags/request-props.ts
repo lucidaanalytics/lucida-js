@@ -1,4 +1,4 @@
-import type { Storage } from "@lucida/sdk-core";
+import type { Storage } from "@lucida-analytics/sdk-core";
 import { CLICK_IDS } from "../clickids.js";
 import { UTM_PARAMS } from "../env.js";
 import type { Host, Module } from "../types.js";

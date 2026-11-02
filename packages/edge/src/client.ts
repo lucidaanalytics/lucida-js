@@ -1,5 +1,5 @@
-import { FlagSnapshot, evaluateAll, requiresServer, servable, uuidv7, withFlagProps } from "@lucida/sdk-core";
-import type { EvalContext, FlagDefinition, FlagValue, Props } from "@lucida/sdk-core";
+import { FlagSnapshot, evaluateAll, requiresServer, servable, uuidv7, withFlagProps } from "@lucida-analytics/sdk-core";
+import type { EvalContext, FlagDefinition, FlagValue, Props } from "@lucida-analytics/sdk-core";
 
 export interface EdgeOptions {
   /** Public project key (lc_pk_...): capture and remote flag evaluation. */

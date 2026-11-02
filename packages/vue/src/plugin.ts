@@ -1,5 +1,5 @@
-import { init } from "@lucida/browser";
-import type { BrowserConfig, Client, FlagValue } from "@lucida/browser";
+import { init } from "@lucida-analytics/browser";
+import type { BrowserConfig, Client, FlagValue } from "@lucida-analytics/browser";
 import { inject, shallowRef } from "vue";
 import type { InjectionKey, Plugin, ShallowRef } from "vue";
 

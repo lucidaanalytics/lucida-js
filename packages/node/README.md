@@ -1,9 +1,9 @@
-# @lucida/node
+# @lucida-analytics/node
 
-Server SDK. Name a `distinctId` per call, or run inside `withContext` and omit it; events are batched through the shared `@lucida/sdk-core` queue.
+Server SDK. Name a `distinctId` per call, or run inside `withContext` and omit it; events are batched through the shared `@lucida-analytics/sdk-core` queue.
 
 ```ts
-import { Lucida } from "@lucida/node";
+import { Lucida } from "@lucida-analytics/node";
 
 const lucida = new Lucida("lc_pk_...", { host: "https://app.lucida.dev", secretKey: "lc_sk_..." });
 lucida.capture({ distinctId: "u1", event: "purchase", properties: { total: 12 } });
@@ -18,7 +18,7 @@ Options: `host`, `flushAt` (20), `flushIntervalMs` (10 000), `secretKey` (alias 
 ## Contexts and middleware
 
 ```ts
-import { withContext, getContext } from "@lucida/node";
+import { withContext, getContext } from "@lucida-analytics/node";
 
 withContext({ distinctId: "u1", sessionId: "s1", properties: { svc: "api" } }, () => {
   lucida.capture({ event: "purchase" }); // distinct id, $session_id and properties come from the context
@@ -30,12 +30,12 @@ Built on `AsyncLocalStorage`; explicit `capture` arguments always win. `getConte
 `getContext()!.distinctId = user.id` after login works. `readTracingHeaders(headers)` reads the browser SDK's
 `X-Lucida-Distinct-Id` / `X-Lucida-Session-Id` (control chars stripped, trimmed, 1000 chars; client-controlled, never use for auth).
 
-`@lucida/node/middleware` (no framework dependency; minimal structural types) stamps `$current_url`, `$request_method`,
+`@lucida-analytics/node/middleware` (no framework dependency; minimal structural types) stamps `$current_url`, `$request_method`,
 `$request_path`, `$user_agent`, `$ip` (first `X-Forwarded-For` entry only with `trustProxy: true`) plus the tracing ids.
 Options for all three: `requestFilter`, `extraProperties`, `captureTracingHeaders` (default true), `trustProxy`.
 
 ```ts
-import { setupRequestContext, fastifyRequestContext, LucidaInterceptor } from "@lucida/node/middleware";
+import { setupRequestContext, fastifyRequestContext, LucidaInterceptor } from "@lucida-analytics/node/middleware";
 
 app.use(setupRequestContext(lucida));                                  // Express
 const h = fastifyRequestContext(lucida);                               // Fastify

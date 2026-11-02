@@ -1,4 +1,4 @@
-import type { Props } from "@lucida/sdk-core";
+import type { Props } from "@lucida-analytics/sdk-core";
 import { buildChain, chainToString } from "../autocapture/chain.js";
 import { clickProps, cssSelector } from "../autocapture/click.js";
 import type { Host, Module } from "../types.js";

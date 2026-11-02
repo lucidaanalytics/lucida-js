@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/angular",
+  "name": "@lucida-analytics/angular",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/angular" },
@@ -23,13 +23,13 @@
   },
   "peerDependencies": {
     "@angular/core": ">=16",
-    "@lucida/browser": "workspace:*"
+    "@lucida-analytics/browser": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@angular/core": { "optional": true }
   },
   "devDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "@types/node": "^22.0.0",
     "jsdom": "^26.1.0",
     "tsup": "^8.5.0"

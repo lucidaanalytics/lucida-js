@@ -1,4 +1,4 @@
-import type { Client, FlagValue } from "@lucida/browser";
+import type { Client, FlagValue } from "@lucida-analytics/browser";
 import { useCallback, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useLucidaContext } from "./provider.js";

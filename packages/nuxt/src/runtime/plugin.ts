@@ -1,5 +1,5 @@
-import { lucida } from "@lucida/vue";
-import type { LucidaPluginOptions } from "@lucida/vue";
+import { lucida } from "@lucida-analytics/vue";
+import type { LucidaPluginOptions } from "@lucida-analytics/vue";
 import type { App } from "vue";
 
 /** What the plugin needs from Nuxt: the Vue app and the public runtime config the module filled. */

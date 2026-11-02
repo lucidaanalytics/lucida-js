@@ -1,4 +1,4 @@
-import type { Props } from "@lucida/sdk-core";
+import type { Props } from "@lucida-analytics/sdk-core";
 import type { AutocaptureConfig, Host } from "../types.js";
 import { rageHint, watchDeadClick } from "./frustration.js";
 

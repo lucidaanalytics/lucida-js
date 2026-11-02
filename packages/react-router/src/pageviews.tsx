@@ -1,4 +1,4 @@
-import { useLucida } from "@lucida/react";
+import { useLucida } from "@lucida-analytics/react";
 import { useEffect, useRef } from "react";
 
 /** The slice of a React Router match this package reads (data routers: `router.state.matches`, `useMatches()`). */

@@ -1,1 +1,1 @@
-export { routeTemplate } from "@lucida/sdk-core";
+export { routeTemplate } from "@lucida-analytics/sdk-core";

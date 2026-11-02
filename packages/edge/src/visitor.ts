@@ -1,6 +1,6 @@
-import { uuidv7 } from "@lucida/sdk-core";
+import { uuidv7 } from "@lucida-analytics/sdk-core";
 
-/** First-party cookie holding the anonymous distinct id (same name as @lucida/next). */
+/** First-party cookie holding the anonymous distinct id (same name as @lucida-analytics/next). */
 export const DISTINCT_ID_COOKIE = "lc_distinct_id";
 
 export interface Visitor {

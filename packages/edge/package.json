@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/edge",
+  "name": "@lucida-analytics/edge",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/edge" },
@@ -31,7 +31,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@lucida/sdk-core": "workspace:*"
+    "@lucida-analytics/sdk-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

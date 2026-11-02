@@ -10,7 +10,7 @@ interface ReadOptions {
   sendExposure?: boolean;
 }
 
-/** The slice of `Lucida` from @lucida/node the provider uses; the optional members degrade when absent. */
+/** The slice of `Lucida` from @lucida-analytics/node the provider uses; the optional members degrade when absent. */
 export interface ServerClient {
   getFeatureFlag(key: string, distinctId: string, o?: ReadOptions): Promise<boolean | string | undefined>;
   getFeatureFlagPayload(key: string, distinctId: string, o?: ReadOptions): Promise<unknown>;

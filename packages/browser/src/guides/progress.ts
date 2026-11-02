@@ -1,4 +1,4 @@
-import type { Storage } from "@lucida/sdk-core";
+import type { Storage } from "@lucida-analytics/sdk-core";
 
 /** Guide state kept in the consent-gated storage: views, tour position, checklist items and dismissals. */
 export function guideState(store: Storage) {

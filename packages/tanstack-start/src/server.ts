@@ -1,7 +1,7 @@
-import { requestBootstrap } from "@lucida/edge";
-import type { BootstrapOptions, EdgeClient, RequestBootstrap } from "@lucida/edge";
-import { requestContext } from "@lucida/sdk-core";
-import type { RequestContext } from "@lucida/sdk-core";
+import { requestBootstrap } from "@lucida-analytics/edge";
+import type { BootstrapOptions, EdgeClient, RequestBootstrap } from "@lucida-analytics/edge";
+import { requestContext } from "@lucida-analytics/sdk-core";
+import type { RequestContext } from "@lucida-analytics/sdk-core";
 
 /**
  * Request middleware context: returns `{ lucida }` to hand to `next({ context })` so server functions and routes can read

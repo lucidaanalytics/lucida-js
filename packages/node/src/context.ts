@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { cleanHeader, DISTINCT_ID_HEADER, SESSION_ID_HEADER } from "@lucida/sdk-core";
-import type { Props } from "@lucida/sdk-core";
+import { cleanHeader, DISTINCT_ID_HEADER, SESSION_ID_HEADER } from "@lucida-analytics/sdk-core";
+import type { Props } from "@lucida-analytics/sdk-core";
 
 
 /** Ambient identity for events captured inside `withContext`. The object is live: assign `distinctId` after login. */
@@ -35,7 +35,7 @@ export function withContext<T>(
   return als.run(ctx, fn);
 }
 
-// Header hygiene (cleanHeader) and the header names are shared with the edge/framework wrappers (@lucida/sdk-core).
+// Header hygiene (cleanHeader) and the header names are shared with the edge/framework wrappers (@lucida-analytics/sdk-core).
 
 export type HeaderBag = Record<string, string | string[] | undefined> | { get(name: string): string | null | undefined };
 

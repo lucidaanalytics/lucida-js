@@ -1,4 +1,4 @@
-import type { Core, Props } from "@lucida/sdk-core";
+import type { Core, Props } from "@lucida-analytics/sdk-core";
 
 export interface RageTapConfig {
   enabled?: boolean;

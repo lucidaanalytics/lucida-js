@@ -1,5 +1,5 @@
-import { init } from "@lucida/browser";
-import type { Client } from "@lucida/browser";
+import { init } from "@lucida-analytics/browser";
+import type { Client } from "@lucida-analytics/browser";
 import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";

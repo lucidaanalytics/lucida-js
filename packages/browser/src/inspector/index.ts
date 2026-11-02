@@ -1,4 +1,4 @@
-import type { WireEvent } from "@lucida/sdk-core";
+import type { WireEvent } from "@lucida-analytics/sdk-core";
 import type { Module } from "../types.js";
 
 const MAX_ROWS = 100;

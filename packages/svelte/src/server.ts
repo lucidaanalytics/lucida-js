@@ -1,7 +1,7 @@
-import { requestBootstrap } from "@lucida/edge";
-import type { BootstrapOptions, EdgeClient } from "@lucida/edge";
-import { requestContext } from "@lucida/sdk-core";
-import type { FlagValue, RequestContext } from "@lucida/sdk-core";
+import { requestBootstrap } from "@lucida-analytics/edge";
+import type { BootstrapOptions, EdgeClient } from "@lucida-analytics/edge";
+import { requestContext } from "@lucida-analytics/sdk-core";
+import type { FlagValue, RequestContext } from "@lucida-analytics/sdk-core";
 
 /** What `lucidaHandle` puts on `event.locals.lucida`. Add it to `App.Locals` in `app.d.ts`. */
 export interface LucidaLocals {
@@ -30,8 +30,8 @@ export interface LucidaHandleOptions extends BootstrapOptions {
  *
  * ```ts
  * // hooks.server.ts
- * import { createEdgeClient } from "@lucida/edge";
- * import { lucidaHandle } from "@lucida/svelte/server";
+ * import { createEdgeClient } from "@lucida-analytics/edge";
+ * import { lucidaHandle } from "@lucida-analytics/svelte/server";
  * export const handle = lucidaHandle(createEdgeClient({ apiKey: "lc_pk_...", host: "https://app.lucida.dev" }));
  * // +layout.server.ts: return { lucida: { distinctId: locals.lucida.distinctId, flags: locals.lucida.flags } }
  * // +layout.svelte:  createLucida({ apiKey, options: { bootstrap: { distinctId } }, bootstrapFlags: flags })

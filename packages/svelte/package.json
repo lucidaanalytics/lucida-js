@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/svelte",
+  "name": "@lucida-analytics/svelte",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/svelte" },
@@ -36,16 +36,16 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@lucida/browser": "workspace:*"
+    "@lucida-analytics/browser": "workspace:*"
   },
   "devDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "@types/node": "^22.0.0",
     "jsdom": "^26.1.0",
     "tsup": "^8.5.0"
   },
   "dependencies": {
-    "@lucida/edge": "workspace:*",
-    "@lucida/sdk-core": "workspace:*"
+    "@lucida-analytics/edge": "workspace:*",
+    "@lucida-analytics/sdk-core": "workspace:*"
   }
 }

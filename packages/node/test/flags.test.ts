@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { EvalContext, FlagDefinition } from "@lucida/sdk-core";
+import type { EvalContext, FlagDefinition } from "@lucida-analytics/sdk-core";
 import { Lucida } from "../src/index.js";
 import { LruSet } from "../src/lru.js";
 import { fakeGateway, flag } from "./helpers.js";

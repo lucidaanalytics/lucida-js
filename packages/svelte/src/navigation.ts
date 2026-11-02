@@ -25,7 +25,7 @@ export function routeTemplateOf(routeId: string | null | undefined): string {
  * ```svelte
  * <script>
  *   import { afterNavigate } from "$app/navigation";
- *   import { trackNavigation } from "@lucida/svelte";
+ *   import { trackNavigation } from "@lucida-analytics/svelte";
  *   trackNavigation(afterNavigate, lucida.client);
  * </script>
  * ```

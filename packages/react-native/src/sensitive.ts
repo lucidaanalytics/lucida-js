@@ -1,4 +1,4 @@
-import { sha256Hex } from "@lucida/sdk-core";
+import { sha256Hex } from "@lucida-analytics/sdk-core";
 
 /**
  * P-L12 controlled exposure. The RSA-OAEP-SHA256 encryption runs natively (`encryptSensitive` on the LucidaReplay module,

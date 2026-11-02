@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/vue",
+  "name": "@lucida-analytics/vue",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/vue" },
@@ -22,11 +22,11 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "vue": ">=3.3"
   },
   "devDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "@types/node": "^22.0.0",
     "jsdom": "^26.1.0",
     "tsup": "^8.5.0",

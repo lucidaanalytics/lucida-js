@@ -1,4 +1,4 @@
-import type { Storage } from "@lucida/sdk-core";
+import type { Storage } from "@lucida-analytics/sdk-core";
 
 /** Ad-platform click ids (Google incl. gad_source / gclsrc / DoubleClick dclid, Meta, Instagram igshid, Microsoft, TikTok, LinkedIn, X, Mailchimp mc_cid). */
 export const CLICK_IDS = ["gclid", "gad_source", "gclsrc", "dclid", "gbraid", "wbraid", "fbclid", "igshid", "msclkid", "ttclid", "li_fat_id", "twclid", "mc_cid"] as const;

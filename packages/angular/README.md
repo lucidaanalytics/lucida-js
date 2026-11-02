@@ -1,4 +1,4 @@
-# @lucida/angular
+# @lucida-analytics/angular
 
 `provideLucida()` registers an injectable `LucidaService` over the browser SDK (flags as `flags$` / `flag$(key)`, `client`
 for everything else). It is a plain class, so no Angular compiler plugin is needed.
@@ -16,7 +16,7 @@ bootstrapApplication(App, { providers: [provideLucida({ apiKey: "lc_pk_...", opt
 
   ```ts
   // server.ts (Express): evaluate once per request with the edge client
-  import { createEdgeClient, requestBootstrap } from "@lucida/edge";
+  import { createEdgeClient, requestBootstrap } from "@lucida-analytics/edge";
   const lucida = createEdgeClient({ apiKey: "lc_pk_...", host: "https://app.lucida.dev" });
   app.get("*", async (req, res, next) => {
     const b = await requestBootstrap(lucida, req.headers.cookie, { consentMode: "opt_in" });
@@ -33,7 +33,7 @@ bootstrapApplication(App, { providers: [provideLucida({ apiKey: "lc_pk_...", opt
 - Do the lookup in a factory (`useFactory` with `inject(LUCIDA_BOOTSTRAP, { optional: true })`) so the same `app.config.ts`
   serves the browser build with no bootstrap.
 - Session replay and autocapture only run in the browser; do not call `client.replay.start()` from server code.
-- Server-side events (API routes in the same Express app): use `@lucida/node`, and read the visitor with
-  `requestContext` from `@lucida/node`, which understands the `X-Lucida-Distinct-Id` / `X-Lucida-Session-Id` headers the browser SDK sends
+- Server-side events (API routes in the same Express app): use `@lucida-analytics/node`, and read the visitor with
+  `requestContext` from `@lucida-analytics/node`, which understands the `X-Lucida-Distinct-Id` / `X-Lucida-Session-Id` headers the browser SDK sends
   when you list your API host in `tracingHeaders`. Those headers are client-controlled: stitch analytics, never authenticate.
 - Consent: the anonymous-id cookie from `requestBootstrap` is only emitted when consent allows (`consentMode`).

@@ -1,4 +1,4 @@
-import { createEdgeClient } from "@lucida/edge";
+import { createEdgeClient } from "@lucida-analytics/edge";
 import { describe, expect, it } from "vitest";
 import { lucidaHandle } from "../src/server.js";
 import type { RequestEventLike } from "../src/server.js";

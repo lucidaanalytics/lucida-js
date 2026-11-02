@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { FlagDefinition } from "@lucida/sdk-core";
+import type { FlagDefinition } from "@lucida-analytics/sdk-core";
 import { start } from "./helpers.js";
 
 const base = { capturePageview: false, autocapture: false } as const;

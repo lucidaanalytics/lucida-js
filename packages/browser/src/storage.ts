@@ -1,4 +1,4 @@
-import type { Storage } from "@lucida/sdk-core";
+import type { Storage } from "@lucida-analytics/sdk-core";
 import type { Persistence } from "./types.js";
 
 export class MemoryStorage implements Storage {

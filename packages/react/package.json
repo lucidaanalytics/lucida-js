@@ -1,5 +1,5 @@
 {
-  "name": "@lucida/react",
+  "name": "@lucida-analytics/react",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/react" },
@@ -22,11 +22,11 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "react": ">=18"
   },
   "devDependencies": {
-    "@lucida/browser": "workspace:*",
+    "@lucida-analytics/browser": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",

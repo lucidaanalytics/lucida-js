@@ -1,4 +1,4 @@
-import type { Client, EarlyAccessFeature } from "@lucida/browser";
+import type { Client, EarlyAccessFeature } from "@lucida-analytics/browser";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";

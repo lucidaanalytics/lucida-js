@@ -1,12 +1,12 @@
-# @lucida/browser
+# @lucida-analytics/browser
 
 Browser SDK: core client plus opt-in modules (each its own entry, tree-shakeable).
 
 ```ts
-import { createClient, autocapture } from "@lucida/browser";
-import { replay } from "@lucida/browser/replay"; // loader only; rrweb loads lazily
-import { heatmaps } from "@lucida/browser/heatmaps";
-import { forms } from "@lucida/browser/forms";
+import { createClient, autocapture } from "@lucida-analytics/browser";
+import { replay } from "@lucida-analytics/browser/replay"; // loader only; rrweb loads lazily
+import { heatmaps } from "@lucida-analytics/browser/heatmaps";
+import { forms } from "@lucida-analytics/browser/forms";
 createClient("lc_pk_...", { apiHost: "https://ingest.example.com" }, [autocapture, heatmaps, forms, replay]);
 ```
 
@@ -53,7 +53,7 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **Experiment editor** (lazy chunk, LC-EXT-37): opens on `?__lc_toolbar=<token>&__lc_edit=<experiment id>` (scope `experiments:write`). It picks a variant, records point-and-click changes (optionally for this page only), saves them to a draft experiment and adds click goals. `?lc_preview=<flag>:<variant>` forces a variant for QA without recording exposure.
 - **Banners and changelog** (LC-ENG-8): `banner` guides render top or bottom (`steps[0].placement: "bottom"`), dismissible,
   one engagement at a time via the arbiter. `client.guides.showChangelog()` lists banner guides (returns the count, 0 = none).
-- **Guides depth** (LC-ENG-10 to 18, `@lucida/browser/guides`): `hotspot`, `beacon`, `badge` and `launcher` guides stay on the
+- **Guides depth** (LC-ENG-10 to 18, `@lucida-analytics/browser/guides`): `hotspot`, `beacon`, `badge` and `launcher` guides stay on the
   page (lazy `persistent` chunk). Step `buttons[].goto` / `branch` rules (person properties) jump forward; a step with `url`
   pauses a tour until that page, and tours / checklists resume on the next page (consent-gated storage). Targeting adds
   `devices`, `person_filters`, `group_filters` (from `group(type, key, props)`), `seen_guides` / `not_seen_guides`, `schedule`
@@ -88,11 +88,11 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 
 ## Experiments and early access
 
-- **Split URL** (`splitUrl` from `@lucida/browser/experiments`): a variant payload `{"lc_split_url": {"url": "/pricing-b"}}`
+- **Split URL** (`splitUrl` from `@lucida-analytics/browser/experiments`): a variant payload `{"lc_split_url": {"url": "/pricing-b"}}`
   sends visitors assigned that variant there with `location.replace`, before paint when `splitUrl.antiFlickerMs` hides the page.
   Query and hash are kept (the variant URL's own params win), the target gets `__lc_split=<flag>` (stripped on arrival; it
   prevents loops), only same-origin or `splitUrl.allowedOrigins` targets are followed, and `$exposure` is flushed first.
-- **Early access** (`earlyAccess` from `@lucida/browser/early-access`): `client.earlyAccess.list()` reads
+- **Early access** (`earlyAccess` from `@lucida-analytics/browser/early-access`): `client.earlyAccess.list()` reads
   `GET /v1/early-access?api_key=` (`{features: [{flag_key, name, description, stage}]}`, a gateway endpoint that does not
   exist yet) and marks local enrolment; `optIn(key)`/`optOut(key)` capture `$early_access_opt_in {$feature_flag, $enrolled}`
   with the person property `$feature_enrollment/<key>` and reload flags.
@@ -104,7 +104,7 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   mp4 ...) emits `$file_download {$url, $file_name, $file_extension}`; `siteSearch` (`false`, or `{params: [...]}`, default
   `q`, `s`, `search`, `query`) emits `$site_search {$search_term, $search_param}` after each `$pageview` that carries a
   query param. Reported URLs drop query and hash. `[data-lc-ignore]` subtrees are skipped. `tag404(client)` (from
-  `@lucida/browser`) on a 404 page captures `$page_not_found {$status: 404}`.
+  `@lucida-analytics/browser`) on a 404 page captures `$page_not_found {$status: 404}`.
 - **DNT / GPC**: `respectDnt` (default false) and `respectGpc` (default false). When set and the browser sends the signal,
   an `opt_out` project starts with consent denied, so nothing is stored or sent until `setConsent`. An explicit stored
   decision still wins. (`consent.respectDnt` is kept and enables both.)
@@ -133,7 +133,7 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   mask_all_text?, mask_selectors?, block_selectors?}]`. On matching pages the recorder adds those masks on top of the global
   policy and restarts recording with a fresh full snapshot when the rule set changes on navigation. Patterns use the URL
   blocklist syntax (`*` wildcard, `re:` regex).
-- **WebMCP agent actions** (`import { webmcp } from "@lucida/browser/webmcp"`, add it to `modules`): wraps
+- **WebMCP agent actions** (`import { webmcp } from "@lucida-analytics/browser/webmcp"`, add it to `modules`): wraps
   `navigator.modelContext.provideContext` / `registerTool` so each tool call an AI agent makes on the page captures
   `$agent_action {tool, status: ok|error, duration_ms, $agent_protocol: "webmcp"}`. Tool arguments and results are never
   sent. From the first call the session is marked: every later event carries `$agent_session: true`, and the enricher sets

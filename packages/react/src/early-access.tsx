@@ -1,4 +1,4 @@
-import type { EarlyAccessFeature } from "@lucida/browser";
+import type { EarlyAccessFeature } from "@lucida-analytics/browser";
 import { useCallback, useEffect, useState } from "react";
 import { useLucida } from "./hooks.js";
 

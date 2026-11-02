@@ -1,5 +1,5 @@
-import { uuidv7 } from "@lucida/sdk-core";
-import type { ConsentState } from "@lucida/sdk-core";
+import { uuidv7 } from "@lucida-analytics/sdk-core";
+import type { ConsentState } from "@lucida-analytics/sdk-core";
 import type { Host } from "../types.js";
 import type { ConsentSource } from "./options.js";
 

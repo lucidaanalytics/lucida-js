@@ -1,4 +1,4 @@
-import { useLucida } from "@lucida/react";
+import { useLucida } from "@lucida-analytics/react";
 import { useEffect } from "react";
 
 /**
