@@ -42,7 +42,7 @@
     "@lucida-analytics/browser": "workspace:*",
     "@types/node": "^22.0.0",
     "jsdom": "^26.1.0",
-    "tsup": "^8.5.0"
+    "tsup": "^9.0.0"
   },
   "dependencies": {
     "@lucida-analytics/edge": "workspace:*",
