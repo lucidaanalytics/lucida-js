@@ -18,7 +18,7 @@ describe("install attribution", () => {
   });
 
   it("retries 404 on iOS and posts text/plain", async () => {
-    const calls: { init?: RequestInit }[] = [];
+    const calls: { init?: RequestInit | undefined }[] = [];
     const responses = [{ ok: false, status: 404, json: async () => ({}) }, okJson({ attribution: true, campaignId: 7 })];
     const f = (async (_u: string, init?: RequestInit) => (calls.push({ init }), responses.shift())) as unknown as typeof fetch;
     const p = await resolveInstallProps(async () => ({ platform: "ios", token: "t" }), { fetch: f, retryDelayMs: 0 });

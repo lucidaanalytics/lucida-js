@@ -91,7 +91,7 @@ export async function resolveInstallProps(native: () => Promise<InstallInfo | nu
       const ctl = typeof AbortController === "undefined" ? undefined : new AbortController();
       const timer = ctl ? setTimeout(() => ctl.abort(), d.timeoutMs ?? 10_000) : undefined;
       try {
-        const r = await d.fetch(ASA_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: info.token, signal: ctl?.signal });
+        const r = await d.fetch(ASA_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: info.token, signal: ctl?.signal ?? null });
         if (r.ok) return appStoreInstallProps(await r.json());
         // shortcut: only 404 is retried (Apple's record can lag); other statuses fall back to store only.
         if (r.status !== 404) break;

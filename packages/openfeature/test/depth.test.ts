@@ -1,12 +1,21 @@
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { LucidaServerProvider, LucidaWebProvider, REASONS, mapReason } from "../src/index.js";
 import type { FlagsListener, LucidaDetails, ServerClient } from "../src/index.js";
 
-const table = new URL("../../../testdata/openfeature/reasons.json", import.meta.url);
+// $LUCIDA_TESTDATA, else the nearest testdata/ above the working dir (monorepo and mirror layouts both work)
+function testdata(rel: string): string {
+  if (process.env.LUCIDA_TESTDATA) return join(process.env.LUCIDA_TESTDATA, rel);
+  for (let d = process.cwd(); ; d = dirname(d)) {
+    if (existsSync(join(d, "testdata", rel))) return join(d, "testdata", rel);
+    if (dirname(d) === d) throw new Error(`testdata/${rel} not found`);
+  }
+}
+const table = testdata("openfeature/reasons.json");
 
 describe("reason table", () => {
-  it.skipIf(!existsSync(table))("matches testdata/openfeature/reasons.json", () => {
+  it("matches testdata/openfeature/reasons.json", () => {
     const shared = JSON.parse(readFileSync(table, "utf8")).reasons as Record<string, { reason: string; variant_reason?: string }>;
     for (const [raw, want] of Object.entries(shared)) {
       if (raw === "") continue;
