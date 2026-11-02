@@ -39,7 +39,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }} # only needed for a package's very first publish; trusted publishing (OIDC) otherwise
         run: |
           [ -n "$NPM_TOKEN" ] && export NODE_AUTH_TOKEN="$NPM_TOKEN"
-          for t in dist-pack/*.tgz; do
+          for t in ./dist-pack/*.tgz; do
             [ -e "$t" ] || exit 0
             npm publish "$t" --provenance --access public
           done
