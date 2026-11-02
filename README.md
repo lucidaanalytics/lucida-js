@@ -1,6 +1,6 @@
 # Lucida JavaScript SDKs
 
-Every `@lucida/*` npm package (browser, node, edge, react, vue, svelte, next, and the other framework adapters) in one pnpm workspace under `packages/`.
+Every `@lucida-analytics/*` npm package (browser, node, edge, react, vue, svelte, next, and the other framework adapters) in one pnpm workspace under `packages/`.
 
 ```sh
 pnpm add @lucida-analytics/browser   # or @lucida-analytics/node, @lucida-analytics/react, ...

@@ -7,5 +7,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   target: "es2022",
-  noExternal: [/^@lucida\//],
+  noExternal: [/^@lucida-analytics\//],
 });

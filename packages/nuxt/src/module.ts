@@ -24,7 +24,7 @@ export function lucidaModule(options: LucidaModuleOptions, nuxt: NuxtLike): void
   const pub = nuxt.options.runtimeConfig.public;
   pub.lucida = { ...(pub.lucida as object | undefined), ...options };
   nuxt.options.plugins.push({ src: "@lucida-analytics/nuxt/runtime/plugin", mode: "all" });
-  nuxt.options.build.transpile.push(/@lucida\//);
+  nuxt.options.build.transpile.push(/@lucida-analytics\//);
   nuxt.hook("imports:extend", (imports) => {
     for (const name of COMPOSABLES) imports.push({ name, from: "@lucida-analytics/vue" });
   });
