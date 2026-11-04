@@ -256,23 +256,40 @@ export class Lucida {
     }
   }
 
+  /** The last capture still waiting on a remote flag evaluation; later captures queue behind it so events keep call order. */
+  private tail: Promise<void> | undefined;
+
   capture(i: CaptureInput): void {
     if (this.off) return;
+    if (this.tail) return this.chain(this.tail.then(() => this.run(i)));
+    const pending = this.run(i);
+    if (pending) this.chain(pending);
+  }
+
+  private chain(p: Promise<void>): void {
+    const t: Promise<void> = p
+      .catch((err) => this.fail(err instanceof Error ? err : new Error(String(err)), []))
+      .then(() => {
+        if (this.tail === t) this.tail = undefined;
+      });
+    this.tail = t;
+  }
+
+  /** Build and enqueue now, or (remote flag evaluation) return the promise that does it. */
+  private run(i: CaptureInput): Promise<void> | void {
     const { flags: snap, sendFeatureFlags: send, ...rest } = i;
-    if (snap) return this.capture({ ...rest, properties: withFlagProps(i.properties, snap.values as Record<string, FlagValue>) });
+    if (snap) return this.run({ ...rest, properties: withFlagProps(i.properties, snap.values as Record<string, FlagValue>) });
     const id = i.distinctId ?? getContext()?.distinctId;
     if (send && id) {
       const fo = typeof send === "object" ? send : {};
       const fo2: FlagOptions = { ...(i.groups ? { groups: i.groups } : {}), ...fo };
       const local = this.flags.localValues(id, fo2);
-      if (local) return this.capture({ ...rest, distinctId: id, properties: withFlagProps(i.properties, local) });
-      // shortcut: the event is queued after the flags request, so it may land behind later captures (ordering is by timestamp)
+      if (local) return this.run({ ...rest, distinctId: id, properties: withFlagProps(i.properties, local) });
       const at = i.timestamp ?? new Date();
-      void this.flags
+      return this.flags
         .all(id, fo2)
         .then((r) => r.flags, () => ({}))
-        .then((v) => this.capture({ ...rest, distinctId: id, timestamp: at, properties: withFlagProps(i.properties, v) }));
-      return;
+        .then((v) => this.run({ ...rest, distinctId: id, timestamp: at, properties: withFlagProps(i.properties, v) }));
     }
     const e = this.build(rest);
     if (!e) return;
@@ -407,7 +424,8 @@ export class Lucida {
     return this.poller?.load() ?? Promise.resolve();
   }
 
-  flush(): Promise<void> {
+  async flush(): Promise<void> {
+    await this.tail;
     return this.queue.flush();
   }
 
@@ -415,6 +433,7 @@ export class Lucida {
   async shutdown(): Promise<void> {
     this.poller?.stop();
     await this.cfg.flagDefinitionCacheProvider?.shutdown?.();
+    await this.tail;
     await this.queue.shutdown();
   }
 

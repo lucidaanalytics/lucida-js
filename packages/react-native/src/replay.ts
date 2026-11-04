@@ -1,8 +1,9 @@
 import { sha256Hex } from "@lucida-analytics/sdk-core";
-import type { Core } from "@lucida-analytics/sdk-core";
+import type { Core, Storage } from "@lucida-analytics/sdk-core";
 import { DEAD_SWIPE_MIN_DISTANCE, DEAD_SWIPE_SETTLE_MS, deadSwipeDecision } from "./dead-swipe.js";
 import { hitTest } from "./replay-hit.js";
 import { compilePatterns, maskSnapshotText, screenMasked } from "./replay-masking.js";
+import { createReplaySpool } from "./replay-spool.js";
 import { createSensitiveCapture } from "./sensitive.js";
 import type { ExposureKey, NativeSensitiveModule } from "./sensitive.js";
 
@@ -57,6 +58,13 @@ export interface ReplayConfig {
   throttleMs?: number;
   /** Hold chunks until the session has been recorded this long; a session that ends sooner (or `stop()`) is never sent. Default 0 (off). */
   minDurationMs?: number;
+  /**
+   * Disk budget for chunks that wait (min duration, offline, upload backoff); over it the oldest whole session is dropped
+   * and `onSpoolDrop` fires. Default 10 MiB. Needs `asyncStorage` to survive a restart.
+   */
+  spoolBudgetBytes?: number;
+  /** A whole session was dropped because the spool exceeded its budget (also logged in debug mode). */
+  onSpoolDrop?: (info: { sessionId: string; chunks: number; bytes: number }) => void;
   /** Fetch `GET /v1/config` and honour the project kill switch, sample rate and minimum duration (tightening only). Default true. */
   useRemoteConfig?: boolean;
   /** Start recording only while this flag is on. */
@@ -95,6 +103,8 @@ export interface ReplayService {
   setScreen(name: string): void;
   /** A tap at screen point (x, y); ignored without consent, before the first snapshot, while paused or on a gated screen. */
   tap(x: number, y: number): void;
+  /** Erase every spilled chunk (opt-out, reset). */
+  clearSpool(): void;
   /** One capture pass (the interval calls this); exposed for tests. */
   tick(): Promise<void>;
   /** P-M46: a swipe passed the touch slop; its start structure is captured now. */
@@ -107,11 +117,14 @@ export interface ReplayService {
 
 export interface ReplayDeps {
   core: Core;
+  /** Where waiting chunks are spilled (the client's storage, encrypted with the queue cipher when one is set). */
+  storage: Storage;
   fetch: typeof fetch;
   apiHost: string;
   apiKey: string;
   config: ReplayConfig;
   now?: () => number;
+  log?: (...a: unknown[]) => void;
   /** Reads `config.linkedFlag`. */
   isFlagOn?: (key: string) => boolean;
 }
@@ -184,8 +197,10 @@ export function createReplay(d: ReplayDeps): ReplayService {
   let remote: Remote | null = null;
   let remoteLoaded = false;
   let sessionStart = 0;
-  let held: RrEvent[][] = [];
-  const maxHeld = 20; // shortcut: bounded memory; the oldest held chunks beyond this are dropped
+  const spool = createReplaySpool(d.storage, config.spoolBudgetBytes, (sessionId, chunks, bytes) => {
+    d.log?.(`replay spool over budget: dropped session ${sessionId} (${chunks} chunks, ${bytes} bytes)`);
+    config.onSpoolDrop?.({ sessionId, chunks, bytes });
+  });
   let touches: RrEvent[] = [];
   let tapTarget = 0;
   let tapTree: unknown; // the last sent snapshot's document: taps are resolved against its native view tree
@@ -270,15 +285,41 @@ export function createReplay(d: ReplayDeps): ReplayService {
     return true;
   }
 
-  async function send(events: RrEvent[], sessionId: string, windowId: string): Promise<void> {
-    const body = JSON.stringify({ api_key: d.apiKey, session_id: sessionId, window_id: windowId, seq, events });
+  function store(events: RrEvent[], sessionId: string, windowId: string, held: boolean): void {
+    const body = JSON.stringify({ session_id: sessionId, window_id: windowId, seq, events });
     if (body.length > (config.maxEventBytes ?? 5_000_000)) return;
-    try {
-      const r = await d.fetch(`${d.apiHost}/v1/replay`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
-      if (r.ok) seq += 1;
-      else lastFp = null; // retry as a fresh snapshot next tick
-    } catch {
-      lastFp = null;
+    spool.add(sessionId, seq, held, body);
+    seq += 1;
+  }
+
+  /** Uploads spilled chunks in order; stops at the first retryable failure (the next tick is the backoff). */
+  async function drain(): Promise<void> {
+    for (const e of [...spool.entries()]) {
+      if (e.held) continue;
+      const stored = spool.read(e);
+      if (stored === null) {
+        spool.remove(e);
+        continue;
+      }
+      let status = 0;
+      try {
+        const r = await d.fetch(`${d.apiHost}/v1/replay`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: d.apiKey, ...(JSON.parse(stored) as object) }),
+        });
+        status = r.ok ? 200 : r.status;
+      } catch {
+        /* offline: status 0 */
+      }
+      if (status === 200) spool.remove(e);
+      else if (status === 0 || status === 408 || status === 429 || status >= 500) {
+        lastFp = null; // a fresh snapshot after the outage
+        return;
+      } else {
+        spool.remove(e); // rejected for good (4xx): retrying cannot help
+        d.log?.(`replay chunk rejected with ${status}; dropped`);
+      }
     }
   }
 
@@ -288,7 +329,7 @@ export function createReplay(d: ReplayDeps): ReplayService {
       lastFp = null;
       hasSnapshot = false;
       touches = [];
-      held = [];
+      spool.clear();
       return;
     }
     await loadRemote();
@@ -331,10 +372,10 @@ export function createReplay(d: ReplayDeps): ReplayService {
     const { sessionId, windowId } = core.session.touch();
     const rotated = sessionId !== lastSession;
     if (rotated) {
-      seq = 0;
       lastSession = sessionId;
       sessionStart = now();
-      held = []; // a session cut short is dropped
+      spool.removeHeld(sessionId); // a session cut short is dropped
+      seq = spool.nextSeq(sessionId); // resumes after a restart inside the same session
     }
     const fp = fingerprint(events);
     const ts = now();
@@ -352,16 +393,12 @@ export function createReplay(d: ReplayDeps): ReplayService {
       tapTree = events.find((e) => e.type === 2)?.data.node;
       hasSnapshot = true;
     }
-    if (out.length === 0) return;
     const minMs = effectiveMinDurationMs(config.minDurationMs ?? 0, remote);
-    if (minMs > 0 && now() - sessionStart < minMs) {
-      held.push(out);
-      if (held.length > maxHeld) held.shift();
-      return;
-    }
-    const backlog = held;
-    held = [];
-    for (const chunk of [...backlog, out]) await send(chunk, sessionId, windowId);
+    const holding = minMs > 0 && now() - sessionStart < minMs;
+    if (out.length > 0) store(out, sessionId, windowId, holding);
+    if (holding) return;
+    spool.release(sessionId);
+    await drain();
   }
 
   return {
@@ -373,7 +410,10 @@ export function createReplay(d: ReplayDeps): ReplayService {
       if (timer === undefined) return;
       (config.clearInterval ?? ((h) => clearInterval(h as ReturnType<typeof setInterval>)))(timer);
       timer = undefined;
-      held = []; // the session ends before it reached the minimum duration
+      // The session ends before it reached the minimum duration: held chunks never went out, so their seq numbers come
+      // back and the stream stays gapless. Pending uploads stay.
+      const back = spool.removeHeld().filter((e) => e.sid === lastSession).map((e) => e.seq);
+      if (back.length > 0) seq = Math.min(...back);
     },
     pause() {
       paused = true;
@@ -394,6 +434,7 @@ export function createReplay(d: ReplayDeps): ReplayService {
         data: { source: 2, type: 2, id: hitTest(tapTree, x, y, tapTarget), x, y },
       });
     },
+    clearSpool: () => spool.clear(),
     tick,
     swipeBegan() {
       if (config.captureDeadSwipes === false || !touchesRecording()) return;

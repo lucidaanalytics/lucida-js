@@ -83,30 +83,52 @@ export class CookieStorage implements Storage {
 
   /** Resolved on first write, which only ever happens after consent (the probe is a cookie write too). */
   private attr(): string {
-    if (this.domain === null) this.domain = this.o.domain ?? (this.o.crossSubdomain ? broadestDomain() : undefined);
+    if (this.domain === null) {
+      try {
+        this.domain = this.o.domain ?? (this.o.crossSubdomain ? broadestDomain() : undefined);
+      } catch {
+        this.domain = undefined;
+      }
+    }
     return this.domain ? `; Domain=${this.domain}` : "";
   }
 
-  get(k: string): string | null {
-    for (const part of document.cookie.split("; ")) {
-      const i = part.indexOf("=");
-      if (part.slice(0, i) === k) {
-        try {
-          return decodeURIComponent(part.slice(i + 1));
-        } catch {
-          return null;
-        }
+  // Values the browser would not keep (sandboxed iframe, data: page, cookies blocked, over the ~4 KB cookie limit)
+  // stay in memory for the page, so identity still holds within it instead of the SDK throwing or regenerating.
+  private readonly held = new Map<string, string>();
+
+  private read(k: string): string | null {
+    try {
+      for (const part of document.cookie.split("; ")) {
+        const i = part.indexOf("=");
+        if (part.slice(0, i) === k) return decodeURIComponent(part.slice(i + 1));
       }
+    } catch {
+      /* cookie access denied or a malformed escape */
     }
     return null;
+  }
+  get(k: string): string | null {
+    return this.read(k) ?? this.held.get(k) ?? null;
   }
   set(k: string, v: string): void {
     const secure = (this.o.secure ?? location.protocol === "https:") ? "; Secure" : "";
     const age = Math.round((this.o.expiryDays ?? YEAR_DAYS) * 86400);
-    document.cookie = `${k}=${encodeURIComponent(v)}; Max-Age=${age}; Path=/${this.attr()}; SameSite=Lax${secure}`;
+    try {
+      document.cookie = `${k}=${encodeURIComponent(v)}; Max-Age=${age}; Path=/${this.attr()}; SameSite=Lax${secure}`;
+    } catch {
+      /* falls through to the read-back check */
+    }
+    if (this.read(k) === v) this.held.delete(k);
+    else this.held.set(k, v);
   }
   remove(k: string): void {
-    document.cookie = `${k}=; Max-Age=0; Path=/${this.attr()}; SameSite=Lax`;
+    this.held.delete(k);
+    try {
+      document.cookie = `${k}=; Max-Age=0; Path=/${this.attr()}; SameSite=Lax`;
+    } catch {
+      /* nothing to delete */
+    }
   }
 }
 
@@ -242,4 +264,29 @@ export function createStorage(kind: Persistence, apiKey: string, cookie?: Cookie
         ? new CombinedStorage(new CookieStorage(cookie), new LocalStorageAdapter(), (k) => COOKIE_KEYS.some((c) => k === c + suffix))
         : new WebStorageAdapter(kind);
   return new Prefixed(inner, suffix);
+}
+
+/**
+ * Consent denied: removes every stored `lc_*` item of this project (cookies, localStorage, sessionStorage) except the
+ * decision itself (`keep`, the consent key), which must survive so the choice is remembered.
+ */
+export function purgeStored(store: Storage, apiKey: string, keep: string): void {
+  const suffix = keySuffix(apiKey);
+  const names = new Set<string>();
+  try {
+    for (const part of document.cookie.split("; ")) names.add(part.split("=")[0]!);
+    for (const s of [globalThis.localStorage, globalThis.sessionStorage]) for (let i = 0; i < s.length; i++) names.add(s.key(i)!);
+  } catch {
+    /* storage blocked: nothing more to purge */
+  }
+  for (const n of names) {
+    if (!n.startsWith("lc_") || !n.endsWith(suffix) || n === keep + suffix) continue;
+    store.remove(n.slice(0, -suffix.length));
+    try {
+      localStorage.removeItem(n);
+      sessionStorage.removeItem(n);
+    } catch {
+      /* blocked */
+    }
+  }
 }

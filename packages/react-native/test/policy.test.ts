@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { chainFromFiber, createClient, createAutocapture, runHooks, sampleHook, splitBatches, touchHandler, tracedFetch, tracingHeaders } from "../src/index.js";
 import type { NativeConfig } from "../src/index.js";
 
@@ -220,11 +220,13 @@ describe("client options", () => {
   });
 
   it("session expiry config rotates the session", async () => {
-    const { cfg, sent } = setup({ sessionIdleMs: 5 });
+    const { cfg, sent } = setup({ sessionIdleMs: 60_000 }); // sdk-core clamps idle to >= 1 minute
     const c = await createClient("k", cfg);
     c.capture("a");
-    await new Promise((r) => setTimeout(r, 15));
+    const later = Date.now() + 61_000;
+    const clock = vi.spyOn(Date, "now").mockReturnValue(later);
     c.capture("b");
+    clock.mockRestore();
     await c.flush();
     const sid = (n: string) => sent.find((e) => e.event === n)?.properties.$session_id;
     expect(sid("a")).not.toBe(sid("b"));

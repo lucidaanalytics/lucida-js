@@ -30,14 +30,17 @@ describe("methods", () => {
   });
 
   it("getSessionId, onSessionId (initial + rotation), getProperty, hasOptedOut", async () => {
-    const { client } = start({ ...base, session: { idleMs: 1 } });
+    const { client } = start({ ...base, session: { idleMs: 60_000 } }); // the minimum idle timeout
     live = client;
     const seen: string[] = [];
     const off = client.onSessionId((s) => seen.push(s));
     const first = client.getSessionId();
     expect(seen).toEqual([first]);
-    let second = first;
-    await vi.waitFor(() => expect((second = client.getSessionId())).not.toBe(first));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 61_000);
+    const second = client.getSessionId();
+    vi.useRealTimers();
+    expect(second).not.toBe(first);
     expect(seen).toEqual([first, second]);
     off();
     client.register({ plan: "x" });

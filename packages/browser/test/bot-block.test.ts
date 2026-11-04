@@ -13,6 +13,15 @@ describe("client-side bot blocking", () => {
     expect(isBotUserAgent("")).toBe(false);
   });
 
+  it("covers named crawlers without a bot word and caller-supplied markers", () => {
+    for (const ua of ["Mozilla/5.0 Cypress/13.1", "Mozilla/5.0 (compatible; Mediapartners-Google)", "ia_archiver", "Mozilla/5.0 Screaming Frog SEO Spider", "Mozilla/5.0 GoogleOther", "Mozilla/5.0 Lightpanda/1.0"]) {
+      expect(isBotUserAgent(ua), ua).toBe(true);
+    }
+    expect(isBotUserAgent("Mozilla/5.0 (iPhone) Mobile/15D100 [Pinterest/iOS]")).toBe(false);
+    expect(isBotUserAgent("Mozilla/5.0 AcmeScanner/2", ["acmescanner"])).toBe(true);
+    expect(isBotUserAgent("Mozilla/5.0 AcmeScanner/2")).toBe(false);
+  });
+
   it("sends nothing from a bot unless blockBots is false", async () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (compatible; AhrefsBot/7.0)");
     const blocked = start({ capturePageview: false, autocapture: false, persistence: "memory" });

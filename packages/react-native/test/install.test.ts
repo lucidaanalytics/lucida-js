@@ -27,6 +27,29 @@ describe("install attribution", () => {
     expect(p.$asa_campaign_id).toBe("7");
   });
 
+  it("retries 5xx and network errors, but not a bad token", async () => {
+    const seq = <T>(xs: T[]) => {
+      let n = 0;
+      return { next: () => xs[n++], count: () => n };
+    };
+    const run = async (steps: Array<"net" | { ok: boolean; status: number }>) => {
+      const q = seq(steps);
+      const f = (async () => {
+        const s = q.next()!;
+        if (s === "net") throw new Error("net");
+        return { ...s, json: async () => ({ attribution: true, campaignId: 7 }) };
+      }) as unknown as typeof fetch;
+      const p = await resolveInstallProps(async () => ({ platform: "ios", token: "t" }), { fetch: f, retryDelayMs: 0 });
+      return { p, calls: q.count() };
+    };
+    const a = await run([{ ok: false, status: 503 }, "net", { ok: true, status: 200 }]);
+    expect(a.calls).toBe(3);
+    expect(a.p.$asa_campaign_id).toBe("7");
+    const b = await run([{ ok: false, status: 400 }, { ok: true, status: 200 }]);
+    expect(b.calls).toBe(1);
+    expect(b.p).toEqual({ $install_store: "app_store" });
+  });
+
   it("degrades to the store on failure", async () => {
     const f = (async () => {
       throw new Error("net");

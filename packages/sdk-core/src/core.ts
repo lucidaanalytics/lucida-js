@@ -96,7 +96,7 @@ export class Core {
   private filter: ((e: WireEvent) => WireEvent | null) | undefined;
 
   constructor(private readonly c: CoreConfig) {
-    this.clock = c.clock ?? Date;
+    this.clock = c.clock ?? { now: () => Date.now() }; // read Date.now at call time (fake clocks)
     this.consent = new Consent({ ...c.consent, storage: c.consentStorage ?? c.storage });
     this.gated = new GatedStorage(c.storage, () => this.consent.has("analytics"));
     this.storage = this.gated;

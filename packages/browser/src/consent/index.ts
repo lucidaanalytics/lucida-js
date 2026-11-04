@@ -1,6 +1,6 @@
 export {
-  tcfConsent, gcmConsent, oneTrustConsent, cookiebotConsent, osanoConsent, usercentricsConsent, usercentricsBridge,
-  tcfToConsent, gcmToConsent, oneTrustToConsent, cookiebotToConsent, osanoToConsent, usercentricsToConsent,
+  tcfConsent, gcmConsent, oneTrustConsent, cookiebotConsent, cookieMunchConsent, osanoConsent, usercentricsConsent, usercentricsBridge,
+  tcfToConsent, gcmToConsent, oneTrustToConsent, cookiebotToConsent, cookieMunchToConsent, osanoToConsent, usercentricsToConsent,
 } from "./cmp.js";
 export type { UcService } from "./cmp.js";
 export { consentBanner } from "./ui.js";

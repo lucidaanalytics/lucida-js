@@ -13,6 +13,8 @@ interface FlagsResponse {
   request_id?: string;
   /** Plan quota exhausted: nothing was evaluated, keep what we have. */
   quota_limited?: boolean;
+  /** Evaluation partly failed: flags absent from this response keep their last known values. */
+  errors_while_computing_flags?: boolean;
 }
 
 /** Flag overrides set from the toolbar (same key as toolbar/api.ts). */
@@ -39,6 +41,8 @@ export const flags: Module = (host: Host) => {
   // Where each value came from (evaluator or server reason, "cached", "bootstrap", "pushed"); read by getFlagResult.
   let reasons: Record<string, string> = {};
   let requestId: string | undefined;
+  // Why the current values may be stale: set by a failed or limited fetch, cleared by a clean one.
+  let flagError: string | undefined;
   let loaded = false;
   let seq = 0;
   const called = new Set<string>();
@@ -69,6 +73,16 @@ export const flags: Module = (host: Host) => {
     if (notify) for (const s of subs) s(merged());
   };
   const rt = runtimeTargeting(host, config.localFlags);
+  // Triggers in the same tick (identify + group, several setters) share one request.
+  let queued = false;
+  const reloadSoon = (): void => {
+    if (queued) return;
+    queued = true;
+    queueMicrotask(() => {
+      queued = false;
+      void reload();
+    });
+  };
 
   const cached = host.flagStorage.get(CACHE_KEY);
   if (cached) {
@@ -79,6 +93,7 @@ export const flags: Module = (host: Host) => {
       reasons = Object.fromEntries(Object.keys(values).map((k) => [k, "cached"]));
       if (c.rt) rt.setServer(c.rt);
       fresh.restore(c);
+      loaded = Object.keys(values).length > 0; // cached values count as loaded: onChange callbacks fire with them
     } catch {
       /* ignore corrupt cache */
     }
@@ -92,9 +107,11 @@ export const flags: Module = (host: Host) => {
     }
   }
   const boot = config.bootstrap;
-  if (boot?.flags) {
-    apply({ ...boot.flags }, { ...boot.payloads });
-    for (const k of Object.keys(boot.flags)) reasons[k] = "bootstrap";
+  if (boot?.flags || boot?.payloads) {
+    const bf: Record<string, FlagValue> = { ...boot.flags };
+    for (const k of Object.keys(boot.payloads ?? {})) bf[k] ??= true; // a payload alone means the flag is on
+    apply({ ...values, ...bf }, { ...payloads, ...boot.payloads }); // bootstrap wins, cached flags it omits survive
+    for (const k of Object.keys(bf)) reasons[k] = "bootstrap";
   }
 
   // Local evaluation (config.localFlags): decides what it can in the browser with the sdk-core
@@ -197,7 +214,11 @@ export const flags: Module = (host: Host) => {
           .then((r) => (r.ok ? (r.json() as Promise<FlagsResponse>) : Promise.reject(new Error(`status ${r.status}`))))
           .then((j) => {
             if (mine !== seq) return; // a newer request superseded this one
-            if (j.quota_limited) return host.log("flags quota limited; keeping cached values");
+            if (j.quota_limited) {
+              flagError = "quota_limited";
+              return host.log("flags quota limited; keeping cached values");
+            }
+            flagError = j.errors_while_computing_flags ? "errors_while_computing_flags" : undefined;
             const v: Record<string, FlagValue> = {};
             const p: Record<string, unknown> = {};
             const branched: Record<string, EvalResult> = {};
@@ -209,12 +230,18 @@ export const flags: Module = (host: Host) => {
             }
             requestId = j.request_id;
             rt.setServer(branched);
-            apply({ ...localV, ...v }, p, false);
+            // a partial evaluation must not wipe what it failed to compute
+            const keep = j.errors_while_computing_flags;
+            apply({ ...localV, ...(keep ? values : {}), ...v }, keep ? { ...payloads, ...p } : p, false);
             applyRuntime(true);
-            host.flagStorage.set(CACHE_KEY, JSON.stringify({ values: v, payloads: p, rt: branched, ...fresh.mark(core.distinctId) }));
+            host.flagStorage.set(CACHE_KEY, JSON.stringify({ values: { ...(keep ? values : {}), ...v }, payloads: { ...(keep ? payloads : {}), ...p }, rt: branched, ...fresh.mark(core.distinctId) }));
             host.log("flags loaded", v);
           })
-          .catch((e) => host.log("flags fetch failed", e))
+          .catch((e) => {
+            const status = /^status (\d+)/.exec(String((e as Error)?.message))?.[1];
+            if (mine === seq) flagError = ctl.signal.aborted ? "timeout" : status ? `api_error_${status}` : "connection_error";
+            host.log("flags fetch failed", e);
+          })
           .finally(() => {
             clearTimeout(timer);
             resolve();
@@ -253,6 +280,9 @@ export const flags: Module = (host: Host) => {
           $feature_flag: key,
           $feature_flag_response: v,
           ...(requestId ? { $feature_flag_request_id: requestId } : {}),
+          ...(reasons[key] ? { $feature_flag_reason: reasons[key] } : {}),
+          ...(reasons[key] === "bootstrap" ? { $used_bootstrap_value: true } : {}),
+          ...(flagError ? { $feature_flag_error: flagError } : {}),
         });
       }
       return v;
@@ -293,7 +323,7 @@ export const flags: Module = (host: Host) => {
     setPersonProperties(props, reloadNow = true) {
       fresh.clear();
       personOverride = { ...personOverride, ...props };
-      if (reloadNow) void reload();
+      if (reloadNow) reloadSoon();
     },
     resetPersonProperties() {
       personOverride = {};
@@ -301,7 +331,7 @@ export const flags: Module = (host: Host) => {
     setGroupProperties(props, reloadNow = true) {
       fresh.clear();
       for (const [t, p] of Object.entries(props)) groupOverride[t] = { ...groupOverride[t], ...p };
-      if (reloadNow) void reload();
+      if (reloadNow) reloadSoon();
     },
     resetGroupProperties() {
       groupOverride = {};
@@ -309,13 +339,13 @@ export const flags: Module = (host: Host) => {
     setContext(kind, key, properties) {
       fresh.clear();
       contexts = { ...contexts, [kind]: { key, properties: properties ?? {} } };
-      void reload();
+      reloadSoon();
     },
     clearContext(kind) {
       fresh.clear();
       const { [kind]: _gone, ...rest } = contexts;
       contexts = rest;
-      void reload();
+      reloadSoon();
     },
   };
 
@@ -324,8 +354,21 @@ export const flags: Module = (host: Host) => {
       contexts = {}; // the user is forgotten, and so are the contexts and overrides describing them
       personOverride = {};
       groupOverride = {};
+      called.clear(); // the next person's reads are their own exposures
+      exposed.clear();
+      // ...and must not see the previous person's variants while the refetch is in flight
+      values = {};
+      payloads = {};
+      reasons = {};
+      requestId = undefined;
+      flagError = undefined;
+      rt.setServer({});
+      fresh.clear();
+      host.flagStorage.remove(CACHE_KEY);
+      evalLocal(false); // local definitions decide again for the new identity
+      for (const s of subs) s(merged());
     }
-    if (c === "identify" || c === "reset" || c === "group") void reload();
+    if (c === "identify" || c === "reset" || c === "group") reloadSoon();
   });
   if (config.disableFlagsOnFirstLoad) evalLocal();
   else void reload(false);

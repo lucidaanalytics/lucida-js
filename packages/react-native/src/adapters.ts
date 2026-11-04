@@ -5,6 +5,8 @@ export interface AsyncStorageLike {
   multiGet(keys: readonly string[]): Promise<ReadonlyArray<readonly [string, string | null]>>;
   setItem(key: string, value: string): Promise<void>;
   removeItem(key: string): Promise<void>;
+  /** The real module has it; used to find spilled replay chunks (`lc_replay.<id>`) to hydrate. Without it they are not reloaded after a restart. */
+  getAllKeys?(): Promise<readonly string[]>;
 }
 
 /** Keys the SDK persists; hydrated up front because the core's Storage port is synchronous. */
@@ -16,12 +18,15 @@ export const PERSISTED_KEYS = [
 /** Memory cache hydrated from AsyncStorage with write-behind. Await `ready` before use. */
 export function asyncStorageAdapter(as: AsyncStorageLike): { storage: Storage; ready: Promise<void> } {
   const mem = new Map<string, string>();
-  const ready = as.multiGet(PERSISTED_KEYS).then(
-    (rows) => {
-      for (const [k, v] of rows) if (v !== null) mem.set(k, v);
-    },
-    () => undefined, // unreadable storage: start empty rather than fail init
-  );
+  const load = async (keys: readonly string[]): Promise<void> => {
+    for (const [k, v] of await as.multiGet(keys)) if (v !== null) mem.set(k, v);
+  };
+  const ready = load(PERSISTED_KEYS)
+    .then(async () => {
+      const all = (await as.getAllKeys?.()) ?? [];
+      await load(all.filter((k) => k === "lc_replay" || k.startsWith("lc_replay.")));
+    })
+    .catch(() => undefined); // unreadable storage: start empty rather than fail init
   const swallow = (p: Promise<void>): void => void p.catch(() => undefined);
   return {
     ready,
@@ -130,15 +135,16 @@ export interface QueueCipher {
   decrypt(cipher: string): string | null;
 }
 
-/** Decorator: values under `keys` are stored encrypted, everything else passes through. */
-export function encryptedStorage(inner: Storage, cipher: QueueCipher, keys: readonly string[]): Storage {
+/** Decorator: values under `keys` (or a key starting with one of `prefixes`) are stored encrypted, everything else passes through. */
+export function encryptedStorage(inner: Storage, cipher: QueueCipher, keys: readonly string[], prefixes: readonly string[] = []): Storage {
   const enc = new Set(keys);
+  const covers = (k: string): boolean => enc.has(k) || prefixes.some((p) => k.startsWith(p));
   return {
     get: (k) => {
       const v = inner.get(k);
-      return v !== null && enc.has(k) ? cipher.decrypt(v) : v;
+      return v !== null && covers(k) ? cipher.decrypt(v) : v;
     },
-    set: (k, v) => inner.set(k, enc.has(k) ? cipher.encrypt(v) : v),
+    set: (k, v) => inner.set(k, covers(k) ? cipher.encrypt(v) : v),
     remove: (k) => inner.remove(k),
   };
 }

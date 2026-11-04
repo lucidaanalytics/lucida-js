@@ -5,6 +5,7 @@ import type { TriggerGroup } from "./replay/groups.js";
 import type { CanvasMaskRule } from "./replay/canvas.js";
 import type { BeforeSend, PersonProfiles } from "./policy.js";
 import type { RateLimitConfig } from "./ratelimit.js";
+import type { UrlPrivacy } from "./url-privacy.js";
 import type { AutocaptureConfig, DeliveryConfig, StorageConfig } from "./config-types.js";
 import type { RecommendationOptions, Recommendations, RecsService } from "./recs/index.js";
 
@@ -58,8 +59,10 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   /** Toolbar: data attributes preferred when it builds an element selector (default data-lc-id, data-testid, data-test, data-cy, data-qa). */
   toolbar?: { dataAttributes?: string[] };
   autocapture?: boolean | AutocaptureConfig;
-  /** 'history' = initial + SPA route changes, 'hash' = history plus hash routes (`$pathname` includes the `#/route` fragment, fires on `hashchange`), true = initial only, false = none. Default 'history'. */
-  capturePageview?: "history" | "hash" | boolean;
+  /** 'history' = initial + SPA route changes (path or query; an in-page #anchor is not a new page), 'hash' = history plus hash routes (`$pathname` includes the `#/route` fragment, fires on `hashchange`), true = initial only, false = none. Default 'history'. */
+  capturePageview?: "history" | "hash" | boolean | { path?: boolean; search?: boolean; hash?: boolean };
+  /** CSS selector(s) of the element that scrolls when the page itself does not (app shells); `$scroll_depth` measures it. First match wins. */
+  scrollRoot?: string | string[];
   consent?: {
     mode?: ConsentMode;
     queueBeforeConsent?: boolean;
@@ -96,6 +99,8 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   disabled?: boolean;
   /** Send nothing from known crawler / headless user agents (default true; the server still classifies anything that gets through). */
   blockBots?: boolean;
+  /** Extra user-agent substrings (case-insensitive) treated as bots when `blockBots` is on. */
+  blockedUserAgents?: string[];
   /** Guides module: render=false leaves display to the host app. */
   guides?: { render?: boolean; /** Keep progress and dismissals on the server so they follow a person across devices (default true; needs consent and a distinct id). */ syncState?: boolean; /** Preferred guide language (BCP 47); default: person property `locale`, then the browser's. */ locale?: string; /** In a child frame: draw guides in the top window at this exact origin (its SDK must list this frame's origin in `frameOrigins`). */ renderInTop?: string; /** Top window: child-frame origins allowed to forward guides here. */ frameOrigins?: string[] };
   /** Visual-editor / personalization changes (the `experiments` module). antiFlickerMs hides the page until flags load (0 = off). */
@@ -115,13 +120,15 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   bootstrap?: BootstrapConfig;
   /**
    * Hooks run in order on every event right before it is queued: return the (amended) event, or null to drop it.
-   * A hook that throws is logged and skipped. Events from sdk-internal modules go through them too.
+   * A hook that throws (or returns a non-event) drops the event. Events from sdk-internal modules go through them too.
    */
   beforeSend?: BeforeSend | BeforeSend[];
   /** Keep this share (0..1) of events, stamping `$sample_rate`. Runs before `beforeSend`. */
   sampleRate?: number;
   /** Property names never sent (event properties, `$set`, `$set_once`). Runs before `beforeSend`. */
   propertyDenylist?: string[];
+  /** Mask query parameters (`maskParams`, or all UTM / click-id ones with `maskCampaignParams`) and optionally drop `#fragments` in every page URL sent. Runs first. */
+  urlPrivacy?: UrlPrivacy;
   /**
    * "always" (default): normal person processing. "identified_only": events carry `$process_person_profile:false`
    * until identify/alias/group/setPersonProperties. "never": always personless; identify/alias/setPersonProperties no-op.

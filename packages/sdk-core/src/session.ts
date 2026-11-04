@@ -39,6 +39,19 @@ function minutes(v: unknown, lo: number, hi: number): number | undefined {
   return typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi ? v * 60_000 : undefined;
 }
 
+const MIN_IDLE = 60_000;
+const MAX_IDLE = 10 * 3_600_000;
+const DAY = 24 * 3_600_000;
+const UUID7 = /^([0-9a-f]{8})-?([0-9a-f]{4})-7[0-9a-f]{3}-/i;
+
+/** A bootstrapped id is dropped when its embedded UUIDv7 time is over 1 min ahead or over 24 h old; other shapes are accepted. */
+function bootstrapOk(id: string, now: number): boolean {
+  const m = UUID7.exec(id);
+  if (!m) return true;
+  const ts = parseInt(m[1]! + m[2]!, 16);
+  return ts - now <= 60_000 && now - ts <= DAY;
+}
+
 /**
  * Client sessions: UUIDv7 rotated after 30 min idle, 24 h total, a campaign (UTM) change, or one of the
  * project's "new session" events. State lives in storage so tabs share a session; window id is per manager
@@ -56,10 +69,10 @@ export class SessionManager {
     private readonly storage: Storage,
     private readonly o: SessionOptions = {},
   ) {
-    this.idleMs = o.idleMs ?? 30 * 60_000;
+    this.idleMs = Math.min(MAX_IDLE, Math.max(MIN_IDLE, o.idleMs ?? 30 * 60_000));
     this.maxMs = o.maxMs ?? 24 * 3_600_000;
     this.newOn = o.newOnEvents ?? [];
-    this.clock = o.clock ?? Date;
+    this.clock = o.clock ?? { now: () => Date.now() }; // read Date.now at call time (fake clocks, test runners)
     this.bootstrapId = o.bootstrapId;
   }
 
@@ -68,7 +81,7 @@ export class SessionManager {
    * out-of-range remote values leave the current setting.
    */
   configure(r: RemoteSessionSettings): void {
-    if (this.o.idleMs === undefined) this.idleMs = minutes(r.session_idle_minutes, 1, 1440) ?? this.idleMs;
+    if (this.o.idleMs === undefined) this.idleMs = minutes(r.session_idle_minutes, 1, 600) ?? this.idleMs;
     if (this.o.maxMs === undefined) this.maxMs = minutes(r.session_max_minutes, 5, 10_080) ?? this.maxMs;
     if (this.o.newOnEvents === undefined && Array.isArray(r.session_new_on_events)) {
       this.newOn = r.session_new_on_events.filter((e): e is string => typeof e === "string" && e !== "");
@@ -90,8 +103,8 @@ export class SessionManager {
     let s = this.read();
     const campaignChanged = !!(s?.campaign && campaignKey && s.campaign !== campaignKey);
     const ruleEvent = event !== undefined && this.newOn.includes(event);
-    const isNew = !s || now - s.last > this.idleMs || now - s.start > this.maxMs || campaignChanged || ruleEvent;
-    if (isNew || !s) s = { id: (!s && this.bootstrapId) || uuidv7(now), start: now, last: now };
+    const isNew = !s || Math.abs(now - s.last) > this.idleMs || Math.abs(now - s.start) > this.maxMs || campaignChanged || ruleEvent;
+    if (isNew || !s) s = { id: (!s && this.bootstrapId && bootstrapOk(this.bootstrapId, now) ? this.bootstrapId : uuidv7(now)), start: now, last: now };
     this.bootstrapId = undefined;
     s.last = now;
     if (campaignKey) s.campaign = campaignKey;

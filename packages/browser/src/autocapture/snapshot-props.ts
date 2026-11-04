@@ -26,6 +26,17 @@ const NEVER = "[data-lc-mask],.lc-mask,[data-lc-no-capture],.lc-no-capture,[data
 const DENIED_ATTRS = new Set(["value", "password", "autocomplete"]);
 const SENSITIVE = /(?:\d[ -]?){9,}/;
 const byHost = new WeakMap<Host, SnapshotRule[]>();
+const loads = new WeakMap<Host, Promise<void>>(); // present while the remote rules are still loading
+
+/** Resolves when the rules have loaded or after `ms`, whichever is first; undefined when nothing is loading (no wait needed). */
+export function snapshotWait(host: Host, ms: number): Promise<void> | undefined {
+  const load = loads.get(host);
+  if (!load) return undefined;
+  return new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, ms);
+    void load.then(() => (clearTimeout(t), resolve()));
+  });
+}
 
 /** Well-formed rules only (remote config is untrusted input). */
 export function snapshotRules(v: unknown): SnapshotRule[] {
@@ -87,9 +98,11 @@ export function readSnapshot(rules: SnapshotRule[], event: "click" | "pageview",
 /** Loads the rules from remote config and adds them to clicks; pageviews read them through pageviewSnapshot(). */
 export function startSnapshots(host: Host): () => void {
   let on = true;
-  void host.loadConfig().then((cfg) => {
+  const loading = host.loadConfig().then((cfg) => {
     if (on) byHost.set(host, snapshotRules(cfg?.snapshot_properties));
+    loads.delete(host);
   });
+  loads.set(host, loading);
   host.clickExtras.push((_ev, el) => (on ? readSnapshot(byHost.get(host) ?? [], "click", el) : {}));
   return () => {
     on = false;

@@ -110,6 +110,41 @@ describe("chunker", () => {
     expect(f.posts).toHaveLength(1);
   });
 
+  it("splits an over-64KB pagehide beacon into ordered, renumbered pieces", async () => {
+    const f = replayFetch();
+    const beacons: Blob[] = [];
+    vi.stubGlobal("navigator", { ...navigator, sendBeacon: (_u: string, b: Blob) => (beacons.push(b), true) });
+    const c = mk(f, { flushMs: 60_000, chunkBytes: 5_000_000 });
+    let x = 12345; // LCG noise: gzip cannot shrink it
+    const noise = (): string => Array.from({ length: 4000 }, () => ((x = (x * 1103515245 + 12345) % 2147483648), (x >> 8).toString(36))).join("");
+    for (let i = 0; i < 60; i++) c.add({ type: 3, i, noise: noise() });
+    c.beacon();
+    const got = await Promise.all(beacons.map(async (b) => decode("x", await blobBytes(b)).chunk));
+    expect(got.length).toBeGreaterThan(1);
+    expect(got.every((_, i) => beacons[i]!.size <= 60_000)).toBe(true);
+    expect(got.map((g) => g.seq)).toEqual(got.map((_, i) => i));
+    expect(got.flatMap((g) => g.events.map((e) => (e as { i?: number }).i))).toEqual(Array.from({ length: 60 }, (_, i) => i));
+  });
+
+  it("honours Retry-After and asks for a fresh snapshot when a chunk is given up on", async () => {
+    let n = 0;
+    const calls: number[] = [];
+    const fn = (async () => {
+      calls.push(Date.now());
+      return n++ === 0 ? new Response("{}", { status: 429, headers: { "Retry-After": "1" } }) : new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    const c = createChunker({ url: "https://x.test/v1/replay", apiKey: "k", fetch: fn, ids, chunkBytes: 20_000, flushMs: 30, backoff: { baseMs: 1, random: () => 0 } });
+    c.add({ type: 3 });
+    await c.flush();
+    expect(calls[1]! - calls[0]!).toBeGreaterThanOrEqual(950);
+    const onGap = vi.fn();
+    const f = replayFetch({}, () => 413);
+    const d = mk(f, { onGap });
+    d.add({ type: 3 });
+    await d.flush();
+    expect(onGap).toHaveBeenCalledOnce();
+  });
+
   it("restarts seq and asks for a snapshot when the session rotates", async () => {
     const f = replayFetch();
     let sid = "s1";

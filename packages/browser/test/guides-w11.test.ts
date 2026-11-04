@@ -316,4 +316,27 @@ describe("iframe forwarding (top side)", () => {
     post({ lc: FRAME_MSG, op: "close", key: "k" });
     expect(document.querySelector("[data-lc-ignore]")).toBeNull();
   });
+
+  it("a nested frame's message finds the top-level child frame; branches use the frame's own element presence", async () => {
+    const outer = document.createElement("iframe");
+    document.body.append(outer);
+    const inner = outer.contentDocument!.createElement("iframe");
+    outer.contentDocument!.body.append(inner);
+    stop = listenFrames(["https://child.test"]);
+    const post = (data: unknown): void =>
+      void window.dispatchEvent(new MessageEvent("message", { data, origin: "https://child.test", source: inner.contentWindow }));
+    const g = guide({
+      kind: "tour",
+      steps: [
+        { id: "a", title: "One", branch: [{ op: "element_present", value: "#only-in-frame", goto: "c" }] },
+        { id: "b", title: "Two" },
+        { id: "c", title: "Three" },
+      ],
+    } as Partial<Guide>);
+    post({ lc: FRAME_MSG, op: "render", key: "n", guide: g });
+    expect(box().getAttribute("aria-label")).toBe("One");
+    post({ lc: FRAME_MSG, op: "rects", key: "n", rects: {}, present: { "#only-in-frame": true } });
+    click("Next");
+    expect(box().getAttribute("aria-label")).toBe("Three"); // top has no #only-in-frame, the frame does
+  });
 });

@@ -43,6 +43,8 @@ export interface RenderOpts {
   resolveTarget?: (s: GuideStep) => Element | null;
   /** Resource-center AI answers and search reporting. */
   assist?: Assist;
+  /** Element presence for `element_present` / `element_absent` branch rules (default: this document). */
+  present?: (selector: string) => boolean;
   /** Run step automations (default true; off when the guide is drawn for another frame). */
   automate?: boolean;
 }
@@ -180,7 +182,7 @@ export function renderGuide(g: Guide, hooks: GuideHooks, done: () => void, opts:
   const target = (s: GuideStep): Element | null => (opts.resolveTarget ?? findTarget)(s);
   /** Forward-only branching: the button's `goto`, else the first matching `branch` rule, else the next step. */
   const next = (b?: GuideButton): void => {
-    const rule = b?.goto ? undefined : g.steps[idx]?.branch?.find((x) => branchOk(x, { ...(opts.person ? { person: opts.person } : {}), ...(opts.flag ? { flag: opts.flag } : {}) }));
+    const rule = b?.goto ? undefined : g.steps[idx]?.branch?.find((x) => branchOk(x, { ...(opts.person ? { person: opts.person } : {}), ...(opts.flag ? { flag: opts.flag } : {}), ...(opts.present ? { present: opts.present } : {}) }));
     const goto = b?.goto ?? rule?.goto;
     const to = goto === "end" ? g.steps.length : goto ? g.steps.findIndex((x) => x.id === goto) : -1;
     visited.push(idx);

@@ -51,6 +51,11 @@ export function cookiebotToConsent(c: { statistics?: boolean; marketing?: boolea
   return { analytics: !!c.statistics, replay: !!c.statistics, marketing: !!c.marketing };
 }
 
+/** Cookie Munch snapshot (`CookieMunch.consent`): statistics = analytics + replay, marketing = marketing. `preferences` has no Lucida category (it gates the site's own storage, not Lucida's). */
+export function cookieMunchToConsent(c: { statistics?: boolean; marketing?: boolean }): Update {
+  return { analytics: !!c.statistics, replay: !!c.statistics, marketing: !!c.marketing };
+}
+
 /** Follow an IAB TCF v2.2 CMP (`window.__tcfapi`); waits up to 10 s for the CMP to appear. */
 export const tcfConsent: Module = (host) => {
   let removeId: number | undefined;
@@ -207,3 +212,20 @@ export function usercentricsBridge(serviceName = "Lucida"): Module {
 
 /** Usercentrics bridge for a service named "Lucida". */
 export const usercentricsConsent: Module = usercentricsBridge();
+
+const CM_EVENTS = ["CookieMunchOnConsentReady", "CookieMunchOnChange"];
+
+/**
+ * Follow Cookie Munch (cookiemunch.net): `CookieMunch.consent` once the visitor has a decision (`hasResponse`; the
+ * snapshot is all-false before that, which is never read as a decline), then its change events. Cookie Munch is
+ * Cookiebot-compatible, so `cookiebotConsent` also works; this one uses the native event names.
+ */
+export const cookieMunchConsent: Module = (host) => {
+  const read = (): void => {
+    const cm = (window as { CookieMunch?: { hasResponse?: boolean; consent?: { statistics?: boolean; marketing?: boolean } } }).CookieMunch;
+    if (cm?.consent && cm.hasResponse === true) applyConsent(host, cookieMunchToConsent(cm.consent), "cookiemunch", { onlyIfChanged: true });
+  };
+  for (const e of CM_EVENTS) window.addEventListener(e, read);
+  read();
+  return () => CM_EVENTS.forEach((e) => window.removeEventListener(e, read));
+};

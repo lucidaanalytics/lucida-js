@@ -8,15 +8,16 @@ import { runAutomation } from "./step-extras.js";
 // the child's origin in `guides.frameOrigins`. The child keeps ownership (targeting, state, events): the top only
 // renders and posts each hook back. Target rects are measured in the child and shifted by the iframe's position.
 // Messages always go to one exact origin (never "*") and are accepted only from the expected window and origin.
-// shortcut: direct child iframes only, and branch rules on element presence are evaluated in the top document;
-// upgrade when nested frames or cross-frame branching are needed.
+// Nested frames: a grandchild posts to the top too; it adds the offsets of the frames between it and the top-level
+// child when it can read them (same-origin chain), else it reports no target rects. `element_present` /
+// `element_absent` branch rules are answered by the child's own document (reported with the rects).
 
 export const FRAME_MSG = "lc:guide";
 
 type Rect = { x: number; y: number; width: number; height: number };
 type Msg =
   | { lc: typeof FRAME_MSG; op: "render"; key: string; guide: Guide; start?: number; checked?: string[] }
-  | { lc: typeof FRAME_MSG; op: "rects"; key: string; rects: Record<string, Rect | null> }
+  | { lc: typeof FRAME_MSG; op: "rects"; key: string; rects: Record<string, Rect | null>; present?: Record<string, boolean> }
   | { lc: typeof FRAME_MSG; op: "close" | "closed"; key: string }
   | { lc: typeof FRAME_MSG; op: "mark"; key: string; stepId: string }
   | { lc: typeof FRAME_MSG; op: "hook"; key: string; name: HookName; args: unknown[] };
@@ -43,6 +44,27 @@ export function framed(): boolean {
   }
 }
 
+/** Offset of this frame inside the top-level child frame (0 when it is one); null when an intermediate frame is cross-origin. */
+function nestedOffset(): { x: number; y: number } | null {
+  let x = 0;
+  let y = 0;
+  let w: Window = window;
+  while (w.parent !== window.top && w.parent !== w) {
+    let el: Element | null;
+    try {
+      el = w.frameElement;
+    } catch {
+      return null;
+    }
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    x += r.left + el.clientLeft;
+    y += r.top + el.clientTop;
+    w = w.parent;
+  }
+  return { x, y };
+}
+
 let seq = 0;
 
 /** Child side: draw `g` in the top window at `topOrigin`. Same contract as renderGuide. */
@@ -58,10 +80,23 @@ export function forwardGuide(g: Guide, hooks: GuideHooks, done: () => void, opts
     }
   };
   const anchored = g.steps.filter((s) => s.selector || s.fallback_selectors?.length);
+  const probes = [...new Set(g.steps.flatMap((s) => (s.branch ?? []).filter((b) => b.op === "element_present" || b.op === "element_absent").map((b) => String(b.value))))];
   const sendRects = (): void => {
     const rects: Record<string, Rect | null> = {};
-    for (const s of anchored) rects[s.id] = rectOf(findTarget(s));
-    post({ op: "rects", rects });
+    const off = nestedOffset();
+    for (const s of anchored) {
+      const r = off ? rectOf(findTarget(s)) : null;
+      rects[s.id] = r && off ? { ...r, x: r.x + off.x, y: r.y + off.y } : null;
+    }
+    const present: Record<string, boolean> = {};
+    for (const q of probes) {
+      try {
+        present[q] = !!document.querySelector(q);
+      } catch {
+        present[q] = false;
+      }
+    }
+    post({ op: "rects", rects, present });
   };
   const onMsg = (e: MessageEvent): void => {
     if (e.source !== top || e.origin !== topOrigin || !isMsg(e.data) || e.data.key !== key) return;
@@ -77,7 +112,7 @@ export function forwardGuide(g: Guide, hooks: GuideHooks, done: () => void, opts
     }
   };
   addEventListener("message", onMsg);
-  const timer = anchored.length ? setInterval(sendRects, 200) : undefined;
+  const timer = anchored.length || probes.length ? setInterval(sendRects, 200) : undefined;
   addEventListener("scroll", sendRects, true);
   addEventListener("resize", sendRects);
   const stop = (notify: boolean): void => {
@@ -91,13 +126,17 @@ export function forwardGuide(g: Guide, hooks: GuideHooks, done: () => void, opts
     done();
   };
   post({ op: "render", guide: g, ...(opts.start ? { start: opts.start } : {}), ...(opts.checked ? { checked: opts.checked } : {}) });
-  if (anchored.length) sendRects();
+  if (anchored.length || probes.length) sendRects();
   return Object.assign(() => stop(true), { markDone: (stepId: string) => post({ op: "mark", stepId }) });
 }
 
-/** The iframe element whose window is `w`, if it is a direct child of this document. */
+/** The direct-child iframe holding window `w` (or an ancestor of it: nested frames count). `parent` is readable cross-origin. */
 function frameOf(w: MessageEventSource | null): HTMLIFrameElement | null {
-  for (const f of document.querySelectorAll("iframe")) if (f.contentWindow === w) return f;
+  const frames = [...document.querySelectorAll("iframe")];
+  for (let s = w as Window | null; s; s = s.parent === s ? null : s.parent) {
+    const hit = frames.find((f) => f.contentWindow === s);
+    if (hit) return hit;
+  }
   return null;
 }
 
@@ -114,7 +153,7 @@ function proxyTarget(frame: HTMLIFrameElement, r: Rect): Element {
 /** Top side: draw guides forwarded by child frames of the `allowed` origins. Returns the remover. */
 export function listenFrames(allowed: string[], nonce?: string): () => void {
   const ok = new Set(allowed.map((o) => o.replace(/\/+$/, "")));
-  const live = new Map<string, { handle: GuideHandle; rects: Record<string, Rect | null>; release: () => void }>();
+  const live = new Map<string, { handle: GuideHandle; rects: Record<string, Rect | null>; present: Record<string, boolean>; release: () => void }>();
   const onMsg = (e: MessageEvent): void => {
     if (!ok.has(e.origin) || !isMsg(e.data)) return;
     const frame = frameOf(e.source);
@@ -129,7 +168,10 @@ export function listenFrames(allowed: string[], nonce?: string): () => void {
       }
     };
     const cur = live.get(id);
-    if (m.op === "rects" && cur) cur.rects = m.rects && typeof m.rects === "object" ? m.rects : {};
+    if (m.op === "rects" && cur) {
+      cur.rects = m.rects && typeof m.rects === "object" ? m.rects : {};
+      cur.present = m.present && typeof m.present === "object" ? m.present : {};
+    }
     else if (m.op === "close") cur?.handle();
     else if (m.op === "mark") cur?.handle.markDone(String(m.stepId));
     else if (m.op === "render" && !cur) {
@@ -139,13 +181,13 @@ export function listenFrames(allowed: string[], nonce?: string): () => void {
       if (!release) return back({ op: "closed" }); // the top already shows a guide
       const relay = (name: HookName) => (...args: unknown[]): void => back({ op: "hook", name, args });
       const hooks = Object.fromEntries(HOOKS.map((n) => [n, relay(n)])) as unknown as GuideHooks;
-      const entry = { rects: {} as Record<string, Rect | null>, release, handle: undefined as unknown as GuideHandle };
+      const entry = { rects: {} as Record<string, Rect | null>, present: {} as Record<string, boolean>, release, handle: undefined as unknown as GuideHandle };
       live.set(id, entry);
       const resolveTarget = (s: GuideStep): Element | null => {
         const r = entry.rects[s.id];
         return r && typeof r.x === "number" ? proxyTarget(frame, r) : null;
       };
-      const opts: RenderOpts = { resolveTarget, automate: false, ...(nonce ? { nonce } : {}), ...(typeof m.start === "number" ? { start: m.start } : {}), ...(Array.isArray(m.checked) ? { checked: m.checked } : {}) };
+      const opts: RenderOpts = { resolveTarget, present: (q) => entry.present[q] === true, automate: false, ...(nonce ? { nonce } : {}), ...(typeof m.start === "number" ? { start: m.start } : {}), ...(Array.isArray(m.checked) ? { checked: m.checked } : {}) };
       entry.handle = renderGuide(g, hooks, () => {
         live.delete(id);
         release();

@@ -15,7 +15,7 @@ const base = { capturePageview: false, autocapture: false } as const;
 const ev = (event = "x", properties: Record<string, unknown> = {}): WireEvent => ({ uuid: "u", event, timestamp: "t", properties });
 
 describe("beforeSend chain", () => {
-  it("runs hooks in order on the previous output; null drops; a throwing hook is skipped", () => {
+  it("runs hooks in order on the previous output; null drops; a throwing or non-event-returning hook drops the event (fail closed)", () => {
     const log: unknown[] = [];
     const out = runHooks(
       [
@@ -28,8 +28,10 @@ describe("beforeSend chain", () => {
       ev(),
       (...a) => log.push(a),
     );
-    expect(out?.properties).toEqual({ a: 1, b: 2 });
+    expect(out).toBeNull();
     expect(log).toHaveLength(1);
+    expect(runHooks([(e) => ({ ...e, properties: { n: 1 } }), (e) => ({ ...e, properties: { ...e.properties, m: 2 } })], ev(), () => {})?.properties).toEqual({ n: 1, m: 2 });
+    expect(runHooks([(() => true) as never], ev(), () => {})).toBeNull();
     expect(runHooks([() => null, () => ev("never")], ev(), () => {})).toBeNull();
   });
 

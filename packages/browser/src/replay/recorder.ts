@@ -1,17 +1,21 @@
 import { record } from "@rrweb/record";
 import type { Host } from "../types.js";
+import { privatizeUrl } from "../url-privacy.js";
 import { createChunker } from "./chunker.js";
 import { urlAllowed } from "./config.js";
 import type { ResolvedReplay } from "./config.js";
 import { textMasker } from "./masktext.js";
 import type { TextMasker } from "./masktext.js";
+import { markFixed } from "./fixedmark.js";
 import { pagePrivacy, urlRules } from "./urlrules.js";
 import { guardIframeMessages, inIframe, mayPostToParent } from "./iframes.js";
+import { keyCounter } from "./keycount.js";
 import { pageHeightEmitter } from "./pageheight.js";
 import { createRing } from "./ring.js";
 import { assetScrubber, resolveAssets } from "./assets.js";
 import { maskedCanvasSampler } from "./canvas.js";
 import { mutationThrottle } from "./throttle.js";
+import { idleGate } from "./idle.js";
 import { watchTrigger } from "./triggers.js";
 import { watchGroups } from "./groups.js";
 import type { TriggerGroup } from "./groups.js";
@@ -43,8 +47,11 @@ const MARKERS: Record<string, (p: Record<string, unknown>) => Record<string, unk
 
 interface RrEvent {
   type: number;
+  timestamp?: number;
   data?: { source?: number };
 }
+
+const MASKED_INPUT = "********";
 
 /**
  * Starts rrweb with the privacy defaults and wires chunking, triggers, URL filters and page
@@ -84,6 +91,13 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
     status.status = stopped ? "disabled" : paused ? "paused" : live ? "active" : "buffering";
   };
 
+  const snapshot = (): void => {
+    try {
+      record.takeFullSnapshot(true);
+    } catch {
+      /* not recording */
+    }
+  };
   const chunker = createChunker({
     url: `${base}/v1/replay`,
     apiKey: host.apiKey,
@@ -96,13 +110,8 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
       status.flushedBytes += n;
       status.ack(session); // the gateway accepted a chunk: this session has a recording
     },
-    onSessionChange: () => {
-      try {
-        record.takeFullSnapshot(true); // the rotated session needs its own snapshot
-      } catch {
-        /* not recording */
-      }
-    },
+    onSessionChange: () => snapshot(), // the rotated session needs its own snapshot
+    onGap: () => snapshot(), // a dropped chunk leaves a hole the player cannot cross without one
     log: host.log,
   });
 
@@ -143,14 +152,19 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
   const maskedCanvas = !!cfg.canvas && (cfg.canvasMask.length > 0 || !!cfg.canvasMaskRegions);
   let sampler: ReturnType<typeof maskedCanvasSampler> | undefined;
 
-  const maskUrl = cfg.maskUrlFn;
+  const maskUrl = cfg.maskUrlFn ?? ((u: string) => privatizeUrl(u, host.config.urlPrivacy ?? {}));
+  const idleGuard = idleGate(cfg.idle_threshold_ms);
   const emit = (e: RrEvent, isCheckout?: boolean): void => {
     if (paused || stopped) return;
+    const idle = idleGuard.check(e);
+    if (!idle.keep) return;
+    if (idle.resumed) snapshot(); // events were dropped while idle: re-sync the player's DOM
     if (throttle && !throttle.allow(e)) return;
     if (e.type === 2) sampler?.reset();
     const getNode = (id: number) => record.mirror.getNode(id);
     masker?.scrub(e, getNode);
     assetScrub?.scrub(e, getNode);
+    markFixed(e, getNode);
     if (maskUrl && e.type === 4 && typeof (e.data as { href?: unknown })?.href === "string") {
       const d = e.data as { href: string };
       d.href = maskUrl(d.href);
@@ -165,6 +179,22 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
   // An embedded frame that may not post to its parent records nothing (it must not become a second top-level recording).
   const mute = child && !mayPostToParent(xo);
   const unguard = xo && !child ? guardIframeMessages(xo) : undefined;
+
+  // real key presses for keypress_count; never counted inside password, masked, blocked or ignored elements
+  const keys = mute
+    ? undefined
+    : keyCounter(
+        (n) => {
+          try {
+            record.addCustomEvent("keys", { n });
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        () => [maskSel, blockSel, "[data-lc-ignore]"].filter(Boolean).join(","),
+      );
+
 
   const begin = (): void => {
     if (stopRrweb || stopped || mute) return;
@@ -194,7 +224,8 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
         checkoutEveryNms: live ? FULL_SNAPSHOT_MS : cfg.buffer_ms / 2,
         maskAllInputs: cfg.mask_all_inputs,
         maskInputOptions: { ...cfg.maskInputOptions, password: true },
-        ...(cfg.maskInputFn && { maskInputFn: cfg.maskInputFn }),
+        // a fixed-length placeholder: the stars of rrweb's default would reveal how long the typed value is
+        maskInputFn: cfg.maskInputFn ?? (() => MASKED_INPUT),
         maskTextSelector: masker ? "*" : maskSel,
         ...(masker ? { maskTextFn: masker.maskTextFn } : cfg.maskTextFn && { maskTextFn: cfg.maskTextFn }),
         blockSelector: blockSel,
@@ -284,10 +315,33 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
       begin();
     }
   };
-  const urlTimer = setInterval(checkUrl, 1000);
+  const urlTimer = setInterval(checkUrl, 1000); // backstop for anything the route hooks below miss
+  // A route change swaps the page's masking right away, not at the next timer tick or $pageview. The Navigation API
+  // reports every same-document change; without it, history.pushState/replaceState are wrapped (and restored if still ours).
+  const nav = (window as Window & { navigation?: EventTarget }).navigation;
+  const routeUndo: Array<() => void> = [];
+  const onRoute = (): void => checkUrl();
+  if (nav) {
+    nav.addEventListener("currententrychange", onRoute);
+    routeUndo.push(() => nav.removeEventListener("currententrychange", onRoute));
+  } else {
+    for (const m of ["pushState", "replaceState"] as const) {
+      const orig = history[m];
+      const wrapped = function (this: History, ...a: Parameters<History["pushState"]>) {
+        orig.apply(this, a);
+        checkUrl();
+      };
+      history[m] = wrapped;
+      routeUndo.push(() => {
+        if (history[m] === wrapped) history[m] = orig;
+      });
+    }
+  }
+  window.addEventListener("popstate", onRoute);
+  window.addEventListener("hashchange", onRoute);
+  routeUndo.push(() => (window.removeEventListener("popstate", onRoute), window.removeEventListener("hashchange", onRoute)));
 
   host.onCapture((e) => {
-    // shortcut: between a client-side route change and this check the old page's masking applies; the $pageview hook keeps that gap short
     if (e.event === "$pageview") checkUrl();
     const marker = MARKERS[e.event];
     if (!marker || paused || stopped || !stopRrweb) return;
@@ -321,10 +375,12 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
     stopped = true;
     halt();
     clearInterval(urlTimer);
+    for (const u of routeUndo) u();
     clearTimeout(minTimer);
     document.removeEventListener("visibilitychange", onVisible);
     unguard?.();
     height.stop();
+    keys?.stop();
     trigger.stop();
     ring.drain();
     chunker.discard();

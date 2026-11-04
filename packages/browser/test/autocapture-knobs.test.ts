@@ -111,6 +111,7 @@ describe("capturePageleave", () => {
     const { client, t } = start({ autocapture: false, capturePageleave: false });
     live = client;
     history.pushState({}, "", "/next");
+    await Promise.resolve(); // pageviews are captured a microtask after the route change
     await client.flush();
     expect(names(t)).toEqual(["$pageview", "$pageview"]);
   });

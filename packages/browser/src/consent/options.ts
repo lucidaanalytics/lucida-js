@@ -34,4 +34,4 @@ export interface ConsentUi {
   hideBanner(): void;
 }
 
-export type ConsentSource = "banner" | "tcf" | "gcm" | "onetrust" | "cookiebot" | "osano" | "usercentrics" | "api";
+export type ConsentSource = "banner" | "tcf" | "gcm" | "onetrust" | "cookiebot" | "cookiemunch" | "osano" | "usercentrics" | "api";

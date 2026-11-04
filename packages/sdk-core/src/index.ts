@@ -27,6 +27,7 @@ export { resolveRuntime, resolveRuntimeAll, mergePatch, RuntimeCounter, countKey
 export type { RuntimeBranch, RuntimeEvents } from "./flag-runtime.js";
 export { FlagSnapshot, flagEventProps, withFlagProps } from "./flag-enrich.js";
 export { flagResult, FlagFreshness, withFallback, fallbackValue } from "./flag-result.js";
+export { matchOp } from "./flag-ops.js";
 export type { FlagResult, FlagCacheStamp, FlagFallbacks } from "./flag-result.js";
 export { MemoryStickyStore, evaluateAllSticky, stickyValue } from "./sticky.js";
 export type { StickyStore } from "./sticky.js";

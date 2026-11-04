@@ -29,6 +29,17 @@ describe("flag values on captured events", () => {
     await l.shutdown();
   });
 
+  it("events captured after a remote-flag capture are delivered behind it", async () => {
+    const g = fakeGateway({ defsStatus: 503, remote: { flags: { r: { enabled: true, value: "B", variant: "B" } } } });
+    const l = mk(g);
+    await l.ready;
+    l.capture({ distinctId: "u", event: "first", sendFeatureFlags: true });
+    l.capture({ distinctId: "u", event: "second" });
+    await l.flush();
+    expect(g.events().map((e) => e.event)).toEqual(["first", "second"]);
+    await l.shutdown();
+  });
+
   it("evaluateFlags snapshot: reads without exposures, onlyAccessed narrows the capture", async () => {
     const lc = new Lucida("lc_pk_x", { testMode: { fixture: [flag("a"), flag("b"), flag("j", { type: "json", payload: { x: 1 } })] } });
     const snap = await lc.evaluateFlags("u");

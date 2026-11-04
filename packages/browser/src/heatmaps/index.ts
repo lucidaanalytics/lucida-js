@@ -25,14 +25,27 @@ export function heatmapProps(ev: MouseEvent, el: Element): Props {
   };
 }
 
-/** Batches sampled pointer positions (page-relative px) into `$heatmap_moves` events. */
+/** True when the element or an ancestor is fixed or sticky: it stays in the viewport while the page scrolls. */
+export function pinned(el: Element): boolean {
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    const p = getComputedStyle(n).position;
+    if (p === "fixed" || p === "sticky") return true;
+  }
+  return false;
+}
+
+/**
+ * Batches sampled pointer positions into `$heatmap_moves` events as `[x, y, dt_ms]`, page-relative px.
+ * Over a fixed/sticky element the point is viewport-relative and carries a 4th entry `1` (`fixed`):
+ * consumers must not add scroll offset to it.
+ */
 function trackMoves(host: Host, every: number): () => void {
-  let pts: Array<[number, number, number]> = [];
+  let pts: Array<[number, number, number] | [number, number, number, 1]> = [];
   let t0 = 0;
   let last = 0;
   const send = (): void => {
     if (!pts.length) return;
-    host.client.capture("$heatmap_moves", { $points: pts, $viewport_bucket: viewportBucket(window.innerWidth) });
+    host.client.capture("$heatmap_moves", { $points: pts, $viewport_bucket: viewportBucket(window.innerWidth), $viewport_width: window.innerWidth, $viewport_height: window.innerHeight });
     pts = [];
   };
   const on = (ev: MouseEvent): void => {
@@ -40,7 +53,10 @@ function trackMoves(host: Host, every: number): () => void {
     if (now - last < every || (ev.target instanceof Element && ev.target.closest(IGNORE))) return;
     if (!pts.length) t0 = now;
     last = now;
-    pts.push([Math.round(ev.clientX + scrollX), Math.round(ev.clientY + scrollY), now - t0]);
+    const fixed = ev.target instanceof Element && pinned(ev.target);
+    const x = Math.round(ev.clientX + (fixed ? 0 : scrollX));
+    const y = Math.round(ev.clientY + (fixed ? 0 : scrollY));
+    pts.push(fixed ? [x, y, now - t0, 1] : [x, y, now - t0]);
     if (pts.length >= 100) send();
   };
   document.addEventListener("mousemove", on, { passive: true, capture: true });

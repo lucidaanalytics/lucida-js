@@ -9,6 +9,16 @@ export type Command = [string, ...unknown[]];
 
 type Queue = Command[] & { push: (...c: Command[]) => number };
 
+/** Origin the classic script was loaded from (read while it runs: `currentScript` is null afterwards). */
+const scriptOrigin = ((): string | undefined => {
+  try {
+    const src = typeof document === "undefined" ? undefined : (document.currentScript as HTMLScriptElement | null)?.src;
+    return src ? new URL(src).origin : undefined;
+  } catch {
+    return undefined;
+  }
+})();
+
 /**
  * The `modules` named in the init config, loaded from `<assetHost>/static/v<this version>/`. Extension mode never
  * loads remote code (MV3 forbids it): bundle the modules and use `createClient` instead.
@@ -19,7 +29,7 @@ function lazyModules(cfg: BrowserConfig, importer?: Importer): Promise<Module[]>
     console.warn("[lucida] extension mode: `modules` are not loaded remotely; bundle them with createClient");
     return Promise.resolve([]);
   }
-  const assetHost = cfg.assetHost ?? cfg.apiHost ?? DEFAULT_HOST;
+  const assetHost = cfg.assetHost ?? scriptOrigin ?? cfg.apiHost ?? DEFAULT_HOST; // the loader's own host serves its modules
   return loadModules(cfg.modules, { assetHost, version: LIB_VERSION }, (...a) => console.warn("[lucida]", ...a), importer);
 }
 
@@ -40,7 +50,9 @@ export function drain(w: { lucidaQueue?: Command[]; lucida?: Client }, importer?
       initCalled = true;
       const cfg = (args[1] ?? {}) as BrowserConfig;
       const boot = (mods: Module[]): void => {
-        w.lucida = init(String(args[0]), cfg, mods);
+        // A Lucida-hosted loader (no assetHost) sits on the app host, so replay links point there, not at the capture host.
+        const ui = !cfg.uiHost && !cfg.assetHost && scriptOrigin ? { uiHost: scriptOrigin } : {};
+        w.lucida = init(String(args[0]), { ...ui, ...cfg }, mods);
         const later = pending;
         pending = [];
         later.forEach(run);

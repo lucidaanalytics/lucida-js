@@ -1,4 +1,4 @@
-import { AgentConversation, Core, GatedStorage, flagEventProps, flagResult, interventionHub, offlineTransport } from "@lucida-analytics/sdk-core";
+import { AgentConversation, CONSENT_KEY, Core, GatedStorage, flagEventProps, flagResult, interventionHub, offlineTransport } from "@lucida-analytics/sdk-core";
 import type { Props, Storage, Transport } from "@lucida-analytics/sdk-core";
 import { isBotUserAgent } from "./bot-ua.js";
 import { clickIdTracker } from "./clickids.js";
@@ -8,7 +8,7 @@ import { connectDevtools } from "./devtools-hook.js";
 import { campaignKey, enrich } from "./env.js";
 import { takeLinker } from "./linker.js";
 import { installPolicy } from "./policy.js";
-import { DebouncedStorage, WebStorageAdapter, createStorage, keySuffix } from "./storage.js";
+import { DebouncedStorage, WebStorageAdapter, createStorage, keySuffix, purgeStored } from "./storage.js";
 import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
@@ -45,7 +45,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
   const gpc = (navigator as { globalPrivacyControl?: boolean }).globalPrivacyControl === true;
   const dnt = ((config.respectDnt ?? legacy) === true && navigator.doNotTrack === "1") || ((config.respectGpc ?? legacy) === true && gpc);
   // Known crawlers and headless browsers send nothing (no storage, no network); `blockBots: false` keeps them.
-  const botUa = config.blockBots !== false && typeof navigator !== "undefined" && isBotUserAgent(navigator.userAgent ?? "");
+  const botUa = config.blockBots !== false && typeof navigator !== "undefined" && isBotUserAgent(navigator.userAgent ?? "", config.blockedUserAgents);
   const disabled = !!config.disabled || botUa;
   if (botUa) log("bot user agent: capture disabled");
 
@@ -133,6 +133,15 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     return true;
   };
 
+  // A denial removes what an earlier grant stored; only the decision itself survives (see the consent docs).
+  if (!disabled) {
+    core.onChange((c) => {
+      if (c !== "consent" || core.hasConsent("analytics") || core.consentStatus() !== "denied") return;
+      debounced?.flush();
+      purgeStored(raw, apiKey, config.consent?.storageKey || CONSENT_KEY);
+    });
+  }
+
   const unload: Array<() => void> = [];
   const teardowns: Array<() => void> = [cspHint(log, config.nonce)];
   // A separate flag store is consent-gated like the core one, and released or dropped with the decision.
@@ -175,8 +184,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
         whenConsented(() => {
           fetchImpl(`${apiHost}/v1/config?api_key=${encodeURIComponent(apiKey)}`)
             .then((r) => (r.ok ? (r.json() as Promise<RemoteConfig>) : null))
-            // shortcut: the session definition (N-ANA-6) applies when a module loads the config (autocapture, replay,
-            // heatmaps, consent.geo); a core-only bundle keeps the local session options. Upgrade: an explicit boot fetch.
+            // the session definition (N-ANA-6) applies as soon as the config arrives
             .then((r) => {
               if (r) core.applyRemote(r);
               return r;
@@ -373,6 +381,9 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       if (t) teardowns.push(t);
     }
     flagsSvc = host.flags;
+    // A core-only bundle has no module that loads the config; modules that promise "no request" (watchtower owner,
+    // disableRemote, inert toolbar) keep the local session options.
+    if (!modules.length) void host.loadConfig();
     connectDevtools(host, client, apiHost);
   }
   log("initialised", { apiHost, consent: core.getConsent() });

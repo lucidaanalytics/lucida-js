@@ -67,6 +67,19 @@ describe("replay trigger groups", () => {
     expect(p.$replay_event_trigger_status).toBe("activated");
   });
 
+  it("an event_filters group only fires when the event's properties match", async () => {
+    const groups = [{ id: "big", event_filters: [{ event: "purchase", properties: [{ key: "amount", op: "gt" as const, value: 100 }] }] }];
+    const { f, client, probe } = boot({ replay: { trigger_groups: groups, flush_interval_ms: 40 } });
+    await probe((p) => p.$recording_status === "buffering");
+    client.capture("purchase", { amount: 20 });
+    client.capture("purchase");
+    expect((await probe((p) => p.$replay_event_trigger_status === "pending")).$recording_status).toBe("buffering");
+    expect(f.posts).toHaveLength(0);
+    client.capture("purchase", { amount: 250 });
+    await until(() => f.posts.length > 0);
+    expect((await probe((x) => x.$has_recording === true)).$replay_trigger_groups_matched).toEqual(["big"]);
+  });
+
   it("match all needs every condition; a group without conditions records at once", async () => {
     const groups = [{ id: "both", match: "all" as const, events: ["paid"], url_patterns: ["/never-here"] }];
     const a = boot({ replay: { trigger_groups: groups, flush_interval_ms: 40 } });

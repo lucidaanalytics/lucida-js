@@ -22,6 +22,7 @@ describe("SPA pageviews", () => {
     history.pushState({}, "", "/products/1"); // same URL: nothing
     window.dispatchEvent(new PopStateEvent("popstate"));
     history.pushState({}, "", "/cart");
+    await Promise.resolve(); // pageviews are captured a microtask after the route change
     await client.flush();
     const seq = t.events().map((e) => `${e.event}:${new URL(e.properties.$current_url as string).pathname}`);
     expect(seq).toEqual([
@@ -69,6 +70,7 @@ describe("SPA pageviews", () => {
     raw.call(history, {}, "", "/app#/settings?tab=2"); // unpatched: only the hashchange below may fire
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     window.dispatchEvent(new HashChangeEvent("hashchange")); // same URL: nothing
+    await Promise.resolve(); // pageviews are captured a microtask after the route change
     await client.flush();
     const views = t.events().filter((e) => e.event === "$pageview");
     expect(views.map((e) => e.properties.$pathname)).toEqual(["/app#/inbox", "/app#/settings"]);
@@ -117,5 +119,56 @@ describe("pageleave and scroll depth", () => {
     const leaves = t.events().filter((e) => e.event === "$pageleave");
     expect(leaves[0]!.properties.$scroll_depth).toBe(100);
     expect(leaves[1]!.properties.$scroll_depth).toBe(50);
+  });
+});
+
+describe("pageview edge cases", () => {
+  it("history mode ignores an in-page anchor; the object form picks the parts that count", async () => {
+    const { client, t } = start({ autocapture: false });
+    live = client;
+    history.pushState({}, "", "/home#faq");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    history.pushState({}, "", "/home?tab=2");
+    await Promise.resolve();
+    await client.flush();
+    expect(t.events().filter((e) => e.event === "$pageview")).toHaveLength(2);
+    await client.shutdown();
+    const only = start({ autocapture: false, capturePageview: { path: true } });
+    live = only.client;
+    history.pushState({}, "", "/home?tab=3");
+    history.pushState({}, "", "/other?tab=3");
+    await Promise.resolve();
+    await only.client.flush();
+    expect(only.t.events().filter((e) => e.event === "$pageview")).toHaveLength(2); // initial + /other
+  });
+
+  it("captures after the router's same-task title change, with how and from where it got there", async () => {
+    document.title = "Home";
+    const { client, t } = start({ autocapture: false });
+    live = client;
+    history.pushState({}, "", "/pricing");
+    document.title = "Pricing"; // set right after pushState, like most routers
+    await Promise.resolve();
+    await client.flush();
+    const views = t.events().filter((e) => e.event === "$pageview");
+    expect(views[0]!.properties.$title).toBe("Home");
+    expect(views[1]!.properties).toMatchObject({ $title: "Pricing", $navigation_type: "pushState", $prev_pageview_pathname: "/home" });
+    expect(typeof views[1]!.properties.$prev_pageview_duration).toBe("number");
+  });
+
+  it("scrollRoot measures the app shell's inner scroller", async () => {
+    document.body.innerHTML = '<div id="shell"></div>';
+    const shell = document.getElementById("shell")!;
+    set(shell, "scrollHeight", 2000);
+    set(shell, "clientHeight", 500);
+    set(shell, "scrollTop", 0);
+    const { client, t } = start({ autocapture: false, scrollRoot: ["#missing", "#shell"] });
+    live = client;
+    set(shell, "scrollTop", 1000);
+    shell.dispatchEvent(new Event("scroll")); // does not bubble: only the capture listener sees it
+    window.dispatchEvent(new Event("pagehide"));
+    await client.flush();
+    expect(t.events().find((e) => e.event === "$pageleave")!.properties).toMatchObject({ $scroll_depth: 75, $scroll_depth_px: 1500 });
+    document.body.innerHTML = "";
   });
 });

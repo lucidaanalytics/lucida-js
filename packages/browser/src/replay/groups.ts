@@ -1,3 +1,4 @@
+import { matchOp } from "@lucida-analytics/sdk-core";
 import type { FlagValue, Host } from "../types.js";
 
 /**
@@ -6,6 +7,15 @@ import type { FlagValue, Host } from "../types.js";
  * conditions always matches. A matched group still has to be sampled in (per group, deterministic per
  * session), and its `min_duration_ms` then applies. Same semantics in every SDK (testdata/replay/sampling.json).
  */
+/** Operators allowed on event-property conditions (the same set the API accepts). */
+export type EventPropOp = "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains" | "is_set" | "is_not_set";
+
+/** An event whose properties must all satisfy `properties` (e.g. `purchase` with `amount gt 100`). */
+export interface EventFilter {
+  event: string;
+  properties?: Array<{ key: string; op: EventPropOp; value?: unknown }>;
+}
+
 export interface TriggerGroup {
   id: string;
   name?: string;
@@ -13,6 +23,8 @@ export interface TriggerGroup {
   /** Regex sources tested against the page URL; once matched it stays matched for the session. */
   url_patterns?: string[];
   events?: string[];
+  /** Like `events`, but the event's properties must match too; either list satisfies the event condition. */
+  event_filters?: EventFilter[];
   /** Truthy flag, or exactly `variant` when given. */
   flag?: { key: string; variant?: string };
   /** 0..1. Default 1. */
@@ -42,6 +54,15 @@ const flagMatches = (want: { key: string; variant?: string }, flags: Record<stri
   return want.variant === undefined ? v !== undefined && v !== false && v !== "false" : v === want.variant;
 };
 
+const hasEvents = (g: TriggerGroup): boolean => !!g.events?.length || !!g.event_filters?.length;
+
+function eventHit(g: TriggerGroup, name: string, props: Record<string, unknown> | undefined): boolean {
+  if (g.events?.includes(name)) return true;
+  return !!g.event_filters?.some(
+    (f) => f.event === name && (f.properties ?? []).every((p) => matchOp(p.op, props?.[p.key], !!props && Object.hasOwn(props, p.key), p.value, false)),
+  );
+}
+
 const compile = (patterns: string[], log: (...a: unknown[]) => void): RegExp[] =>
   patterns.flatMap((p) => {
     try {
@@ -63,7 +84,7 @@ interface GroupState {
 function satisfied(s: GroupState): boolean {
   const conds: boolean[] = [];
   if (s.urls.length) conds.push(s.url);
-  if (s.g.events?.length) conds.push(s.event);
+  if (hasEvents(s.g)) conds.push(s.event);
   if (s.g.flag) conds.push(s.flag);
   if (!conds.length) return true;
   return s.g.match === "all" ? conds.every(Boolean) : conds.some(Boolean);
@@ -106,7 +127,7 @@ export function watchGroups(
   };
   host.onCapture((e) => {
     let hit = false;
-    for (const s of st) if (!s.event && s.g.events?.includes(e.event)) hit = s.event = true;
+    for (const s of st) if (!s.event && eventHit(s.g, e.event, e.properties)) hit = s.event = true;
     if (hit) check();
   });
   const onFlags = (f: Record<string, FlagValue>): void => {
@@ -131,7 +152,7 @@ export function watchGroups(
     matched: () => st.filter(satisfied).map((s) => s.g.id),
     states: () => ({
       url: kinds((s) => s.urls.length > 0, (s) => s.url),
-      event: kinds((s) => !!s.g.events?.length, (s) => s.event),
+      event: kinds((s) => hasEvents(s.g), (s) => s.event),
       flag: kinds((s) => !!s.g.flag, (s) => s.flag),
     }),
   };

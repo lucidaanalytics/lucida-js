@@ -68,7 +68,9 @@ describe("flag cost controls and overrides", () => {
     client.setPersonPropertiesForFlags({ plan: "pro" });
     client.setPersonPropertiesForFlags({ seats: 3 });
     client.setGroupPropertiesForFlags({ company: { tier: "gold" } });
-    await vi.waitFor(() => expect(flagBodies(f)).toHaveLength(4));
+    await vi.waitFor(() => expect(flagBodies(f)).toHaveLength(2)); // same-tick triggers coalesce into one request
+    await new Promise((r) => setTimeout(r, 20));
+    expect(flagBodies(f)).toHaveLength(2);
     const last = flagBodies(f).at(-1)!;
     expect(last.person_properties).toMatchObject({ plan: "pro", seats: 3 });
     expect(last.group_properties).toEqual({ company: { tier: "gold" } });
@@ -103,5 +105,49 @@ describe("flag cost controls and overrides", () => {
     });
     const { client } = start({ ...base, flagOptions: { disableRemote: true, evaluationContexts: ["web"] }, localFlags: [def("all"), def("docs", ["docs"])] } as never);
     expect(client.getAllFlags()).toEqual({ all: true });
+  });
+});
+
+describe("flag client coalescing and partial responses", () => {
+  it("errors_while_computing_flags keeps values the response omitted", async () => {
+    const { client } = start({ ...base, bootstrap: { flags: { a: "kept", b: "old" } }, _h: { "/v1/flags": { flags: { b: "new" }, errors_while_computing_flags: true } } } as never);
+    await client.reloadFlags();
+    expect(client.getAllFlags()).toEqual({ a: "kept", b: "new" });
+  });
+
+  it("onFlags fires with cached values and $feature_flag_called repeats after reset", async () => {
+    const { client, t } = start({ ...base, bootstrap: { flags: { a: true } }, _h: { "/v1/flags": ok } } as never);
+    const seen: Array<Record<string, unknown>> = [];
+    client.onFlags((fl) => seen.push(fl));
+    expect(seen[0]).toEqual({ a: true });
+    client.getFlag("a");
+    client.getFlag("a");
+    client.reset();
+    expect(client.getAllFlags()).toEqual({}); // the previous person's values are gone until the refetch lands
+    await vi.waitFor(() => expect(client.getAllFlags()).toHaveProperty("a"));
+    client.getFlag("a");
+    await client.flush();
+    expect(t.events().filter((e) => e.event === "$feature_flag_called")).toHaveLength(2);
+  });
+});
+
+describe("flag client edge cases walked from posthog-js", () => {
+  it("a payload-only bootstrap entry is an enabled flag and cached flags survive the bootstrap", () => {
+    const { client } = start({ ...base, flagOptions: { disableRemote: true }, bootstrap: { flags: { a: "x" }, payloads: { p: { n: 1 } } } } as never);
+    expect(client.getAllFlags()).toEqual({ a: "x", p: true });
+    expect(client.getFlagPayload("p")).toEqual({ n: 1 });
+  });
+
+  it("$feature_flag_called carries reason, bootstrap use and fetch errors", async () => {
+    const { client, t } = start({ ...base, bootstrap: { flags: { a: true } }, _h: { "/v1/flags": { flags: { b: true }, errors_while_computing_flags: true } } } as never);
+    client.getFlag("a");
+    await client.reloadFlags();
+    client.getFlag("b");
+    await client.flush();
+    const calls = t.events().filter((e) => e.event === "$feature_flag_called");
+    expect(calls[0]!.properties).toMatchObject({ $feature_flag: "a", $used_bootstrap_value: true, $feature_flag_reason: "bootstrap" });
+    expect(calls[0]!.properties).not.toHaveProperty("$feature_flag_error");
+    expect(calls[1]!.properties).toMatchObject({ $feature_flag: "b", $feature_flag_error: "errors_while_computing_flags" });
+    expect(calls[1]!.properties).not.toHaveProperty("$used_bootstrap_value");
   });
 });

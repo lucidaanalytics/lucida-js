@@ -1,6 +1,8 @@
 import type { Core, Props, Storage, WireEvent } from "@lucida-analytics/sdk-core";
 import { rateLimiter } from "./ratelimit.js";
 import type { RateLimitConfig } from "./ratelimit.js";
+import { urlPrivacyHook } from "./url-privacy.js";
+import type { UrlPrivacy } from "./url-privacy.js";
 
 /** A `beforeSend` hook: return the (possibly amended) event, or null to drop it. */
 export type BeforeSend = (event: WireEvent) => WireEvent | null;
@@ -9,7 +11,7 @@ export type PersonProfiles = "always" | "identified_only" | "never";
 
 /**
  * Runs hooks in order; each sees the previous hook's output and null stops the chain (the event is dropped).
- * A hook that throws is logged and skipped: the event continues as it was before that hook.
+ * A hook that throws, or returns something that is not an event, drops the event (fail closed).
  */
 export function runHooks(hooks: readonly BeforeSend[], event: WireEvent, log: (...a: unknown[]) => void): WireEvent | null {
   let cur = event;
@@ -17,9 +19,15 @@ export function runHooks(hooks: readonly BeforeSend[], event: WireEvent, log: (.
     try {
       const next = h(cur);
       if (next === null || next === undefined) return null;
+      if (typeof next !== "object" || typeof next.event !== "string") {
+        log("beforeSend hook returned a non-event, dropping:", typeof next);
+        return null;
+      }
       cur = next;
     } catch (e) {
-      log("beforeSend hook threw, keeping event:", e);
+      // fail closed: hooks are mostly scrubbers, and sending what a broken one failed to clean leaks what it exists to remove
+      log("beforeSend hook threw, dropping event:", e);
+      return null;
     }
   }
   return cur;
@@ -158,6 +166,7 @@ export interface PolicyConfig {
   beforeSend?: BeforeSend | readonly BeforeSend[] | undefined;
   personProfiles?: PersonProfiles | undefined;
   propertyDenylist?: readonly string[] | undefined;
+  urlPrivacy?: UrlPrivacy | undefined;
   /** 0..1: keep this share of events, stamping `$sample_rate`. */
   sampleRate?: number | undefined;
   rateLimit?: false | RateLimitConfig | undefined;
@@ -166,6 +175,7 @@ export interface PolicyConfig {
 function hooksOf(c: PolicyConfig): BeforeSend[] {
   const user = c.beforeSend ? (Array.isArray(c.beforeSend) ? c.beforeSend : [c.beforeSend]) : [];
   return [
+    urlPrivacyHook(c.urlPrivacy ?? {}),
     ...(c.propertyDenylist?.length ? [denylistHook(c.propertyDenylist)] : []),
     ...(c.sampleRate !== undefined ? [sampleHook(c.sampleRate)] : []),
     ...(user as BeforeSend[]),

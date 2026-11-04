@@ -36,8 +36,8 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
     await a.ready;
     storage = a.storage;
   }
-  // Only the offline queue is encrypted, like the iOS and Android SDKs.
-  if (config.queueCipher) storage = encryptedStorage(storage, config.queueCipher, ["lc_offline"]);
+  // The offline queue and spilled replay chunks are encrypted, like the iOS and Android SDKs.
+  if (config.queueCipher) storage = encryptedStorage(storage, config.queueCipher, ["lc_offline", "lc_replay"], ["lc_replay."]);
 
   let transport = config.transport ?? fetchTransport(fetchImpl, config.requestTimeoutMs);
   // maxBatchSize and the timeout also wrap a custom transport (G77).
@@ -149,7 +149,7 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
     });
   }
 
-  const replay = config.replay?.enabled && !config.disabled ? createReplay({ core, fetch: fetchImpl, apiHost, apiKey, config: config.replay, isFlagOn: (k) => { const v = flags.all()[k]; return v !== undefined && v !== false; } }) : undefined;
+  const replay = config.replay?.enabled && !config.disabled ? createReplay({ core, storage, log, fetch: fetchImpl, apiHost, apiKey, config: config.replay, isFlagOn: (k) => { const v = flags.all()[k]; return v !== undefined && v !== false; } }) : undefined;
 
   // React Native fetch has no streaming body: the hub falls back to polling GET /v1/interventions.
   const interventions = interventionHub(core, { apiHost, apiKey, fetch: fetchImpl, whenConsented, log, disabled: !!config.disabled });
@@ -192,6 +192,7 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
     },
     reset() {
       person.reset();
+      replay?.clearSpool();
       core.reset({ reuseAnonymousId: !!config.reuseAnonymousId });
     },
     register: (p) => core.register(p),
@@ -199,7 +200,10 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
     unregister: (k) => core.unregister(k),
     group: (t, k, p) => core.group(t, k, p),
     optIn: () => core.optIn(),
-    optOut: () => core.optOut(),
+    optOut: () => {
+      replay?.clearSpool();
+      core.optOut();
+    },
     getFlag: (k) => flags.get(k),
     getFlagPayload: (k) => flags.payload(k),
     getFlagResult: (k, o) => flags.result(k, o),

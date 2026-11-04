@@ -87,9 +87,20 @@ export function flagDeviceProps(): Record<string, string | number> {
     $screen_width: screen.width,
     $screen_height: screen.height,
     $browser_language: navigator.language,
-    // shortcut: width heuristic, not UA parsing; upgrade if device targeting needs exact classes
-    $device_type: w < 768 ? "Mobile" : w < 1024 ? "Tablet" : "Desktop",
+    $device_type: deviceClass(w),
   };
+}
+
+/** Mobile / Tablet / Desktop from UA client hints, then the user agent; viewport width only when neither says. */
+export function deviceClass(width: number, nav: Navigator = navigator): "Mobile" | "Tablet" | "Desktop" {
+  const ua = nav.userAgent ?? "";
+  if (/iPad|Tablet|PlayBook|Silk|Kindle/i.test(ua) || (/Macintosh/.test(ua) && (nav.maxTouchPoints ?? 0) > 1)) return "Tablet";
+  if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? "Mobile" : "Tablet";
+  if (/iPhone|iPod|Mobile|Windows Phone|BlackBerry|Opera Mini/i.test(ua)) return "Mobile";
+  const hint = (nav as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile;
+  if (hint) return "Mobile";
+  if (/Windows|Macintosh|X11|CrOS|Linux/i.test(ua)) return "Desktop";
+  return width < 768 ? "Mobile" : width < 1024 ? "Tablet" : "Desktop";
 }
 
 /** Remote config `flag_targeting_sources` (settings.sdk, N-EXP-7): what the page may copy into flag requests. */

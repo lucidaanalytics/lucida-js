@@ -25,29 +25,29 @@ describe("core extras", () => {
 
   it("adopts a bootstrapped session id only when none is stored, and honours idle/max limits", () => {
     const t = { n: 1_000 };
-    const { core } = make({ session: { bootstrapId: "boot", idleMs: 100 }, clock: { now: () => t.n } });
+    const { core } = make({ session: { bootstrapId: "boot", idleMs: 60_000 }, clock: { now: () => t.n } });
     expect(core.sessionId).toBe("boot");
     expect(core.sessionStart).toBe(1_000);
     t.n += 50;
     expect(core.sessionId).toBe("boot");
-    t.n += 500;
+    t.n += 70_000;
     expect(core.sessionId).not.toBe("boot");
   });
 
   it("onSessionId fires on first touch, on rotation and after reset; unsubscribe works", () => {
     const t = { n: 1_000 };
-    const { core } = make({ session: { idleMs: 100 }, clock: { now: () => t.n } });
+    const { core } = make({ session: { idleMs: 60_000 }, clock: { now: () => t.n } });
     const seen: string[] = [];
     const off = core.onSessionId((s) => seen.push(s));
     const a = core.sessionId;
     core.sessionId;
-    t.n += 1_000;
+    t.n += 70_000;
     const b = core.sessionId;
     core.reset();
     const c = core.sessionId;
     expect(seen).toEqual([a, b, c]);
     off();
-    t.n += 1_000;
+    t.n += 70_000;
     core.sessionId;
     expect(seen).toHaveLength(3);
   });

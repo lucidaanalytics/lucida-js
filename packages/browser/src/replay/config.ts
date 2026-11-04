@@ -46,6 +46,8 @@ export interface ReplayConfig {
   flush_interval_ms?: number;
   /** Flush a chunk at this many (uncompressed) bytes. Default 256 KB. */
   chunk_bytes?: number;
+  /** No person-driven event for this long and recording drops everything until the next interaction. Default 300 000 (5 min); 0 turns it off. */
+  idle_threshold_ms?: number;
   owner?: ReplayOwner;
   /** Opt-in canvas/WebGL capture (LC-EXP-23). Off unless set here or by the remote `replay_capture_canvas` toggle; `false` refuses the toggle. Canvases inside [data-lc-block] are never captured. */
   captureCanvas?: CanvasCapture | false;
@@ -151,6 +153,7 @@ export function resolveReplay(local: ReplayConfig, remote: RemoteConfig | null):
     ],
     buffer_ms: pick("buffer_ms", 60_000),
     flush_interval_ms: pick("flush_interval_ms", 5000),
+    idle_threshold_ms: Math.max(0, pick("idle_threshold_ms", 5 * 60_000)),
     chunk_bytes: Math.min(pick("chunk_bytes", 256 * 1024), MAX_CHUNK_BYTES - 16_384),
     canvas: canvasOf(local.captureCanvas, remote?.replay_capture_canvas === true),
     maskInputOptions: local.maskInputOptions,

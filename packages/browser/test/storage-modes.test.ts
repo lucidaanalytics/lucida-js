@@ -175,3 +175,28 @@ describe("setConfig", () => {
     expect(t.events().map((x) => x.event)).not.toContain("gone");
   });
 });
+
+describe("cookie storage when the browser refuses cookies", () => {
+  it("keeps values for the page instead of throwing, and prefers a real cookie once one lands", () => {
+    const desc = Object.getOwnPropertyDescriptor(Document.prototype, "cookie")!;
+    Object.defineProperty(document, "cookie", {
+      configurable: true,
+      get: () => {
+        throw new DOMException("sandboxed", "SecurityError");
+      },
+      set: () => {
+        throw new DOMException("sandboxed", "SecurityError");
+      },
+    });
+    try {
+      const c = new CookieStorage({ crossSubdomain: true });
+      expect(() => c.set("a", "1")).not.toThrow();
+      expect(c.get("a")).toBe("1");
+      c.remove("a");
+      expect(c.get("a")).toBeNull();
+    } finally {
+      delete (document as unknown as { cookie?: string }).cookie;
+      Object.defineProperty(Document.prototype, "cookie", desc);
+    }
+  });
+});

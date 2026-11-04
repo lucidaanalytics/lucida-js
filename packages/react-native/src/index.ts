@@ -11,6 +11,8 @@ export { sampleHook, runHooks, PersonMode } from "./policy.js";
 export { createAutocapture, chainFromFiber, touchHandler } from "./autocapture.js";
 export type { Autocapture, AutocaptureConfig, FiberLike, RageTapConfig, TapElement, TouchEventLike } from "./autocapture.js";
 export { tracedFetch, tracingHeaders, withBaggage } from "./host-headers.js";
+export { createReplaySpool } from "./replay-spool.js";
+export type { SpoolEntry } from "./replay-spool.js";
 export { createReplay, screenAllowed, effectiveSampleRate, effectiveMinDurationMs, exposureKeyOf } from "./replay.js";
 export { screenMasked, compilePatterns, maskPatterns, maskSnapshotText } from "./replay-masking.js";
 export { swipeDirection, deadSwipeDecision, DEAD_SWIPE_MIN_DISTANCE } from "./dead-swipe.js";

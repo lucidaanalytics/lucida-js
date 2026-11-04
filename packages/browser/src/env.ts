@@ -44,6 +44,7 @@ export function enrich(event: string, props: Record<string, unknown>, customPara
     $host: location.host,
     $pathname: hashRoutes ? hashPathname() : location.pathname,
     $referrer: document.referrer,
+    $title: document.title,
     $screen_width: screen.width,
     $screen_height: screen.height,
     $viewport_width: window.innerWidth,

@@ -17,6 +17,8 @@ export interface ChunkerOptions {
   onSent?: (sessionId: string, bytes: number) => void;
   /** Called when the session id changed since the last chunk (caller takes a fresh full snapshot). */
   onSessionChange?: () => void;
+  /** Called when a chunk was given up on (rejected or retries spent): the stream has a hole, so the caller takes a fresh full snapshot. */
+  onGap?: () => void;
   maxRetries?: number;
   backoff?: BackoffOptions;
   log?: (...a: unknown[]) => void;
@@ -24,6 +26,9 @@ export interface ChunkerOptions {
 
 interface Chunk {
   json: string;
+  /** The serialized events, kept so an oversized pagehide beacon can be split. */
+  parts: string[];
+  window: string;
   session: string;
   seq: number;
   tries: number;
@@ -58,14 +63,17 @@ export function createChunker(o: ChunkerOptions) {
       o.onSessionChange?.();
     }
     lastSession = sessionId;
-    const json =
-      `{"api_key":${JSON.stringify(o.apiKey)},"session_id":${JSON.stringify(sessionId)},` +
-      `"window_id":${JSON.stringify(windowId)},"seq":${seq},"events":[${parts.join(",")}]}`;
-    pending.push({ json, session: sessionId, seq: seq++, tries: 0 });
+    pending.push({ json: render(sessionId, windowId, seq, parts), parts, window: windowId, session: sessionId, seq: seq++, tries: 0 });
     parts = [];
     bytes = 0;
   };
 
+  const render = (sessionId: string, windowId: string, n: number, events: string[]): string =>
+    `{"api_key":${JSON.stringify(o.apiKey)},"session_id":${JSON.stringify(sessionId)},` +
+    `"window_id":${JSON.stringify(windowId)},"seq":${n},"events":[${events.join(",")}]}`;
+
+  // Retry-After (whole seconds, capped at 5 min) is a floor under the backoff delay.
+  let serverWaitMs = 0;
   const post = async (c: Chunk): Promise<number> => {
     try {
       const z = await gzipAsync(c.json);
@@ -76,6 +84,8 @@ export function createChunker(o: ChunkerOptions) {
         credentials: "omit",
         keepalive: z.length < BEACON_LIMIT,
       });
+      const ra = r.headers?.get?.("Retry-After")?.trim() ?? "";
+      serverWaitMs = /^\d+$/.test(ra) ? Math.min(Number(ra), 300) * 1000 : 0;
       return r.status;
     } catch {
       return 0;
@@ -95,7 +105,8 @@ export function createChunker(o: ChunkerOptions) {
         else if (!isRetryable(status) || ++c.tries > (o.maxRetries ?? 5)) {
           o.log?.("replay chunk dropped", c.seq, status);
           pending.shift();
-        } else await new Promise((r) => setTimeout(r, backoffDelay(c.tries - 1, o.backoff)));
+          o.onGap?.();
+        } else await new Promise((r) => setTimeout(r, Math.max(serverWaitMs, backoffDelay(c.tries - 1, o.backoff))));
       }
     })().finally(() => {
       pumping = undefined;
@@ -135,10 +146,24 @@ export function createChunker(o: ChunkerOptions) {
     beacon(): void {
       if (held || dead) return;
       seal();
+      let n = pending[0]?.seq ?? 0;
+      let sess = pending[0]?.session;
       for (const c of pending.splice(0)) {
-        const z = gzipBytes(c.json);
-        navigator.sendBeacon?.(`${o.url}?compression=gzip`, new Blob([z], { type: "text/plain" }));
+        if (c.session !== sess) [sess, n] = [c.session, c.seq];
+        // sendBeacon refuses bodies over ~64 KB: split a chunk (pieces renumbered, still in order) until each fits.
+        const send = (events: string[]): void => {
+          const z = gzipBytes(render(c.session, c.window, n, events));
+          if (z.length > BEACON_LIMIT && events.length > 1) {
+            send(events.slice(0, events.length >> 1));
+            send(events.slice(events.length >> 1));
+            return;
+          }
+          n++;
+          navigator.sendBeacon?.(`${o.url}?compression=gzip`, new Blob([z], { type: "text/plain" }));
+        };
+        send(c.parts);
       }
+      seq = Math.max(seq, n);
     },
     /** min_duration_ms reached: start sending. */
     release(): void {

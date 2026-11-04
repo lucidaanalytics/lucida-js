@@ -22,6 +22,8 @@ export { crossDomain } from "./linker.js";
 export { flags } from "./flags/index.js";
 export { hostHeaders } from "./host-headers.js";
 export { sampleHook, denylistHook } from "./policy.js";
+export { urlPrivacyHook, privatizeUrl } from "./url-privacy.js";
+export type { UrlPrivacy } from "./url-privacy.js";
 export type { BeforeSend, PersonProfiles } from "./policy.js";
 export { earlyAccess } from "./early-access/index.js";
 export type { DevtoolsHook, DevtoolsTarget } from "./devtools-hook.js";

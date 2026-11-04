@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { tag404 } from "../src/autocapture/index.js";
 import { LINKER_PARAM, decodeLinker, encodeLinker, hostMatches } from "../src/linker.js";
 import type { Client } from "../src/index.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 let live: Client | undefined;
 afterEach(async () => {
@@ -49,6 +49,7 @@ describe("outbound links, downloads, site search", () => {
     history.replaceState(null, "", "/results?query=%20red+shoes%20&utm_source=x");
     const s = start({ capturePageview: "history", persistence: "memory" });
     live = s.client;
+    await tick(20); // the first pageview waits briefly for the remote snapshot rules
     await s.client.flush();
     const e = s.t.events().find((x) => x.event === "$site_search")!;
     expect(e.properties).toMatchObject({ $search_term: "red shoes", $search_param: "query" });
@@ -56,11 +57,13 @@ describe("outbound links, downloads, site search", () => {
     history.replaceState(null, "", "/r?term=hats");
     const s2 = start({ autocapture: { siteSearch: { params: ["term"] } } });
     live = s2.client;
+    await tick(20);
     await s2.client.flush();
     expect(s2.t.events().find((x) => x.event === "$site_search")!.properties.$search_term).toBe("hats");
     await live.shutdown();
     const s3 = start({ autocapture: { siteSearch: false } });
     live = s3.client;
+    await tick(20);
     await s3.client.flush();
     expect(s3.t.events().some((x) => x.event === "$site_search")).toBe(false);
   });

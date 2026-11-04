@@ -68,6 +68,9 @@ export function appStoreInstallProps(json: unknown): InstallProps {
   return out;
 }
 
+/** Apple: 404 = record not ready yet; 408, 429 and 5xx are transient. Other statuses (400/401, a bad token) will not change. */
+const retryableStatus = (s: number): boolean => s === 404 || s === 408 || s === 429 || s >= 500;
+
 export interface InstallDeps {
   fetch: typeof fetch;
   retryDelayMs?: number;
@@ -93,8 +96,9 @@ export async function resolveInstallProps(native: () => Promise<InstallInfo | nu
       try {
         const r = await d.fetch(ASA_URL, { method: "POST", headers: { "Content-Type": "text/plain" }, body: info.token, signal: ctl?.signal ?? null });
         if (r.ok) return appStoreInstallProps(await r.json());
-        // shortcut: only 404 is retried (Apple's record can lag); other statuses fall back to store only.
-        if (r.status !== 404) break;
+        if (!retryableStatus(r.status)) break;
+      } catch {
+        // network failure or timeout: transient, retried like a 5xx
       } finally {
         if (timer) clearTimeout(timer);
       }

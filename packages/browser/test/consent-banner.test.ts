@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "../src/client.js";
-import { consentBanner, cookiebotConsent, cookiebotToConsent, oneTrustConsent, oneTrustToConsent } from "../src/consent/index.js";
+import { consentBanner, cookiebotConsent, cookiebotToConsent, cookieMunchConsent, oneTrustConsent, oneTrustToConsent } from "../src/consent/index.js";
 import type { BrowserConfig, Client, Module } from "../src/index.js";
 import { fakeTransport } from "./helpers.js";
 import { until } from "./replay-helpers.js";
@@ -12,6 +12,7 @@ afterEach(async () => {
   live = undefined;
   delete (window as { OnetrustActiveGroups?: string }).OnetrustActiveGroups;
   delete (window as { Cookiebot?: unknown }).Cookiebot;
+  delete (window as { CookieMunch?: unknown }).CookieMunch;
 });
 
 function boot(cfg: BrowserConfig = {}, modules: Module[] = [consentBanner], fetchFn?: typeof fetch) {
@@ -167,5 +168,19 @@ describe("OneTrust and Cookiebot bridges", () => {
     await client.flush();
     expect(client.consent).toBeDefined();
     expect(t.events().find((e) => e.event === "$consent_updated")!.properties).toMatchObject({ source: "cookiebot", categories: { analytics: true, marketing: false } });
+  });
+});
+
+describe("Cookie Munch bridge", () => {
+  it("ignores the all-false snapshot before a decision, then maps statistics and marketing", async () => {
+    const { client, t } = boot({ consent: { mode: "opt_in" } }, [cookieMunchConsent]);
+    const w = window as { CookieMunch?: unknown };
+    w.CookieMunch = { hasResponse: false, consent: { statistics: false, marketing: false } };
+    window.dispatchEvent(new Event("CookieMunchOnChange"));
+    expect(client.getConsentStatus("analytics")).toBe("pending");
+    w.CookieMunch = { hasResponse: true, consent: { statistics: true, marketing: false } };
+    window.dispatchEvent(new Event("CookieMunchOnChange"));
+    await client.flush();
+    expect(t.events().find((e) => e.event === "$consent_updated")!.properties).toMatchObject({ source: "cookiemunch", categories: { analytics: true, replay: true, marketing: false } });
   });
 });

@@ -82,3 +82,24 @@ describe("ai config", () => {
     expect(aiConfig(undefined, { model: "fb", messages: [], instructions: "Be brief", parameters: {} })).toMatchObject({ enabled: false, mode: "agent", instructions: "Be brief" });
   });
 });
+
+describe("design flags (LC-EXT-22)", () => {
+  it("the gateway's server-only definition of a design flag evaluates to requires_server, never a hash bucket", () => {
+    // /v1/flags/definitions replaces a design flag's conditions with a filter on the unknown cohort `$server_only`.
+    const f: FlagDefinition = {
+      key: "geo",
+      type: "multivariate",
+      active: true,
+      salt: "s",
+      aggregation: { kind: "person" },
+      variants: [
+        { key: "control", rollout_pct: 50 },
+        { key: "test", rollout_pct: 50 },
+      ],
+      conditions: [{ rollout_pct: 100, filters: [{ type: "cohort", key: "$server_only", op: "in" }] }],
+    };
+    const r = evaluateAll([f], { distinct_id: "u", geo_properties: { country_code: "DE" } }).geo;
+    expect(r?.reason).toBe("requires_server");
+    expect(r?.value).toBe(false);
+  });
+});

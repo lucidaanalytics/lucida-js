@@ -108,10 +108,13 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **DNT / GPC**: `respectDnt` (default false) and `respectGpc` (default false). When set and the browser sends the signal,
   an `opt_out` project starts with consent denied, so nothing is stored or sent until `setConsent`. An explicit stored
   decision still wins. (`consent.respectDnt` is kept and enables both.)
+- **Cookie Munch**: `import { cookieMunchConsent } from "@lucida-analytics/browser/consent"` and pass it as a module; it follows
+  `CookieMunch.consent` after the visitor's decision (`statistics` -> analytics + replay, `marketing` -> marketing). See `docs/guides/cookie-munch.md`.
 - **Consent state**: `client.getConsent()` returns the current decision per category; `client.getConsentStatus(category?)`
   is `pending` until the visitor chose (stored or `setConsent`), then `granted` or `denied`, so a banner can show only
   while pending. `consent.storageKey` (default `lc_consent`) names the stored decision; `cookie: { domain: ".example.com" }`
-  (or `crossSubdomain: true`) shares identity, session and the decision across subdomains.
+  (or `crossSubdomain: true`) shares identity, session and the decision across subdomains. While `pending` no `lc_*` cookie or
+  storage item is written; on a denial the SDK removes the `lc_*` items stored earlier **except the decision itself** (`lc_consent_<suffix>`).
 - **Cross-domain**: `crossDomains: ["shop.example.com"]` (exact host or subdomains; list the other site on both sides). While
   analytics consent is held, clicks on links to those hosts get `_lcid=<distinct_id>.<base36 ms>_<session id>`. On landing the
   SDK strips `_lcid` from the address bar and, if it is under 2 minutes old and the referrer (when sent) is a configured
@@ -154,7 +157,7 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   `reuseAnonymousId: true` makes `reset()` keep this device's first anonymous id.
 - **Methods**: `setPersonProperties(set, setOnce)` / `unsetPersonProperties(keys)` (send a `$set` event),
   `getSessionId()`, `onSessionId(cb)` (now and on every rotation), `getProperty(key)`, `hasOptedOut()`,
-  `reset(resetDeviceId)`, `getReplayUrl({withTimestamp, timestampLookBackSeconds})` (uses `uiHost`, else `apiHost`),
+  `reset(resetDeviceId)`, `getReplayUrl({withTimestamp, timestampLookBackSeconds})` (uses `uiHost`, else `apiHost`; the classic script sets `uiHost` to its own host when it is Lucida-hosted),
   `debug(on)` (also `?__lucida_debug=1`), `featureView(flag)` / `featureInteraction(flag)` (`$feature_view` /
   `$feature_interaction`, marking the person `$feature_view/<flag>`), `updateFlags(flags, payloads, {merge})`.
 - **`capture(event, props, options)`**: `timestamp` (epoch ms, ISO string or Date), `sendInstantly` (flush now),
@@ -181,7 +184,8 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   All writes stay behind consent.
 - **Runtime config**: `client.setConfig(partial)` merges options one level deep; per-event options (debug, autocapture
   options, hooks, sampling, denylist, rate limit, persisted properties) apply at once.
-- **Delivery**: `assetHost` + `modules: ["replay", ...]` (classic script only) load versioned modules from
+- **URL privacy**: well-known sensitive query params (`password`, `token`, `key`, `code`, `email`, ... see the quickstart) are always masked as `<masked>` in every URL sent and in replay; `urlPrivacy: {maskParams, maskCampaignParams, stripHash}` adds to that.
+- **Delivery**: `assetHost` (default: the host `lucida.js` was loaded from) + `modules: ["replay", ...]` (classic script only) load versioned modules from
   `<assetHost>/static/v<version>/`; `nonce` goes on every injected `<style>`; `extension: true` (auto on extension pages) for
   Manifest V3. See docs/guides/sdk-pinning.md, csp.md and browser-extension.md.
 - **Cookies**: `cookie: {secure, expiryDays, crossSubdomain, domain}`. `crossSubdomain` probes for the broadest parent domain

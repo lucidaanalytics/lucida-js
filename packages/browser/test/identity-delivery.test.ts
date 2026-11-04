@@ -83,7 +83,8 @@ describe("cross-domain linker carries the session (LC-ING-42)", () => {
   });
 
   it("landing adopts the carried distinct id and session id; outgoing links carry the current session", () => {
-    const sid = "0190f0a2-2222-7000-8000-000000000002";
+    const ms = Date.now().toString(16).padStart(12, "0"); // a fresh UUIDv7: carried ids older than 24 h are refused
+    const sid = `${ms.slice(0, 8)}-${ms.slice(8)}-7000-8000-000000000002`;
     history.replaceState(null, "", `/land?${LINKER_PARAM}=${encodeURIComponent(encodeLinker("carried", Date.now(), sid))}`);
     const { client } = start({ ...base, crossDomains: ["b.com"] });
     live = client;

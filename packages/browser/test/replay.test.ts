@@ -123,6 +123,15 @@ describe("replay module", () => {
     history.pushState({}, "", "/");
   });
 
+  it("a client-side route change is seen at once, not at the next poll", async () => {
+    const { f } = boot({ replay: { trigger: { mode: "on_url", pattern: "/instant" }, flush_interval_ms: 40 } });
+    await wait(100);
+    history.pushState({}, "", "/instant");
+    await until(() => f.posts.length > 0, 700); // the URL poll runs once a second
+    expect(f.posts.length).toBeGreaterThan(0);
+    history.pushState({}, "", "/");
+  });
+
   it("min_duration_ms holds chunks back", async () => {
     const { f } = boot({ replay: { min_duration_ms: 600, flush_interval_ms: 40 } });
     await wait(300);

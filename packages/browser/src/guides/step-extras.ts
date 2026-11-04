@@ -10,6 +10,8 @@ export interface BranchCtx {
   person?: Record<string, unknown>;
   /** The SDK's evaluated flag: on when served and not false. */
   flag?: (key: string) => boolean;
+  /** Element presence in the document the guide belongs to (default: this one; a forwarded guide asks its frame). */
+  present?: (selector: string) => boolean;
 }
 
 const present = (sel: unknown): boolean => {
@@ -23,8 +25,9 @@ const present = (sel: unknown): boolean => {
 
 /** One branch rule: element presence (checked now), flag state, else a person-property test. */
 export function branchOk(r: Branch, ctx: BranchCtx): boolean {
-  if (r.op === "element_present") return present(r.value);
-  if (r.op === "element_absent") return !present(r.value);
+  const here = (): boolean => (typeof r.value === "string" && ctx.present ? ctx.present(r.value) : present(r.value));
+  if (r.op === "element_present") return here();
+  if (r.op === "element_absent") return !here();
   if (r.op === "flag_on" || r.op === "flag_off") {
     const on = typeof r.value === "string" && !!ctx.flag?.(r.value);
     return r.op === "flag_on" ? on : !on;

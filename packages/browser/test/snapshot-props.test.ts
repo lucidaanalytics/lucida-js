@@ -36,6 +36,19 @@ describe("snapshot properties (P-M15)", () => {
     expect(readSnapshot(rules, "click", document.querySelector(".plan")!)).toEqual({ plan: "Pro plan" });
   });
 
+  it("the first $pageview waits for the remote rules and carries them", async () => {
+    document.body.innerHTML = PAGE;
+    const s = start({
+      autocapture: {},
+      _h: { "/v1/config": { snapshot_properties: [{ name: "plan", selector: ".plan", source: "text", events: ["pageview"] }] } },
+    } as never);
+    live = s.client;
+    await tick(20);
+    await s.client.flush();
+    const e = s.t.events().find((x) => x.event === "$pageview")!;
+    expect(e.properties.plan).toBe("Pro plan");
+  });
+
   it("attaches remote rules to $autocapture clicks", async () => {
     document.body.innerHTML = PAGE;
     const s = start({

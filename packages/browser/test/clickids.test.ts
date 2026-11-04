@@ -11,6 +11,11 @@ const mem = () => {
 afterEach(() => history.replaceState({}, "", "/"));
 
 describe("click-id tracker (LC-WEB-12)", () => {
+  it("also knows Reddit, Pinterest, Quora, Snap, Impact and Kochava ids", () => {
+    history.replaceState({}, "", "/?rdt_cid=R&epik=E&qclid=Q&sccid=S&irclid=I&_kx=K");
+    expect(clickIdTracker(mem(), 90)()).toEqual({ rdt_cid: "R", epik: "E", qclid: "Q", sccid: "S", irclid: "I", _kx: "K" });
+  });
+
   it("captures all supported ids, keeps them 90 days, then drops them", () => {
     let t = 1_000;
     const s = mem();

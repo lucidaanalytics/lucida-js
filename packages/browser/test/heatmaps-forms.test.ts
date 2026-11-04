@@ -89,6 +89,23 @@ describe("heatmaps", () => {
     await on.client.flush();
     const m = on.t.events().find((e) => e.event === "$heatmap_moves")!;
     expect(m.properties.$points).toEqual([[5, 6, 0]]);
+    expect(m.properties.$viewport_width).toBe(window.innerWidth);
+    expect(m.properties.$viewport_height).toBe(window.innerHeight);
+  });
+  it("points over fixed elements are viewport-relative and flagged", async () => {
+    Object.defineProperty(window, "scrollY", { value: 300, configurable: true });
+    document.body.innerHTML = '<div id="nav" style="position:fixed"><span id="in">x</span></div><p id="flow">y</p>';
+    const on = startWith([heatmaps], { autocapture: false, heatmaps: { moves: true, moveIntervalMs: 0 } });
+    live = on.client;
+    await configured(on.client, on.t);
+    const move = (id: string) => document.getElementById(id)!.dispatchEvent(new MouseEvent("mousemove", { clientX: 5, clientY: 6, bubbles: true }));
+    move("in");
+    move("flow");
+    window.dispatchEvent(new Event("pagehide"));
+    await on.client.flush();
+    const pts = on.t.events().find((e) => e.event === "$heatmap_moves")!.properties.$points as number[][];
+    Object.defineProperty(window, "scrollY", { value: 0, configurable: true });
+    expect(pts.map((p) => p.slice(0, 2).concat(p[3] ?? 0))).toEqual([[5, 6, 1], [5, 306, 0]]);
   });
   it("scroll depth in $pageleave carries px and percent", async () => {
     Object.defineProperty(document.documentElement, "scrollHeight", { value: 2000, configurable: true });

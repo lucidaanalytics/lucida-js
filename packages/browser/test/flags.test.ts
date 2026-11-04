@@ -67,11 +67,11 @@ describe("flag contexts (LC-FLG-18)", () => {
     expect(bodies(f)[0]).not.toHaveProperty("contexts");
     client.setContext("org", "acme", { plan: "enterprise" });
     client.setContext("user", "u1");
-    await vi.waitFor(() => expect(bodies(f)).toHaveLength(3));
+    await vi.waitFor(() => expect(bodies(f)).toHaveLength(2)); // coalesced
     expect(bodies(f).at(-1)!.contexts).toEqual({ org: { key: "acme", properties: { plan: "enterprise" } }, user: { key: "u1", properties: {} } });
     expect(bodies(f).at(-1)!.device_id).toBe(bodies(f)[0]!.device_id);
     client.clearContext("user");
-    await vi.waitFor(() => expect(bodies(f)).toHaveLength(4));
+    await vi.waitFor(() => expect(bodies(f)).toHaveLength(3));
     expect(Object.keys(bodies(f).at(-1)!.contexts)).toEqual(["org"]);
   });
 
