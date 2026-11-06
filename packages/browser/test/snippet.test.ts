@@ -5,6 +5,7 @@ const client = { capture: (...a: unknown[]) => calls.push(["capture", ...a]), id
 vi.mock("../src/index.js", () => ({ init: (key: string, cfg: unknown) => (calls.push(["init", key, cfg]), client) }));
 
 const { drain } = await import("../src/snippet.js");
+const { LIB_VERSION } = await import("../src/client.js");
 
 describe("snippet loader", () => {
   it("runs queued commands in order, holds pre-init commands, then handles live pushes", () => {
@@ -34,7 +35,7 @@ describe("snippet loader", () => {
     const done = drain(w as never, importer);
     expect(calls).toEqual([]);
     await done;
-    expect(urls).toEqual(["https://cdn.test/static/v0.1.0/replay.js", "https://cdn.test/static/v0.1.0/heatmaps.js"]);
+    expect(urls).toEqual([`https://cdn.test/static/v${LIB_VERSION}/replay.js`, `https://cdn.test/static/v${LIB_VERSION}/heatmaps.js`]);
     expect(calls[0]![0]).toBe("init");
     expect(calls[1]).toEqual(["capture", "x"]);
   });
