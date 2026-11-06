@@ -22,7 +22,9 @@ export class FakeTransport implements Transport {
   retryAfterMs: number[] = [];
   async send(url: string, body: string, opts?: { beacon?: boolean }): Promise<TransportResult> {
     this.calls.push({ url, body, beacon: !!opts?.beacon });
-    return { status: this.statuses.shift() ?? 200, retryAfterMs: this.retryAfterMs.shift() };
+    const status = this.statuses.shift() ?? 200;
+    const retryAfterMs = this.retryAfterMs.shift();
+    return retryAfterMs === undefined ? { status } : { status, retryAfterMs };
   }
   events(): Array<{ event: string; distinct_id: string; properties: Record<string, unknown> }> {
     return this.calls.flatMap((c) => (JSON.parse(c.body) as { batch: never[] }).batch);
