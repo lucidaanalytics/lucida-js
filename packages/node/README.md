@@ -5,7 +5,7 @@ Server SDK. Name a `distinctId` per call, or run inside `withContext` and omit i
 ```ts
 import { Lucida } from "@lucida-analytics/node";
 
-const lucida = new Lucida("lc_pk_...", { host: "https://app.lucida.dev", secretKey: "lc_sk_..." });
+const lucida = new Lucida("lc_pk_...", { host: "https://capture.lucidace.com", secretKey: "lc_sk_..." });
 lucida.capture({ distinctId: "u1", event: "purchase", properties: { total: 12 } });
 lucida.identify({ distinctId: "u1", properties: { plan: "pro" } });
 if (await lucida.isFeatureEnabled("new-checkout", "u1", { personProperties: { plan: "pro" } })) { /* ... */ }

@@ -77,7 +77,7 @@ class LucidaCordova : CordovaPlugin() {
         )
         val replay = o.optJSONObject("replay")?.takeIf { it.optBoolean("enabled", false) }?.let(::replayConfig)
         LucidaAndroid.init(
-            cordova.activity.application, apiKey, o.optString("apiHost", "https://app.lucida.dev"), mode, replay, options = opts,
+            cordova.activity.application, apiKey, o.optString("apiHost", "https://capture.lucidace.com"), mode, replay, options = opts,
         )
         cb.success()
     }

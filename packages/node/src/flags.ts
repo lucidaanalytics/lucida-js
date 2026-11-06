@@ -1,5 +1,5 @@
-import { evaluateAll, evaluateAllSticky, requiresServer, servable } from "@lucida-analytics/sdk-core";
-import type { EvalContext, EvalResult, FlagDefinition, FlagValue, Props, StickyStore } from "@lucida-analytics/sdk-core";
+import { evaluateAll, evaluateAllSticky, evaluateAllStickyAsync, requiresServer, servable } from "@lucida-analytics/sdk-core";
+import type { EvalContext, EvalResult, FlagDefinition, AsyncStickyStore, FlagValue, Props, StickyStore } from "@lucida-analytics/sdk-core";
 import { LruSet } from "./lru.js";
 
 export interface FlagOptions {
@@ -70,11 +70,15 @@ export interface FlagsDeps {
   capture: (distinctId: string, event: string, props: Props) => void;
   /** Sticky-bucketing store for local evaluation (LC-EXT-29). */
   sticky?: StickyStore;
+  /** Async sticky store (Redis, a table): awaited before each local evaluation. Wins over `sticky`. */
+  asyncSticky?: AsyncStickyStore;
   /** App contexts declared when a call passes none. */
   appContexts?: string[];
   /** Served (reason "fallback", no exposure) when nothing decides a flag. */
   fallbacks?: Record<string, FlagValue>;
 }
+
+const servableOnly = (all: Record<string, EvalResult>): Record<string, EvalResult> => Object.fromEntries(Object.entries(all).filter(([, r]) => servable(r)));
 
 const ctxOf = (id: string, o: FlagOptions): EvalContext => ({
   distinct_id: id,
@@ -142,23 +146,31 @@ export class ServerFlags {
     return out;
   }
 
-  private local(id: string, o: FlagOptions): Record<string, EvalResult> | undefined {
+  private async local(id: string, o: FlagOptions): Promise<Record<string, EvalResult> | undefined> {
+    const defs = this.d.poller?.defs;
+    if (!defs) return undefined;
+    if (this.d.asyncSticky) return servableOnly(await evaluateAllStickyAsync(defs, ctxOf(id, o), this.d.asyncSticky));
+    return this.localSync(id, o);
+  }
+
+  private localSync(id: string, o: FlagOptions): Record<string, EvalResult> | undefined {
     const defs = this.d.poller?.defs;
     if (!defs) return undefined;
     const all = this.d.sticky ? evaluateAllSticky(defs, ctxOf(id, o), this.d.sticky) : evaluateAll(defs, ctxOf(id, o));
-    return Object.fromEntries(Object.entries(all).filter(([, r]) => servable(r)));
+    return servableOnly(all);
   }
 
-  /** Values decided locally right now (no network); undefined until definitions are loaded. */
+  /** Values decided locally right now (no network); undefined until definitions are loaded, or with an async sticky store (use all()). */
   localValues(id: string, o: FlagOptions = {}): Record<string, FlagValue> | undefined {
-    const loc = this.local(id, this.opts(o));
+    if (this.d.asyncSticky) return undefined;
+    const loc = this.localSync(id, this.opts(o));
     if (!loc) return undefined;
     return Object.fromEntries(Object.entries(loc).filter(([, r]) => !requiresServer(r)).map(([k, r]) => [k, r.value]));
   }
 
   private async resolve(key: string, id: string, o: FlagOptions): Promise<Resolved | undefined> {
     o = this.opts(o);
-    const r = this.local(id, o)?.[key];
+    const r = (await this.local(id, o))?.[key];
     if (r && !requiresServer(r)) return { value: r.value, payload: r.payload, locally: true, reason: r.reason, conditionIndex: r.condition_index };
     const served = o.onlyEvaluateLocally ? undefined : (await this.remote(id, o, [key])).get(key);
     if (served) return served;
@@ -223,7 +235,7 @@ export class ServerFlags {
 
   async all(id: string, o: FlagOptions = {}): Promise<{ flags: Record<string, FlagValue>; payloads: Record<string, unknown> }> {
     o = this.opts(o);
-    const loc = this.local(id, o);
+    const loc = await this.local(id, o);
     const res = new Map<string, Resolved>();
     for (const [k, r] of Object.entries(loc ?? {})) {
       if (!requiresServer(r)) res.set(k, { value: r.value, payload: r.payload, locally: true, reason: r.reason, conditionIndex: r.condition_index });

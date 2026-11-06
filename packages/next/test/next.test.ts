@@ -106,7 +106,7 @@ describe("Pages Router", () => {
 
 describe("lucidaRewrites", () => {
   it("proxies only /v1 under a first-party path", () => {
-    expect(lucidaRewrites()).toEqual([{ source: "/ingest/v1/:path*", destination: "https://app.lucida.dev/v1/:path*" }]);
+    expect(lucidaRewrites()).toEqual([{ source: "/ingest/v1/:path*", destination: "https://capture.lucidace.com/v1/:path*" }]);
     expect(lucidaRewrites({ path: "t/", host: "https://eu.lucida.dev/" })).toEqual([{ source: "/t/v1/:path*", destination: "https://eu.lucida.dev/v1/:path*" }]);
   });
 });

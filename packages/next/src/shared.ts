@@ -22,7 +22,7 @@ export interface Bootstrap {
 export interface LucidaNextOptions {
   /** Public project key (lc_pk_...). */
   apiKey: string;
-  /** Ingest/flags host reachable from the server. Default https://app.lucida.dev */
+  /** Ingest/flags host reachable from the server. Default https://capture.lucidace.com */
   host?: string;
   /**
    * Mirrors the browser SDK. `opt_in` (default): the distinct-id cookie is written only when the consent cookie
@@ -44,7 +44,7 @@ export interface LucidaNextOptions {
   fetch?: typeof fetch;
 }
 
-export const hostOf = (o: LucidaNextOptions): string => (o.host ?? "https://app.lucida.dev").replace(/\/+$/, "");
+export const hostOf = (o: LucidaNextOptions): string => (o.host ?? "https://capture.lucidace.com").replace(/\/+$/, "");
 
 /** Cookie/consent policy for writing the anonymous id. */
 export function mayStoreId(o: LucidaNextOptions, cookie: (name: string) => string | undefined): boolean {

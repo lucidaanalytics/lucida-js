@@ -72,7 +72,7 @@ export class EdgeClient {
   private pending: Promise<unknown>[] = [];
 
   constructor(private readonly o: EdgeOptions) {
-    this.host = (o.host ?? "https://app.lucida.dev").replace(/\/+$/, "");
+    this.host = (o.host ?? "https://capture.lucidace.com").replace(/\/+$/, "");
     this.doFetch = o.fetch ?? ((...a) => fetch(...a));
   }
 

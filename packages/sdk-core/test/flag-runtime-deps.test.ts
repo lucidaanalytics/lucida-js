@@ -23,6 +23,7 @@ describe("shared flag vectors: vectors_runtime_deps.json", () => {
     const counts: RuntimeEvents[] = [
       {}, { session: { signup: 1 } }, { session: { signup: 1 }, page: { cta: 1 } }, { session: { x2: 1 } },
       { page: { cta: 1 } }, { session: { [EP1]: 2 } }, { session: { signup: 1, x2: 1 } },
+      { session: { w1: 1, w2: 1, w3: 1, w4: 1, w5: 1, w6: 1 } }, { session: { w1: 1, w2: 1, w3: 1, w4: 1, w5: 1 } }, { session: { w6: 1 } },
     ];
     for (const rt of counts) {
       const full = evaluateAll(v.flags, { distinct_id: "u1", runtime_events: rt });

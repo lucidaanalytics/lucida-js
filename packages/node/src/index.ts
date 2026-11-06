@@ -4,7 +4,7 @@ export type { AgentConversation, AgentConversationOptions, AgentFeedback, AgentO
 export type { FlagOptions, FlagDetails } from "./flags.js";
 export type { DefinitionsResponse } from "./definitions.js";
 export { FlagSnapshot } from "@lucida-analytics/sdk-core";
-export type { FlagValue, StickyStore, MigrationStage, MigrationOps, MigrationReport } from "@lucida-analytics/sdk-core";
+export type { AsyncStickyStore, FlagValue, StickyStore, MigrationStage, MigrationOps, MigrationReport } from "@lucida-analytics/sdk-core";
 export { MemoryStickyStore, MIGRATION_STAGES, migrationStage, migrateRead, migrateWrite, aiConfig } from "@lucida-analytics/sdk-core";
 export { withContext, getContext, readTracingHeaders, requestContextInit } from "./context.js";
 export type { RequestContext, RequestContextOptions, HeaderBag } from "./context.js";

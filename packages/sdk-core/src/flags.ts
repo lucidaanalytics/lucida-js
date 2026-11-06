@@ -345,31 +345,36 @@ export function evaluateAll(flags: FlagDefinition[], c: EvalContext): Resolved {
   return out;
 }
 
-/** shortcut: further runtime-branched dependencies read their fallback, raise if flags chain more (Go maxBranchedDeps). */
-const MAX_BRANCHED_DEPS = 4;
-
 /**
- * evaluateFlag for evaluateAll (go/internal/flageval runtime_deps.go). When a flag `f` reads still has runtime
+ * evaluateFlag for evaluateAll (go/internal/flageval runtime_deps.go). When a flag `f` reads has still runtime
  * branches (a server without the client's counts), `f` is also evaluated for every other value that flag can take,
  * prepended as branches on `{type: "flag", key, op: "eq", value}`, so the client re-resolves `f` after the flip.
+ * Only dependencies the evaluation actually read are branched on, found per branch, so there is no cap and cost
+ * follows the distinct outcomes reached.
  */
 function evaluateDependent(f: FlagDefinition, c: EvalContext, resolved: Resolved): EvalResult {
-  const pending: string[] = [];
-  for (const d of deps(f)) if (!pending.includes(d) && resolved[d]?.runtime?.length && pending.length < MAX_BRANCHED_DEPS) pending.push(d);
-  return evalOver(f, c, resolved, pending);
+  return evalOver(f, c, resolved, [], new Set());
 }
 
-function evalOver(f: FlagDefinition, c: EvalContext, resolved: Resolved, pending: string[]): EvalResult {
+/** Branch on `pending`, then on any further runtime-branched dependency the leaf evaluation read; `done` = already branched on this path. */
+function evalOver(f: FlagDefinition, c: EvalContext, resolved: Resolved, pending: string[], done: Set<string>): EvalResult {
   const [dep, ...rest] = pending;
-  if (dep === undefined) return evaluateFlag(f, c, resolved);
-  const base = evalOver(f, c, resolved, rest);
+  if (dep === undefined) {
+    const reads = new Set<string>();
+    const tracked = new Proxy(resolved, { get: (t, k) => (reads.add(String(k)), t[k as string]) });
+    const r = evaluateFlag(f, c, tracked);
+    const more: string[] = [];
+    for (const d of deps(f)) if (reads.has(d) && !done.has(d) && !more.includes(d) && resolved[d]?.runtime?.length) more.push(d);
+    return more.length ? evalOver(f, c, resolved, more, new Set([...done, ...more])) : r;
+  }
+  const base = evalOver(f, c, resolved, rest, done);
   const cur = resolved[dep] as EvalResult;
   const tried = new Set<FlagValue>([cur.value]);
   const branches: RuntimeBranch[] = [];
   for (const alt of outcomes(cur)) {
     if (tried.has(alt.value)) continue;
     tried.add(alt.value);
-    const r = evalOver(f, c, { ...resolved, [dep]: alt }, rest);
+    const r = evalOver(f, c, { ...resolved, [dep]: alt }, rest, done);
     if (same(r, base)) continue; // the flip does not change f
     branches.push({ filters: [{ type: "flag", key: dep, op: "eq", value: alt.value }], result: r });
   }

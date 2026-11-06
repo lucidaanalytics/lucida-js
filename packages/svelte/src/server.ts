@@ -32,7 +32,7 @@ export interface LucidaHandleOptions extends BootstrapOptions {
  * // hooks.server.ts
  * import { createEdgeClient } from "@lucida-analytics/edge";
  * import { lucidaHandle } from "@lucida-analytics/svelte/server";
- * export const handle = lucidaHandle(createEdgeClient({ apiKey: "lc_pk_...", host: "https://app.lucida.dev" }));
+ * export const handle = lucidaHandle(createEdgeClient({ apiKey: "lc_pk_...", host: "https://capture.lucidace.com" }));
  * // +layout.server.ts: return { lucida: { distinctId: locals.lucida.distinctId, flags: locals.lucida.flags } }
  * // +layout.svelte:  createLucida({ apiKey, options: { bootstrap: { distinctId } }, bootstrapFlags: flags })
  * ```

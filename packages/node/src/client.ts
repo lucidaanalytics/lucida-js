@@ -1,5 +1,5 @@
 import { AgentConversation, EventQueue, FlagSnapshot, backoffDelay, isRetryable, uuidv7, withFlagProps } from "@lucida-analytics/sdk-core";
-import type { AgentConversationOptions, BackoffOptions, FlagDefinition, FlagValue, Props, StickyStore, Transport, WireEvent } from "@lucida-analytics/sdk-core";
+import type { AgentConversationOptions, BackoffOptions, FlagDefinition, AsyncStickyStore, FlagValue, Props, StickyStore, Transport, WireEvent } from "@lucida-analytics/sdk-core";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { getContext } from "./context.js";
@@ -11,7 +11,7 @@ import type { FlagDetails, FlagOptions } from "./flags.js";
 import { LruSet } from "./lru.js";
 import { nodeTransport } from "./transport.js";
 
-export const LIB_VERSION = "0.0.0";
+export const LIB_VERSION = "0.1.1";
 const LIB = "lucida-node";
 const MAX_BATCH = 1000;
 
@@ -31,6 +31,8 @@ export interface LucidaOptions {
   streamBackoff?: BackoffOptions;
   /** Persistent sticky bucketing for local evaluation: units keep their first value of a `sticky` flag. Use a shared store (Redis, a table) across processes. */
   stickyStore?: StickyStore;
+  /** Same as `stickyStore` for an async backend (Redis, a table); evaluation awaits it, so localValues-based capture falls back to the async path. */
+  asyncStickyStore?: AsyncStickyStore;
   /** Per-request timeout, default 10 000. */
   timeoutMs?: number;
   /** No events, no network. */
@@ -150,7 +152,7 @@ export class Lucida {
     private readonly apiKey: string,
     o: LucidaOptions = {},
   ) {
-    this.host = (o.host ?? "https://app.lucida.dev").replace(/\/+$/, "");
+    this.host = (o.host ?? "https://capture.lucidace.com").replace(/\/+$/, "");
     this.test = !!o.testMode;
     this.fetchImpl = this.test
       ? ((() => Promise.reject(new Error("network disabled in testMode"))) as typeof fetch)
@@ -202,6 +204,7 @@ export class Lucida {
       log: this.log,
       capture: (distinctId, event, properties) => this.capture({ distinctId, event, properties }),
       ...(o.stickyStore ? { sticky: o.stickyStore } : {}),
+      ...(o.asyncStickyStore ? { asyncSticky: o.asyncStickyStore } : {}),
       ...(o.appContexts ? { appContexts: o.appContexts } : {}),
       ...(o.fallbacks ? { fallbacks: o.fallbacks } : {}),
     });

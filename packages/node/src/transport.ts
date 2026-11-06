@@ -24,7 +24,8 @@ export function nodeTransport(o: NodeTransportOptions): Transport {
           headers: { "Content-Type": "application/json", ...o.headers },
           signal: AbortSignal.timeout(o.timeoutMs),
         });
-        return { status: r.status };
+        const ra = Number(r.headers?.get("retry-after"));
+        return { status: r.status, ...(ra > 0 ? { retryAfterMs: ra * 1000 } : {}) };
       } catch {
         return { status: 0 };
       }

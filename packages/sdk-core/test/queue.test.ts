@@ -57,6 +57,24 @@ describe("EventQueue", () => {
     expect(t.events().map((e) => e.event)).toEqual(["e1", "e1", "e1"]);
   });
 
+  it("waits for Retry-After when it is longer than the backoff, capped at 60 s", async () => {
+    const t = new FakeTransport();
+    t.statuses = [429, 503, 200];
+    t.retryAfterMs = [10_000, 600_000];
+    const q = mk(t);
+    q.enqueue(ev(1));
+    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(t.calls).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1); // 10 s, not the 1 s backoff
+    expect(t.calls).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(t.calls).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1); // 600 s asked, 60 s waited
+    expect(t.calls).toHaveLength(3);
+    expect(q.size).toBe(0);
+  });
+
   it("drops on 4xx without retry", async () => {
     const t = new FakeTransport();
     t.statuses = [400];
@@ -66,6 +84,21 @@ describe("EventQueue", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(t.calls).toHaveLength(1);
     expect(dropped).toEqual(["status_400"]);
+  });
+
+  it("warns once on 404", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const t = new FakeTransport();
+    t.statuses = [404, 404];
+    const q = mk(t);
+    q.enqueue(ev(1));
+    await vi.advanceTimersByTimeAsync(5000);
+    q.enqueue(ev(2));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(t.calls).toHaveLength(2);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain("capture.lucidace.com");
+    warn.mockRestore();
   });
 
   it("drops oldest when over max size", () => {

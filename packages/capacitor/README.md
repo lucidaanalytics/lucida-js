@@ -14,7 +14,7 @@ import { App } from "@capacitor/app";
 import { createClient } from "@lucida-analytics/capacitor";
 
 const lucida = await createClient("lc_pk_...", {
-  apiHost: "https://app.lucida.dev",
+  apiHost: "https://capture.lucidace.com",
   preferences: Preferences, // persistence (identity, session, consent, flag cache, offline queue)
   app: App,                 // $app_opened / $app_backgrounded
   appVersion: "1.4.0",

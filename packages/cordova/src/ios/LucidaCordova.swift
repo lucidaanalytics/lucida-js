@@ -11,7 +11,7 @@ final class LucidaCordova: CDVPlugin {
     @objc(setup:) func setup(_ c: CDVInvokedUrlCommand) {
         guard let key = c.argument(at: 0) as? String else { return fail(c, "apiKey must be a string") }
         let o = (c.argument(at: 1) as? [String: Any]) ?? [:]
-        let host = (o["apiHost"] as? String).flatMap(URL.init(string:)) ?? URL(string: "https://app.lucida.dev")!
+        let host = (o["apiHost"] as? String).flatMap(URL.init(string:)) ?? URL(string: "https://capture.lucidace.com")!
         var cfg = LucidaConfig(apiKey: key, apiHost: host)
         let consent = o["consent"] as? [String: Any]
         cfg.consentMode = (consent?["mode"] as? String) == "opt_in" ? .optIn : .optOut

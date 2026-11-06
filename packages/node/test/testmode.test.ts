@@ -22,6 +22,20 @@ describe("testMode", () => {
     await Promise.all([on.shutdown(), cut.shutdown()]);
   });
 
+  it("keeps sticky assignments through an async store", async () => {
+    const m = new Map<string, Record<string, boolean | string>>();
+    const asyncStickyStore = {
+      get: async (k: string) => (await Promise.resolve(), m.get(k)),
+      set: async (k: string, f: string, v: boolean | string) => (await Promise.resolve(), void m.set(k, { ...m.get(k), [f]: v })),
+    };
+    const on = new Lucida("lc_pk_x", { asyncStickyStore, testMode: { fixture: [flag("s", { sticky: true })] } });
+    expect(await on.getFeatureFlag("s", "u1")).toBe(true);
+    const cut = new Lucida("lc_pk_x", { asyncStickyStore, testMode: { fixture: [flag("s", { sticky: true, conditions: [{ rollout_pct: 0 }] })] } });
+    expect(await cut.getFeatureFlag("s", "u1")).toBe(true);
+    expect(await cut.getFeatureFlag("s", "u2")).toBe(false);
+    await Promise.all([on.shutdown(), cut.shutdown()]);
+  });
+
   it("evaluates a fixture file offline and never touches the network", async () => {
     const net = vi.spyOn(globalThis, "fetch");
     const pro = flag("pro", { conditions: [{ rollout_pct: 100, filters: [{ type: "person", key: "plan", op: "eq", value: "pro" }] }] });

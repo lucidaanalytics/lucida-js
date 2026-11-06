@@ -13,11 +13,11 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.0";
+export const LIB_VERSION = "0.1.1";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
-export const DEFAULT_HOST = "https://app.lucida.dev";
+export const DEFAULT_HOST = "https://capture.lucidace.com";
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype;
 

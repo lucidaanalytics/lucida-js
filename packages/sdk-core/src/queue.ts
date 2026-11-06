@@ -26,6 +26,7 @@ export class EventQueue {
   private attempt = 0;
   private inflight: Promise<void> | undefined;
   private closed = false;
+  private warned404 = false;
   private readonly flushAt: number;
   private readonly intervalMs: number;
   private readonly maxSize: number;
@@ -79,10 +80,10 @@ export class EventQueue {
     const p = this.o.transport
       .send(this.o.url, body, opts.beacon ? { beacon: true } : {})
       .then(
-        (r) => r.status,
-        () => 0,
+        (r) => r,
+        () => ({ status: 0, retryAfterMs: undefined }),
       )
-      .then((status) => this.settle(batch, status, !!opts.beacon))
+      .then((r) => this.settle(batch, r.status, !!opts.beacon, r.retryAfterMs))
       .finally(() => {
         this.inflight = undefined;
       });
@@ -90,7 +91,7 @@ export class EventQueue {
     return p;
   }
 
-  private settle(batch: WireEvent[], status: number, beacon: boolean): void {
+  private settle(batch: WireEvent[], status: number, beacon: boolean, retryAfterMs?: number): void {
     if (status >= 200 && status < 300) {
       this.attempt = 0;
       if (this.items.length >= this.flushAt) void this.flush();
@@ -98,12 +99,18 @@ export class EventQueue {
       return;
     }
     if (!isRetryable(status) || beacon || this.attempt >= this.maxRetries) {
+      if (status === 404 && !this.warned404) {
+        this.warned404 = true;
+        console.warn(
+          `[lucida] ${this.o.url} returned 404, so events are being dropped. apiHost is probably wrong: use https://capture.lucidace.com (or your own capture host), not the app host.`,
+        );
+      }
       this.o.onDrop?.(batch, `status_${status}`);
       this.attempt = 0;
       return;
     }
     this.items.unshift(...batch);
-    const delay = backoffDelay(this.attempt++, this.o.backoff);
+    const delay = Math.max(backoffDelay(this.attempt++, this.o.backoff), Math.min(retryAfterMs ?? 0, 60_000));
     this.o.log?.("retry in", delay, "ms");
     this.arm(delay);
   }

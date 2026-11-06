@@ -5,8 +5,8 @@ import type { AppPluginLike, PreferencesLike } from "./adapters.js";
 import { createFlags } from "./flags.js";
 
 export const LIB = "lucida-capacitor";
-export const LIB_VERSION = "0.0.0";
-const DEFAULT_HOST = "https://app.lucida.dev";
+export const LIB_VERSION = "0.1.1";
+const DEFAULT_HOST = "https://capture.lucidace.com";
 
 export interface CapacitorConfig {
   apiHost?: string;

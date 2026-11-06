@@ -1,6 +1,8 @@
 /** Result of one transport attempt. status 0 means a network failure. */
 export interface TransportResult {
   status: number;
+  /** The response's Retry-After in ms (429/503), when the transport can read it. The queue waits at least this long (capped at 60 s). */
+  retryAfterMs?: number;
 }
 
 export interface SendOptions {

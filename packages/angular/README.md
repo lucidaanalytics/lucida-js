@@ -17,7 +17,7 @@ bootstrapApplication(App, { providers: [provideLucida({ apiKey: "lc_pk_...", opt
   ```ts
   // server.ts (Express): evaluate once per request with the edge client
   import { createEdgeClient, requestBootstrap } from "@lucida-analytics/edge";
-  const lucida = createEdgeClient({ apiKey: "lc_pk_...", host: "https://app.lucida.dev" });
+  const lucida = createEdgeClient({ apiKey: "lc_pk_...", host: "https://capture.lucidace.com" });
   app.get("*", async (req, res, next) => {
     const b = await requestBootstrap(lucida, req.headers.cookie, { consentMode: "opt_in" });
     if (b.setCookie) res.append("Set-Cookie", b.setCookie);

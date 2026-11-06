@@ -4,7 +4,7 @@ import type { EvalContext, EvalResult, FlagDefinition, FlagValue } from "./flags
 /**
  * Persistent sticky-bucketing store (LC-EXT-29): the value each unit got from a sticky flag, so it
  * keeps it when rollout or variant weights change. Keyed by the flag's bucketing key.
- * shortcut: synchronous port (fits memory and localStorage); preload async stores before evaluating.
+ * Synchronous (fits memory and localStorage); for an async backend use AsyncStickyStore + evaluateAllStickyAsync.
  */
 export interface StickyStore {
   get(bucketingKey: string): Record<string, FlagValue> | undefined;
@@ -45,5 +45,43 @@ export function evaluateAllSticky(flags: FlagDefinition[], c: EvalContext, store
     const k = v === undefined ? undefined : bucketingKey(f, c);
     if (k && v !== undefined) store.set(k, f.key, v);
   }
+  return out;
+}
+
+/** Sticky store whose reads and writes are asynchronous (Redis, a database, React Native storage). */
+export interface AsyncStickyStore {
+  get(bucketingKey: string): Promise<Record<string, FlagValue> | undefined>;
+  set(bucketingKey: string, flagKey: string, value: FlagValue): Promise<void>;
+}
+
+/**
+ * evaluateAllSticky over an async store: the assignments of every bucketing key the sticky flags use are
+ * awaited first (so evaluation sees the stored values), evaluation runs on that snapshot, and the fresh
+ * matches are written back (queued, then awaited together). A failed read or write only means re-hashing
+ * next time; it never fails the evaluation.
+ */
+export async function evaluateAllStickyAsync(flags: FlagDefinition[], c: EvalContext, store: AsyncStickyStore): Promise<Record<string, EvalResult>> {
+  const keys = new Set<string>();
+  for (const f of flags) {
+    const k = f.sticky ? bucketingKey(f, c) : undefined;
+    if (k) keys.add(k);
+  }
+  const snapshot = new MemoryStickyStore();
+  const writes: Promise<void>[] = [];
+  await Promise.all(
+    [...keys].map(async (k) => {
+      for (const [flag, v] of Object.entries((await store.get(k).catch(() => undefined)) ?? {})) snapshot.set(k, flag, v);
+    }),
+  );
+  const queued: StickyStore = {
+    get: (k) => snapshot.get(k),
+    set(k, flag, v) {
+      if (snapshot.get(k)?.[flag] === v) return; // already stored
+      snapshot.set(k, flag, v);
+      writes.push(store.set(k, flag, v).catch(() => undefined));
+    },
+  };
+  const out = evaluateAllSticky(flags, c, queued);
+  await Promise.all(writes);
   return out;
 }

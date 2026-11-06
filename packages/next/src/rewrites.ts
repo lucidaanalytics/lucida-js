@@ -1,7 +1,7 @@
 export interface RewriteOptions {
   /** Same-origin path the browser SDK talks to (set `apiHost` to this). Default "/ingest". */
   path?: string;
-  /** Lucida ingest/flags host to forward to. Default https://app.lucida.dev */
+  /** Lucida ingest/flags host to forward to. Default https://capture.lucidace.com */
   host?: string;
 }
 
@@ -22,6 +22,6 @@ export interface Rewrite {
  */
 export function lucidaRewrites(o: RewriteOptions = {}): Rewrite[] {
   const path = `/${(o.path ?? "/ingest").replace(/^\/+|\/+$/g, "")}`;
-  const host = (o.host ?? "https://app.lucida.dev").replace(/\/+$/, "");
+  const host = (o.host ?? "https://capture.lucidace.com").replace(/\/+$/, "");
   return [{ source: `${path}/v1/:path*`, destination: `${host}/v1/:path*` }];
 }

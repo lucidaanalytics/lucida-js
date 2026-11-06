@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MemoryStickyStore, aiConfig, evaluateAll, evaluateAllSticky, migrateRead, migrateWrite, migrationStage } from "../src/index.js";
-import type { FlagDefinition, MigrationReport } from "../src/index.js";
+import { MemoryStickyStore, aiConfig, evaluateAll, evaluateAllSticky, evaluateAllStickyAsync, migrateRead, migrateWrite, migrationStage } from "../src/index.js";
+import type { AsyncStickyStore, FlagDefinition, FlagValue, MigrationReport } from "../src/index.js";
 
 const mv = (pct: [number, number]): FlagDefinition => ({
   key: "exp", type: "multivariate", active: true, salt: "s", sticky: true, aggregation: { kind: "person" },
@@ -17,6 +17,19 @@ describe("sticky store", () => {
     expect(later).toMatchObject({ value: "a", reason: "sticky_bucket" });
     store.clear("exp");
     expect(evaluateAllSticky([mv([0, 100])], { distinct_id: "u" }, store).exp?.value).toBe("b");
+  });
+
+  it("an async store is hydrated before evaluation and written back", async () => {
+    const m = new Map<string, Record<string, FlagValue>>();
+    const store: AsyncStickyStore = {
+      get: async (k) => (await Promise.resolve(), m.get(k)),
+      set: async (k, f, v) => (await Promise.resolve(), void m.set(k, { ...m.get(k), [f]: v })),
+    };
+    expect((await evaluateAllStickyAsync([mv([100, 0])], { distinct_id: "u" }, store)).exp?.value).toBe("a");
+    expect(m.get("u")).toEqual({ exp: "a" });
+    expect(await evaluateAllStickyAsync([mv([0, 100])], { distinct_id: "u" }, store)).toMatchObject({ exp: { value: "a", reason: "sticky_bucket" } });
+    const broken: AsyncStickyStore = { get: () => Promise.reject(new Error("down")), set: () => Promise.reject(new Error("down")) };
+    expect((await evaluateAllStickyAsync([mv([0, 100])], { distinct_id: "v" }, broken)).exp?.value).toBe("b");
   });
 
   it("cohort hook decides cohort filters", () => {

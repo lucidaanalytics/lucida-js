@@ -49,7 +49,7 @@ export function lucidaAdapter(o: LucidaAdapterOptions) {
     }
     return p;
   };
-  const origin = (key: string) => `${(o.host ?? "https://app.lucida.dev").replace(/\/+$/, "")}/flags?q=${encodeURIComponent(key)}`;
+  const origin = (key: string) => `${(o.host ?? "https://capture.lucidace.com").replace(/\/+$/, "")}/flags?q=${encodeURIComponent(key)}`;
   const make =
     <V>(pick: (v: Flags[string] | undefined, fallback: V | undefined) => V) =>
     (): FlagsAdapter<V, LucidaEntities> => ({
@@ -90,7 +90,7 @@ interface ListedFlag {
  * Server only: it needs a secret or personal API key, never a public key.
  */
 export async function getProviderData(o: { apiKey: string; project: string; host?: string; fetch?: typeof fetch }): Promise<{ definitions: Record<string, ProviderFlag>; hints: string[] }> {
-  const host = (o.host ?? "https://app.lucida.dev").replace(/\/+$/, "");
+  const host = (o.host ?? "https://capture.lucidace.com").replace(/\/+$/, "");
   const res = await (o.fetch ?? fetch)(`${host}/v1/projects/${encodeURIComponent(o.project)}/flags?limit=200`, { headers: { authorization: `Bearer ${o.apiKey}` } });
   if (!res.ok) return { definitions: {}, hints: [`Lucida flags unavailable (${res.status})`] };
   const body = (await res.json()) as { data?: ListedFlag[] };
