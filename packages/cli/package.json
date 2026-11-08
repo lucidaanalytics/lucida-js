@@ -12,6 +12,6 @@
   "files": ["bin", "lib"],
   "engines": { "node": ">=20.10" },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test"
   }
 }
