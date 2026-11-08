@@ -1,0 +1,17 @@
+{
+  "name": "@lucida-analytics/cli",
+  "version": "0.1.2",
+  "description": "The lucida CLI: npx @lucida-analytics/cli, or npm i -g @lucida-analytics/cli for a lucida command.",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/cli" },
+  "homepage": "https://lucidace.com/help/install-cli",
+  "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
+  "type": "module",
+  "bin": { "lucida": "bin/lucida.js" },
+  "exports": { "./package.json": "./package.json" },
+  "files": ["bin", "lib"],
+  "engines": { "node": ">=20.10" },
+  "scripts": {
+    "test": "node --test test/"
+  }
+}

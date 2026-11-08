@@ -1,0 +1,11 @@
+{
+  "version": "0.1.2",
+  "sha256": {
+    "lucida_0.1.2_darwin_amd64.tar.gz": "019a441602cf05477f1cd65766bf14958092d11209ab2f8a41dce08b17895686",
+    "lucida_0.1.2_darwin_arm64.tar.gz": "331ee40215dd11d939c0cf91fb98a0cce5480b8ebaa9a30a3822c2460d6f1054",
+    "lucida_0.1.2_linux_amd64.tar.gz": "43ca20f6d2fda696d895b2005c95b4584764a6066f020fc6df9c2b54134d74e3",
+    "lucida_0.1.2_linux_arm64.tar.gz": "2eeddaa13eb91a15f56ddc2371bfd410f5e1186a7eff5ec617f92d3b6f9040e0",
+    "lucida_0.1.2_windows_amd64.zip": "183814dc41562b6bad8f48a2e814214966432987a6a979ea7c77f52c05e964be",
+    "lucida_0.1.2_windows_arm64.zip": "18ec25c2cf06ee1bc29432f91ad9d6a855e106898e341f7174f52016e5b0ccca"
+  }
+}
