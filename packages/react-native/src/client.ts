@@ -12,7 +12,7 @@ import { createReplay } from "./replay.js";
 import type { NativeClient, NativeConfig } from "./types.js";
 
 export const LIB = "lucida-react-native";
-export const LIB_VERSION = "0.1.1";
+export const LIB_VERSION = "0.1.2";
 const DEFAULT_HOST = "https://capture.lucidace.com";
 const VERSION_KEY = "lc_app_version";
 

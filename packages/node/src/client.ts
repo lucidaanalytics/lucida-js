@@ -11,7 +11,7 @@ import type { FlagDetails, FlagOptions } from "./flags.js";
 import { LruSet } from "./lru.js";
 import { nodeTransport } from "./transport.js";
 
-export const LIB_VERSION = "0.1.1";
+export const LIB_VERSION = "0.1.2";
 const LIB = "lucida-node";
 const MAX_BATCH = 1000;
 

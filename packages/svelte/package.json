@@ -1,6 +1,6 @@
 {
   "name": "@lucida-analytics/svelte",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/svelte" },
   "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/svelte",
@@ -11,7 +11,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -24,7 +25,8 @@
       "./server": {
         "types": "./dist/server.d.ts",
         "default": "./dist/server.js"
-      }
+      },
+      "./package.json": "./package.json"
     }
   },
   "files": [
