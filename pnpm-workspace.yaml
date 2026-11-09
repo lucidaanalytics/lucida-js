@@ -1,2 +1,5 @@
 packages:
   - "packages/*"
+# shortcut: rollup 4.68.2 shipped without its platform binaries (npm 404, 2026-11-09); drop this pin once a later rollup installs.
+overrides:
+  rollup: 4.68.1
