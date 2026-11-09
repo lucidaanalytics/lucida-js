@@ -5,6 +5,7 @@ import type { CanvasMaskRule, CanvasRegion } from "./canvas.js";
 import type { MutationThrottle } from "./throttle.js";
 import type { SupportWidgets } from "./support.js";
 import type { UrlPrivacyRule } from "./urlrules.js";
+import type { NetworkOptions } from "./network.js";
 
 export type ReplayOwner = "lucida" | "watchtower" | "both";
 
@@ -69,6 +70,10 @@ export interface ReplayConfig {
   assets?: AssetCapture;
   /** Opt-in: hand this session's replay link to Intercom / Crisp while recording (LC-EXP-28). Local config only. */
   supportWidgets?: SupportWidgets;
+  /** Opt-in: console.log/info/warn/error/debug, uncaught errors and unhandled rejections inside the recording (default false). Local config only. */
+  console?: boolean;
+  /** Opt-in: fetch/XHR requests (url, method, status, timing, size) inside the recording; headers and bodies only when enabled. Local config only. */
+  network?: false | NetworkOptions;
 }
 
 export type MaskableInput =
@@ -105,7 +110,7 @@ export function policyMatches(patterns: string[] | undefined, url: string): bool
 }
 
 type Hooks = "maskInputFn" | "maskTextFn" | "maskUrlFn" | "maskInputOptions" | "canvasMaskRegions";
-type Local = "owner" | "enabled" | "captureCanvas" | "crossOriginIframes" | "mutationThrottle" | "assets" | "supportWidgets";
+type Local = "owner" | "enabled" | "captureCanvas" | "crossOriginIframes" | "mutationThrottle" | "assets" | "supportWidgets" | "console" | "network";
 export type ResolvedReplay = Required<Omit<ReplayConfig, Local | Hooks>> &
   { [K in Hooks]?: ReplayConfig[K] | undefined } & {
     canvas: { fps: number; quality: number } | null;
@@ -113,6 +118,8 @@ export type ResolvedReplay = Required<Omit<ReplayConfig, Local | Hooks>> &
     canvasMask: CanvasMaskRule[];
     mutationThrottle: MutationThrottle | null;
     assets: AssetCapture | undefined;
+    console: boolean;
+    network: NetworkOptions | null;
   };
 
 function canvasOf(c: CanvasCapture | false | undefined, remoteOn: boolean): ResolvedReplay["canvas"] {
@@ -165,6 +172,8 @@ export function resolveReplay(local: ReplayConfig, remote: RemoteConfig | null):
     canvasMask: (Array.isArray(remote?.replay_canvas_mask) ? remote.replay_canvas_mask : []).filter((r) => typeof r?.selector === "string"),
     mutationThrottle: local.mutationThrottle === false ? null : { ...local.mutationThrottle },
     assets: local.assets,
+    console: local.console === true,
+    network: local.network ? local.network : null,
   };
 }
 

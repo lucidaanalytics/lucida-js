@@ -12,6 +12,8 @@ export { fnv1a32, sampled } from "./groups.js";
 export type { TriggerGroup, TriggerState } from "./groups.js";
 export type { RecordingStatus, StartReason } from "./status.js";
 export type { AssetCapture } from "./assets.js";
+export type { NetworkEntry, NetworkOptions } from "./network.js";
+export type { ConsoleEntry } from "./console.js";
 export type { CanvasMaskRule, CanvasRegion } from "./canvas.js";
 export type { MutationThrottle } from "./throttle.js";
 export type { SupportWidgets } from "./support.js";

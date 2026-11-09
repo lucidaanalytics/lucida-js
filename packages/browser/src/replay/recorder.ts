@@ -17,6 +17,8 @@ import { maskedCanvasSampler } from "./canvas.js";
 import { mutationThrottle } from "./throttle.js";
 import { idleGate } from "./idle.js";
 import { watchTrigger } from "./triggers.js";
+import { captureConsole } from "./console.js";
+import { captureNetwork } from "./network.js";
 import { watchGroups } from "./groups.js";
 import type { TriggerGroup } from "./groups.js";
 import type { ReplayStatus, StartReason } from "./status.js";
@@ -195,6 +197,32 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
         () => [maskSel, blockSel, "[data-lc-ignore]"].filter(Boolean).join(","),
       );
 
+
+  // Console / network context lives inside the recording only. It rides rrweb custom events, so it is dropped
+  // whenever rrweb is stopped (paused, excluded URL, consent revoked) and obeys the same buffer/min-duration path.
+  const custom = (tag: string, payload: unknown): void => {
+    if (paused || stopped || !stopRrweb) return;
+    try {
+      record.addCustomEvent(tag, payload);
+    } catch {
+      /* not recording right now */
+    }
+  };
+  const ctxUndo: Array<() => void> = [];
+  if (!mute) {
+    const textMasked = (): boolean => cfg.mask_all_text || page.maskAllText;
+    if (cfg.console) ctxUndo.push(captureConsole((e) => custom("console", e), textMasked));
+    if (cfg.network) {
+      const sdkApi = `${(base ?? "").replace(/\/+$/, "")}/v1/`; // every SDK request goes under <apiHost>/v1/
+      ctxUndo.push(
+        captureNetwork(
+          (e) => custom("network", { ...e, url: maskUrl ? maskUrl(e.url) : e.url }),
+          cfg.network,
+          (u) => u.startsWith(sdkApi), // the SDK's own capture, replay and config requests
+        ),
+      );
+    }
+  }
 
   const begin = (): void => {
     if (stopRrweb || stopped || mute) return;
@@ -381,6 +409,7 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
     unguard?.();
     height.stop();
     keys?.stop();
+    for (const u of ctxUndo) u();
     trigger.stop();
     ring.drain();
     chunker.discard();

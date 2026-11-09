@@ -13,7 +13,7 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.2";
+export const LIB_VERSION = "0.1.3";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
