@@ -1,0 +1,16 @@
+{
+  "_comment": "Consent precedence conformance vector (F6/S6). Order: a stored visitor decision (skips everything below), then the project's consent_mode and geo consent_default from GET /v1/config, then the page's consent.mode, then the SDK default (opt_out). The project can only make it stricter. page_mode null = the page passes no consent config. effective = the mode the visitor starts in once the config answered; until then (and when it never answers: fail closed) it is opt_in: no storage write and no request except the config fetch, which carries only the public key. Every browser SDK must pass these.",
+  "default_page_mode": "opt_out",
+  "cases": [
+    { "name": "project opt_in, page passes nothing", "page_mode": null, "project_mode": "opt_in", "geo": null, "effective": "opt_in" },
+    { "name": "project opt_in beats page opt_out", "page_mode": "opt_out", "project_mode": "opt_in", "geo": null, "effective": "opt_in" },
+    { "name": "project opt_out never loosens page opt_in", "page_mode": "opt_in", "project_mode": "opt_out", "geo": null, "effective": "opt_in" },
+    { "name": "project opt_out, page passes nothing", "page_mode": null, "project_mode": "opt_out", "geo": null, "effective": "opt_out" },
+    { "name": "project off keeps the SDK default", "page_mode": null, "project_mode": "off", "geo": null, "effective": "opt_out" },
+    { "name": "project silent keeps the SDK default", "page_mode": null, "project_mode": null, "geo": null, "effective": "opt_out" },
+    { "name": "geo opt_in beats page opt_out", "page_mode": "opt_out", "project_mode": "off", "geo": "opt_in", "effective": "opt_in" },
+    { "name": "project opt_in beats geo opt_out", "page_mode": null, "project_mode": "opt_in", "geo": "opt_out", "effective": "opt_in" },
+    { "name": "page opt_in stays without a project mode", "page_mode": "opt_in", "project_mode": null, "geo": null, "effective": "opt_in" },
+    { "name": "geo cookieless", "page_mode": null, "project_mode": "off", "geo": "cookieless", "effective": "cookieless" }
+  ]
+}
