@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CookieStorage, LocalStorageAdapter } from "../src/storage.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 beforeEach(() => {
   document.cookie.split("; ").forEach((c) => (document.cookie = `${c.split("=")[0]}=; Max-Age=0; Path=/`));
@@ -11,6 +11,7 @@ afterEach(() => vi.restoreAllMocks());
 describe("consent API (LC-SEC-1)", () => {
   it("is pending until an explicit choice, then granted or denied per category", async () => {
     const { client } = start({ consent: { mode: "opt_out" }, capturePageview: false, autocapture: false });
+    await tick(20);
     expect(client.getConsent()).toEqual({ analytics: true, replay: true, marketing: true });
     expect(client.getConsentStatus()).toBe("pending");
     client.setConsent({ analytics: true, marketing: false });

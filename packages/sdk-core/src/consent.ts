@@ -10,6 +10,18 @@ export type ConsentDefault = "opt_in" | "opt_out" | "cookieless";
 
 /** Default storage key of the stored decision. */
 export const CONSENT_KEY = "lc_consent";
+/**
+ * Mode a visitor without a stored decision starts in, from the page's `consent.mode`, the project's `consent_mode`
+ * and the geo `consent_default` of `GET /v1/config` (testdata/consent/precedence.json). Precedence (a stored visitor
+ * decision beats all of this, and skips the wait): the project, then the page. The project can only make it stricter:
+ * `opt_in` always wins; a project `opt_out` never loosens a page `opt_in`. undefined keeps the page mode.
+ */
+export function resolveConsentDefault(page: ConsentMode, projectMode?: string, geo?: string): ConsentDefault | undefined {
+  if (projectMode === "opt_in") return "opt_in";
+  if (geo === "opt_in" || geo === "opt_out" || geo === "cookieless") return geo;
+  return projectMode === "opt_out" ? page : undefined;
+}
+
 const CATEGORIES: ConsentCategory[] = ["analytics", "replay", "marketing"];
 
 export interface ConsentOptions {

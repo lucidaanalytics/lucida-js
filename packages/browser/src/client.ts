@@ -13,7 +13,7 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.4";
+export const LIB_VERSION = "0.1.5";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
@@ -83,7 +83,8 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     consent: {
       ...(config.cookieless === "on_reject" ? { cookielessOnReject: true } : {}),
       ...config.consent,
-      ...(config.consent?.geo && !disabled ? { awaitRemote: true } : {}),
+      // F6: the project can make consent stricter than the page, so unless the page is already opt_in, hold all storage and sends until the config answers
+      ...(!disabled && (config.consent?.geo || config.consent?.mode !== "opt_in") ? { awaitRemote: true } : {}),
       respectDnt: true,
       dnt,
     },
@@ -194,18 +195,28 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       )),
   };
 
+  let consentSettled: Promise<void> = Promise.resolve(); // flush() waits for the project's consent mode, then sends what it released
   if (core.consent.resolving) {
-    // Geo consent (N-ANA-17): the config is read before consent (one GET carrying only the public key) so the
-    // project's rule applies before any write; past GEO_WAIT_MS the local mode applies and the answer only adds
-    // the session definition. The same response serves loadConfig() later.
+    // Project consent (F6, geo N-ANA-17): the config is read before consent (one GET carrying only the public key,
+    // no cookies) so the project's mode applies before any write; past GEO_WAIT_MS it fails closed (opt_in) and the
+    // late answer only adds the session definition. The same response serves loadConfig() later.
+    let outage = false; // no usable answer (network error, 5xx): fail closed; a 4xx is an answer without a project mode
     const early = fetchImpl(`${apiHost}/v1/config?api_key=${encodeURIComponent(apiKey)}`, { credentials: "omit" })
-      .then((r) => (r.ok ? (r.json() as Promise<RemoteConfig>) : null))
-      .catch(() => null);
+      .then((r) => {
+        outage = r.status >= 500;
+        return r.ok ? (r.json() as Promise<RemoteConfig>) : null;
+      })
+      .catch(() => ((outage = true), null));
     cfg = early;
-    const timer = setTimeout(() => core.applyRemote({}), GEO_WAIT_MS);
-    void early.then((r) => {
-      clearTimeout(timer);
-      core.applyRemote(r ?? {});
+    consentSettled = new Promise<void>((done) => {
+      const timer = setTimeout(() => (core.resolveConsent("opt_in"), done()), GEO_WAIT_MS);
+      void early.then((r) => {
+        clearTimeout(timer);
+        if (r) core.applyRemote(r);
+        else if (outage) core.resolveConsent("opt_in");
+        else core.applyRemote({});
+        done();
+      });
     });
   }
 
@@ -343,7 +354,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     activateExperiment: (k) => host.experiments?.activate(k),
     recommendations: (placement, o) =>
       host.recs?.get(placement, o) ?? Promise.resolve({ placement, strategy: "", items: [], shown() {}, clicked() {} }),
-    flush: () => core.flush(),
+    flush: () => consentSettled.then(() => core.flush()),
     shutdown: async () => {
       for (const t of teardowns) t();
       debounced?.flush();

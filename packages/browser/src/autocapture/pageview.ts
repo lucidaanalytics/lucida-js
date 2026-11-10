@@ -54,7 +54,7 @@ function scrollTracker(scrollRoot?: string | string[]): { read(): { pct: number;
 const SNAPSHOT_WAIT_MS = 800;
 
 /** Only a pageview that would be captured now is worth holding: the consent gate otherwise re-fires it later. */
-const hasHeldAnalytics = (host: Host): boolean => host.core.hasConsent("analytics");
+const hasHeldAnalytics = (host: Host): boolean => host.core.hasConsent("analytics") || host.core.consent.resolving; // resolving: the project consent mode is still unknown
 
 type Watch = { path?: boolean; search?: boolean; hash?: boolean };
 

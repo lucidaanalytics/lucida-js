@@ -1,6 +1,6 @@
 {
   "name": "@lucida-analytics/browser",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/browser" },
   "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/browser",
@@ -105,7 +105,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "storage.json",
+    "lucida-global.d.ts"
   ],
   "scripts": {
     "build": "rm -rf dist && tsup && node scripts/static-layout.mjs",

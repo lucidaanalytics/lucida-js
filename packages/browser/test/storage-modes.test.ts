@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CombinedStorage, CookieStorage, DebouncedStorage, LocalStorageAdapter, MemoryStorage, createStorage } from "../src/storage.js";
 import type { Client } from "../src/index.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 const KEY = "lc_pk_test";
 const SUFFIX = "__pk_test";
@@ -22,15 +22,17 @@ describe("persistence modes", () => {
   it("sessionStorage keeps state in the tab's sessionStorage only", async () => {
     const { client } = start({ ...base, persistence: "sessionStorage" }, KEY);
     live = client;
+    await tick(20);
     client.capture("e");
     expect(JSON.parse(sessionStorage.getItem(`lc_identity${SUFFIX}`)!).distinct_id).toBe(client.distinctId);
     expect(localStorage.length).toBe(0);
     expect(document.cookie).toBe("");
   });
 
-  it("localStorage+cookie: identity in both, other keys only in localStorage", () => {
+  it("localStorage+cookie: identity in both, other keys only in localStorage", async () => {
     const { client } = start({ ...base, persistence: "localStorage+cookie" }, KEY);
     live = client;
+    await tick(20);
     client.register({ plan: "pro" });
     client.capture("e");
     expect(document.cookie).toContain(`lc_identity${SUFFIX}=`);
@@ -89,9 +91,10 @@ describe("persistence modes", () => {
 });
 
 describe("storage controls", () => {
-  it("persistedProperties: only listed super properties reach storage", () => {
+  it("persistedProperties: only listed super properties reach storage", async () => {
     const { client } = start({ ...base, persistence: "localStorage", persistedProperties: ["plan"] }, KEY);
     live = client;
+    await tick(20);
     client.register({ plan: "pro", tmp: 1 });
     expect(JSON.parse(localStorage.getItem(`lc_props${SUFFIX}`)!)).toEqual({ plan: "pro" });
     expect(client.getProperty("tmp")).toBe(1);
@@ -116,6 +119,7 @@ describe("storage controls", () => {
   it("storageWriteDelayMs on the client: writes land after the delay and on page hide", async () => {
     const { client } = start({ ...base, persistence: "localStorage", storageWriteDelayMs: 60_000 }, KEY);
     live = client;
+    await tick(20);
     client.capture("e");
     expect(localStorage.getItem(`lc_session${SUFFIX}`)).toBeNull();
     window.dispatchEvent(new Event("pagehide"));
@@ -144,10 +148,11 @@ describe("storage controls", () => {
     expect(localStorage.getItem(`lc_identity${SUFFIX}`)).toBeNull();
   });
 
-  it("extension mode never writes cookies (localStorage instead)", () => {
+  it("extension mode never writes cookies (localStorage instead)", async () => {
     const cookie = vi.spyOn(document, "cookie", "set");
     const { client } = start({ ...base, persistence: "cookie", extension: true }, KEY);
     live = client;
+    await tick(20);
     client.capture("e");
     expect(cookie).not.toHaveBeenCalled();
     expect(localStorage.getItem(`lc_identity${SUFFIX}`)).not.toBeNull();

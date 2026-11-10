@@ -3,7 +3,7 @@ import type { WireEvent } from "@lucida-analytics/sdk-core";
 import { denylistHook, runHooks, sampleHook } from "../src/policy.js";
 import { rateLimiter } from "../src/ratelimit.js";
 import type { Client } from "../src/index.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 let live: Client | undefined;
 afterEach(async () => {
@@ -160,8 +160,9 @@ describe("rate limiting", () => {
   it("drops events beyond the burst when configured, off by default", async () => {
     const { client, t } = start({ ...base, rateLimit: { eventsPerSecond: 0.001, burst: 2 } });
     live = client;
+    await tick(20);
     for (let i = 0; i < 5; i++) client.capture(`e${i}`);
     await client.flush();
-    expect(t.events().map((e) => e.event)).toEqual(["e0", "e1"]);
+    expect(t.events().map((e) => e.event).filter((e) => !e.startsWith("$$"))).toEqual(["e0", "e1"]); // the drop warning is not rate limited
   });
 });

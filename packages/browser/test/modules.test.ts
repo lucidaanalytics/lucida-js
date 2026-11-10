@@ -115,6 +115,7 @@ describe("watchtower baggage", () => {
     }) as typeof fetch;
     const { client } = startWith([correlate], { watchtower: { correlate: true, origins: ["https://api.partner.test"] } });
     live = client;
+    await tick(20);
     client.capture("e"); // session id is read from captured events
     await window.fetch("/api/orders", { headers: { baggage: "a=b" } });
     await window.fetch("https://api.partner.test/v1");
@@ -140,6 +141,7 @@ describe("watchtower baggage", () => {
     proto.send = () => {};
     const { client } = startWith([correlate], { watchtower: { correlate: true } });
     live = client;
+    await tick(20);
     const x = new XMLHttpRequest();
     x.open("GET", "/api/z");
     x.send();
@@ -166,6 +168,7 @@ describe("offline queue", () => {
     const calls: string[] = [];
     const fetchImpl = (async (url: string, init?: RequestInit) => {
       calls.push(url);
+      if (url.includes("/v1/config")) return new Response("{}", { status: 404 });
       if (!up) throw new TypeError("offline");
       return f.fn(url, init);
     }) as unknown as typeof fetch;
@@ -225,7 +228,7 @@ describe("toolbar", () => {
     const { client, f } = startWith([toolbar]);
     live = client;
     await tick(10);
-    expect(f.calls).toHaveLength(0);
+    expect(f.calls.filter((c) => !c.url.includes("/v1/config"))).toHaveLength(0);
     expect(document.querySelector("[data-lc-ignore]")).toBeNull();
   });
   it("exchanges the token, strips it from the URL, mounts, and creates an action draft with the bearer token", async () => {
@@ -245,7 +248,7 @@ describe("toolbar", () => {
     live = client;
     const root = await vi.waitFor(() => Array.from(document.querySelectorAll("[data-lc-ignore]")).find((e) => e.shadowRoot)!.shadowRoot!.host);
     expect(location.search).toBe("?x=1");
-    expect(JSON.parse(calls[0]!.init!.body as string)).toMatchObject({ token: "one-time", origin: location.origin });
+    expect(JSON.parse(calls.find((c) => c.url.endsWith("/v1/toolbar/exchange"))!.init!.body as string)).toMatchObject({ token: "one-time", origin: location.origin });
     expect(root.shadowRoot).toBeTruthy();
     const buttons = () => Array.from(root.shadowRoot!.querySelectorAll("button"));
     const by = (label: string) => buttons().find((b) => b.textContent === label)!;
@@ -277,7 +280,7 @@ describe("toolbar", () => {
   it("a rejected token mounts nothing", async () => {
     history.replaceState({}, "", "/p?__lc_toolbar=bad");
     let hits = 0;
-    const { client } = startWith([toolbar], { fetch: (async () => (hits++, new Response("no", { status: 401 }))) as unknown as typeof fetch });
+    const { client } = startWith([toolbar], { fetch: (async (u: string) => (String(u).includes("/v1/config") ? new Response("{}", { status: 404 }) : (hits++, new Response("no", { status: 401 })))) as unknown as typeof fetch });
     live = client;
     await vi.waitFor(() => expect(hits).toBe(1));
     await tick(20);
@@ -296,12 +299,14 @@ describe("toolbar", () => {
 describe("inspector", () => {
   it("is off by default, on with ?__lc_debug=1, and lists captured events + consent", async () => {
     const off = startWith([inspector]);
+    await tick(20);
     expect(document.querySelector("[data-lc-ignore]")).toBeNull();
     await off.client.shutdown();
     history.replaceState({}, "", "/p?__lc_debug=1");
     vi.spyOn(console, "debug").mockImplementation(() => {});
     const { client } = startWith([inspector]);
     live = client;
+    await tick(20);
     client.capture("hello", { a: 1 });
     const root = document.querySelector("[data-lc-ignore]")!;
     const text = root.shadowRoot!.textContent!;

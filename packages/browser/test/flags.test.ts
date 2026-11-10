@@ -14,8 +14,9 @@ describe("flags module", () => {
     const seen: Array<Record<string, unknown>> = [];
     client.onFlags((fl) => seen.push(fl));
     await vi.waitFor(() => expect(seen).toHaveLength(1));
-    expect(f.calls[0]!.url).toBe("https://ingest.test/v1/flags");
-    const body = JSON.parse(f.calls[0]!.init!.body as string);
+    const fc = f.calls.find((c) => c.url.endsWith("/v1/flags"))!;
+    expect(fc.url).toBe("https://ingest.test/v1/flags");
+    const body = JSON.parse(fc.init!.body as string);
     expect(body).toMatchObject({ api_key: "lc_pk_test", distinct_id: client.distinctId });
     expect(seen).toEqual([{ a: true, v: "B" }]);
     expect(client.isFeatureEnabled("a")).toBe(true);

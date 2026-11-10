@@ -78,7 +78,7 @@ describe("replay module", () => {
   it("replayOwner=watchtower: no recorder, not even the config fetch", async () => {
     const { f } = boot({ replayOwner: "watchtower" });
     await wait(150);
-    expect(f.urls).toEqual([]);
+    expect(f.urls.filter((u) => !u.includes("/v1/config"))).toEqual([]); // only the consent wait's config read
   });
 
   it("yields to a Watchtower SDK that announces it records, unless the owner is explicit", async () => {
@@ -89,7 +89,7 @@ describe("replay module", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { f } = boot({});
     await wait(150);
-    expect(f.urls).toEqual([]);
+    expect(f.urls.filter((u) => !u.includes("/v1/config"))).toEqual([]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("replayOwner"));
     warn.mockRestore();
   });

@@ -1,4 +1,4 @@
-import { Consent, GatedStorage } from "./consent.js";
+import { Consent, GatedStorage, resolveConsentDefault } from "./consent.js";
 import type { ConsentCategory, ConsentDefault, ConsentMode, ConsentState, ConsentStatus } from "./consent.js";
 import { Identity } from "./identity.js";
 import { EventQueue } from "./queue.js";
@@ -341,10 +341,9 @@ export class Core {
   }
 
   /** Apply the project settings of `GET /v1/config`: the session definition and the geo consent default. */
-  applyRemote(r: RemoteSessionSettings & { consent_default?: string }): void {
+  applyRemote(r: RemoteSessionSettings & { consent_default?: string; consent_mode?: string }): void {
     this.session.configure(r);
-    const d = r.consent_default;
-    this.resolveConsent(d === "opt_in" || d === "opt_out" || d === "cookieless" ? d : undefined);
+    this.resolveConsent(resolveConsentDefault(this.consent.mode, r.consent_mode, r.consent_default));
   }
 
   /**

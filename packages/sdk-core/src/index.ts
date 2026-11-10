@@ -1,6 +1,6 @@
 export { Core } from "./core.js";
 export type { CoreConfig, CoreChange, CaptureExtras, Enrichment } from "./core.js";
-export { CONSENT_KEY, Consent, GatedStorage } from "./consent.js";
+export { CONSENT_KEY, Consent, GatedStorage, resolveConsentDefault } from "./consent.js";
 export type { ConsentCategory, ConsentDefault, ConsentMode, ConsentState, ConsentStatus, ConsentOptions } from "./consent.js";
 export { Identity } from "./identity.js";
 export { SuperProps, Groups } from "./state.js";

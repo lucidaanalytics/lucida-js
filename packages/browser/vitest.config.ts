@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["test/**/*.test.ts"],
+    setupFiles: ["test/setup.ts"],
     // Node >= 25 ships a global localStorage that shadows jsdom's; disable it so jsdom's is used.
     poolOptions: { forks: { execArgv: ["--no-experimental-webstorage"] } },
   },

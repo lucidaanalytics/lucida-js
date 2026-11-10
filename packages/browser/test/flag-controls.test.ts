@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Client } from "../src/index.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 let live: Client | undefined;
 afterEach(async () => {
@@ -36,8 +36,9 @@ describe("flag controls", () => {
   it("disableRemote never calls /v1/flags", async () => {
     const { client, f } = start({ ...base, _h: ok, flagOptions: { disableRemote: true } } as never);
     live = client;
+    await tick(20);
     await client.reloadFlags();
-    expect(f.calls).toEqual([]);
+    expect(f.calls.filter((c) => !c.url.includes("/v1/config"))).toEqual([]);
   });
 
   it("keys scope the request and the exposed flags; evaluationContexts are sent", async () => {
@@ -45,7 +46,7 @@ describe("flag controls", () => {
     live = client;
     await vi.waitFor(() => expect(client.getFlag("a")).toBe(true));
     expect(client.getFlag("b")).toBeUndefined();
-    const body = JSON.parse(f.calls[0]!.init!.body as string);
+    const body = JSON.parse(f.calls.find((c) => c.url.endsWith("/v1/flags"))!.init!.body as string);
     expect(body).toMatchObject({ flag_keys: ["a"], app_contexts: ["web"] });
   });
 
@@ -59,8 +60,8 @@ describe("flag controls", () => {
 
   it("aborts a slow request after timeoutMs and keeps current flags", async () => {
     const aborted = vi.fn();
-    const slow = ((_u: string, init?: RequestInit) =>
-      new Promise((_r, rej) => init!.signal!.addEventListener("abort", () => (aborted(), rej(new DOMException("a", "AbortError")))))) as unknown as typeof fetch;
+    const slow = ((u: string, init?: RequestInit) =>
+      u.includes("/v1/config") ? Promise.resolve(new Response("{}", { status: 404 })) : new Promise((_r, rej) => init!.signal!.addEventListener("abort", () => (aborted(), rej(new DOMException("a", "AbortError")))))) as unknown as typeof fetch;
     const { client } = start({ ...base, fetch: slow, bootstrap: { flags: { a: true } }, flagOptions: { timeoutMs: 10 } });
     live = client;
     await client.reloadFlags();

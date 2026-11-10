@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Client } from "../src/index.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 let live: Client | undefined;
 beforeEach(() => history.replaceState({}, "", "/home"));
@@ -17,6 +17,7 @@ describe("SPA pageviews", () => {
   it("history mode: initial + pushState + replaceState + popstate, with pageleave before each", async () => {
     const { client, t } = start({ autocapture: false });
     live = client;
+    await tick(20);
     history.pushState({}, "", "/products");
     history.replaceState({}, "", "/products/1");
     history.pushState({}, "", "/products/1"); // same URL: nothing
@@ -67,6 +68,7 @@ describe("SPA pageviews", () => {
     history.replaceState({}, "", "/app#/inbox");
     const { client, t } = start({ autocapture: false, capturePageview: "hash" });
     live = client;
+    await tick(20);
     raw.call(history, {}, "", "/app#/settings?tab=2"); // unpatched: only the hashchange below may fire
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     window.dispatchEvent(new HashChangeEvent("hashchange")); // same URL: nothing
@@ -126,6 +128,7 @@ describe("pageview edge cases", () => {
   it("history mode ignores an in-page anchor; the object form picks the parts that count", async () => {
     const { client, t } = start({ autocapture: false });
     live = client;
+    await tick(20);
     history.pushState({}, "", "/home#faq");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     history.pushState({}, "", "/home?tab=2");
@@ -135,6 +138,7 @@ describe("pageview edge cases", () => {
     await client.shutdown();
     const only = start({ autocapture: false, capturePageview: { path: true } });
     live = only.client;
+    await tick(20);
     history.pushState({}, "", "/home?tab=3");
     history.pushState({}, "", "/other?tab=3");
     await Promise.resolve();
@@ -146,6 +150,7 @@ describe("pageview edge cases", () => {
     document.title = "Home";
     const { client, t } = start({ autocapture: false });
     live = client;
+    await tick(20);
     history.pushState({}, "", "/pricing");
     document.title = "Pricing"; // set right after pushState, like most routers
     await Promise.resolve();

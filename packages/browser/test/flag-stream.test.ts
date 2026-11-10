@@ -14,6 +14,7 @@ describe("flags: change stream (G32)", () => {
         expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer lc_pk_test");
         return new Response(new ReadableStream<Uint8Array>({ start: (c) => void (ctrl = c) }), { status: 200 });
       }
+      if (url.includes("/v1/config")) return new Response("{}", { status: 404 });
       return new Response(JSON.stringify({ flags: { a: { enabled: true, value: ++n > 1 } } }), { status: 200 });
     }) as unknown as typeof fetch;
     const client = init("lc_pk_test", {

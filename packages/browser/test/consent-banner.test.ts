@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "../src/client.js";
-import { consentBanner, cookiebotConsent, cookiebotToConsent, cookieMunchConsent, oneTrustConsent, oneTrustToConsent } from "../src/consent/index.js";
+import { consentBanner, consentModule, cookiebotConsent, cookiebotToConsent, cookieMunchConsent, oneTrustConsent, oneTrustToConsent } from "../src/consent/index.js";
 import type { BrowserConfig, Client, Module } from "../src/index.js";
 import { fakeTransport } from "./helpers.js";
 import { until } from "./replay-helpers.js";
@@ -182,5 +182,15 @@ describe("Cookie Munch bridge", () => {
     window.dispatchEvent(new Event("CookieMunchOnChange"));
     await client.flush();
     expect(t.events().find((e) => e.event === "$consent_updated")!.properties).toMatchObject({ source: "cookiemunch", categories: { analytics: true, replay: true, marketing: false } });
+  });
+
+  it('the classic script\'s modules: ["consent"] bundles the follower with the banner API', async () => {
+    const { client, t } = boot({ consent: { mode: "opt_in" } }, [consentModule]);
+    (window as { CookieMunch?: unknown }).CookieMunch = { hasResponse: true, consent: { statistics: true, marketing: true } };
+    window.dispatchEvent(new Event("CookieMunchOnChange"));
+    await client.flush();
+    expect(client.getConsentStatus("marketing")).toBe("granted");
+    expect(t.events().some((e) => e.event === "$consent_updated")).toBe(true);
+    expect(typeof client.consent.showBanner).toBe("function");
   });
 });

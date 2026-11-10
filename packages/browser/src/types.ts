@@ -82,7 +82,7 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
     /**
      * Geo consent defaults (N-ANA-17): before anything is stored or sent, ask `GET /v1/config` which mode the
      * project's rules give this visitor's country / US state (opt-in, opt-out or cookieless). Events wait in memory
-     * meanwhile (at most 3 s; then the local `mode` applies). A stored decision skips the wait. Default false.
+     * meanwhile (at most 3 s; then it fails closed as opt_in). A stored decision skips the wait. Default false.
      */
     geo?: boolean;
   };
@@ -220,6 +220,8 @@ export interface RemoteConfig {
   session_new_on_events?: string[];
   /** Geo consent default resolved for this visitor (N-ANA-17), and the location it was resolved from. */
   consent_default?: "opt_in" | "opt_out" | "cookieless";
+  /** The project's consent mode; it can only make the page's `consent.mode` stricter. */
+  consent_mode?: "off" | "opt_in" | "opt_out";
   consent_country?: string;
   consent_region?: string;
   [k: string]: unknown;

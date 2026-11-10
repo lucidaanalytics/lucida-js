@@ -5,7 +5,7 @@ import { LINKER_PARAM, decodeLink, decodeLinker, encodeLinker } from "../src/lin
 import { INGESTION_WARNING } from "../src/policy.js";
 import { assetUrl, blocksInlineStyle, rewriteUrl } from "../src/index.js";
 import type { Client, Guide } from "../src/index.js";
-import { start, startWith } from "./helpers.js";
+import { start, startWith, tick } from "./helpers.js";
 
 const base = { capturePageview: false, autocapture: false } as const;
 let live: Client | undefined;
@@ -82,12 +82,13 @@ describe("cross-domain linker carries the session (LC-ING-42)", () => {
     expect(decodeLinker(`${encodeLinker("x", now)}_bad id!`, now)).toBe("x");
   });
 
-  it("landing adopts the carried distinct id and session id; outgoing links carry the current session", () => {
+  it("landing adopts the carried distinct id and session id; outgoing links carry the current session", async () => {
     const ms = Date.now().toString(16).padStart(12, "0"); // a fresh UUIDv7: carried ids older than 24 h are refused
     const sid = `${ms.slice(0, 8)}-${ms.slice(8)}-7000-8000-000000000002`;
     history.replaceState(null, "", `/land?${LINKER_PARAM}=${encodeURIComponent(encodeLinker("carried", Date.now(), sid))}`);
     const { client } = start({ ...base, crossDomains: ["b.com"] });
     live = client;
+    await tick(20);
     expect(client.distinctId).toBe("carried");
     expect(client.getSessionId()).toBe(sid);
     document.body.innerHTML = `<a id="a" href="https://b.com/x">a</a>`;

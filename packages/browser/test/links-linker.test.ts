@@ -132,8 +132,9 @@ describe("cross-domain linker", () => {
     expect(hostMatches("notb.com", ["b.com"])).toBe(false);
   });
 
-  it("decorates links to configured domains after consent, not others", () => {
+  it("decorates links to configured domains after consent, not others", async () => {
     const s = setup(`<a id="a" href="https://b.com/x">a</a><a id="c" href="https://c.com/">c</a>`, { crossDomains: ["b.com"] });
+    await tick(20);
     click("#a");
     click("#c");
     const href = (id: string) => (document.querySelector(id) as HTMLAnchorElement).href;
@@ -149,9 +150,10 @@ describe("cross-domain linker", () => {
     expect(s.client.distinctId).toBeTruthy();
   });
 
-  it("adopts the carried id on landing and strips the param", () => {
+  it("adopts the carried id on landing and strips the param", async () => {
     history.replaceState(null, "", `/land?a=1&${LINKER_PARAM}=${encodeURIComponent(encodeLinker("carried-id"))}`);
     const s = start({ crossDomains: ["b.com"] });
+    await tick(20);
     live = s.client;
     expect(s.client.distinctId).toBe("carried-id");
     expect(location.search).toBe("?a=1");

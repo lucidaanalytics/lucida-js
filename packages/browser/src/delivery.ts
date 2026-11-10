@@ -21,29 +21,65 @@ export const LAZY_EXPORTS: Record<LazyModuleName, string> = {
   inspector: "inspector",
   experiments: "visualChanges",
   "early-access": "earlyAccess",
-  consent: "consentBanner",
+  consent: "consentModule", // the banner API plus the Cookie Munch follower
 };
 
 export type Importer = (url: string) => Promise<Record<string, unknown>>;
 
 const nativeImport: Importer = (url) => import(/* @vite-ignore */ url) as Promise<Record<string, unknown>>;
 
+/** `manifest.json` beside the SDK files: the sha384 of `lucida.js` and every `modules/<name>.js` of this version. */
+export interface Manifest {
+  version: string;
+  files: Record<string, string>;
+}
+
+/** The version's manifest, or undefined when there is none (an old deploy) or it cannot be read. */
+export async function fetchManifest(assetHost: string, version: string, fetchImpl: typeof fetch = globalThis.fetch): Promise<Manifest | undefined> {
+  try {
+    const r = await fetchImpl(assetUrl(assetHost, version, "manifest.json"), { credentials: "omit" });
+    if (!r.ok) return undefined;
+    const m = (await r.json()) as Partial<Manifest>;
+    return m && typeof m.files === "object" && m.files ? (m as Manifest) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** `sha384-<base64>` of the bytes, as in an `integrity` attribute. Throws without WebCrypto (an insecure page). */
+export async function sri384(bytes: ArrayBuffer): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest("SHA-384", bytes));
+  return `sha384-${btoa(String.fromCharCode(...d))}`;
+}
+
 /**
  * Loads the named ESM entries from the versioned asset path (same version as this script, so a pinned loader always
  * gets matching modules). A module that fails to load is logged and skipped; the client still starts.
+ * With a manifest, each module is fetched and hashed (WebCrypto SHA-384) against it before it runs; a mismatch, a
+ * module the manifest does not list, or no WebCrypto refuses it. No manifest (an old deploy): load as before.
+ * shortcut: the verified bytes are fetched again by `import()` (immutable URL, so the HTTP cache serves it), and
+ * lazy chunks a module imports are not hashed; upgrade to blob-import plus chunk hashes when needed.
  */
 export async function loadModules(
   names: readonly LazyModuleName[],
   base: { assetHost: string; version: string },
   log: (...a: unknown[]) => void,
   importer: Importer = nativeImport,
+  fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<Module[]> {
+  const manifest = names.length ? await fetchManifest(base.assetHost, base.version, fetchImpl) : undefined;
   const got = await Promise.all(
     names.map(async (n) => {
       const exp = LAZY_EXPORTS[n];
       if (!exp) return log("unknown module", n);
+      const url = assetUrl(base.assetHost, base.version, `${n}.js`);
       try {
-        const m = (await importer(assetUrl(base.assetHost, base.version, `${n}.js`)))[exp];
+        if (manifest) {
+          const want = manifest.files[`modules/${n}.js`];
+          const res = want ? await fetchImpl(url, { credentials: "omit", cache: "force-cache" }) : undefined;
+          if (!res?.ok || (await sri384(await res.arrayBuffer())) !== want) return log("module refused, it does not match the manifest", n);
+        }
+        const m = (await importer(url))[exp];
         return typeof m === "function" ? (m as Module) : log("module has no export", n, exp);
       } catch (e) {
         return log("module failed to load", n, e);

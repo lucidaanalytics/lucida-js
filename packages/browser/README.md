@@ -109,6 +109,13 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   visitor choice. Where consent law applies (EU/UK/other opt-in regions) pass `consent: { mode: "opt_in" }` (nothing is stored
   or sent until `optIn()` / `setConsent`), or `consent: { geo: ... }` to switch by region. `optIn()` grants analytics and replay;
   marketing only with `optIn(["analytics", "replay", "marketing"])`.
+- **Consent precedence** (0.1.5): a stored visitor decision wins; then the project's `consent_mode` (and geo `consent_default`)
+  from `GET /v1/config`; then the page's `consent.mode`; then the SDK default (`opt_out`). The project can only make it
+  stricter: a project `opt_in` beats a page `opt_out` (or no `consent` config at all), and a project `opt_out` never loosens a
+  page `opt_in`. Unless the page says `opt_in`, the SDK therefore reads the config first (one `GET` carrying only the public
+  key, no cookies) and holds every storage write and every send, events kept in memory, until it answers. If it does not answer
+  within 3 seconds, or answers with a network error or a 5xx, the SDK fails closed as `opt_in`; `flush()` waits for the answer.
+  Conformance vector: `testdata/consent/precedence.json`.
 - **DNT / GPC**: `respectDnt` (default false) and `respectGpc` (default false). When set and the browser sends the signal,
   an `opt_out` project starts with consent denied, so nothing is stored or sent until `setConsent`. An explicit stored
   decision still wins. (`consent.respectDnt` is kept and enables both.)
@@ -226,6 +233,40 @@ text), `$ai_feedback` (thumbs 1/-1, rating 1..5, comment), `$ai_conversation_end
 with `ai: { captureText: true }`, after cards, emails and phone numbers are masked. `traceId` (a W3C trace id) links the
 conversation to its trace in Watchtower; tokens, latency, cost and model names are never captured here.
 Events use the normal capture path, so consent and opt-out apply.
+
+## Classic script (`lucida.js`)
+
+For plain HTML, tag managers and site builders. Pin a version and check it with Subresource Integrity (the hash of each
+release is in `/static/v<version>/manifest.json`; `lucida init --framework html` prints this snippet with it filled in):
+
+```html
+<script>
+  window.lucidaQueue = window.lucidaQueue || [];
+  lucidaQueue.push(["init", "lc_pk_...", { apiHost: "https://<your capture host>", modules: ["consent", "replay"] }]);
+</script>
+<script async src="https://<your app host>/static/v0.1.5/lucida.js"
+        integrity="sha384-HASH_OF_LUCIDA_JS_FROM_MANIFEST_JSON" crossorigin="anonymous"></script>
+```
+
+- **`window.lucidaQueue`** is a plain array you create before the script loads. The script drains it in order, then replaces
+  `push` so later commands run at once. Commands: `["init", publicKey, config?]` (once; later `init`s are ignored) and
+  `[method, ...args]` for any `Client` method (`["capture", "signed_up", {plan: "pro"}]`, `["identify", "u1"]`,
+  `["optIn"]`). Commands before `init` wait for it, and for the `modules` it loads. `window.lucida` is the client once `init`
+  ran. Types: add `/// <reference types="@lucida-analytics/browser/lucida-global" />` (`lucida-global.d.ts`).
+- **`modules`** (init config, names only): `replay`, `heatmaps`, `forms`, `toolbar`, `guides`, `inspector`, `experiments`,
+  `early-access`, `consent`. Each loads from `<assetHost>/static/v<this script's version>/<name>.js` before the client
+  starts; one that fails to load is skipped. Not loaded in extension mode.
+- **`assetHost`, `uiHost`** default to the origin the script was loaded from (set `assetHost` only when the files are hosted
+  elsewhere, `uiHost` only when replay links should point elsewhere). `apiHost` is where events go, default `https://capture.lucidace.com`.
+- **`modules: ["consent"]`** adds `client.consent.showBanner()` and follows Cookie Munch: once `CookieMunch.hasResponse` it maps
+  `statistics` to analytics + replay and `marketing` to marketing, and follows its change events. Use it with `consent: { mode: "opt_in" }`.
+- **Integrity**: with a `manifest.json` next to the script (every release publishes one: `{version, files: {"lucida.js":
+  "sha384-...", "modules/<name>.js": "sha384-..."}}`), the loader fetches each lazy module and checks it with WebCrypto
+  (`SHA-384`) against the manifest before running it. A module that differs, one the manifest does not list, or a page
+  without WebCrypto is refused with a `console.warn`, and the client starts without it. With no manifest (an old deploy) modules
+  load as before. Lazy chunks a module imports are not hashed separately.
+- **Caching**: `/static/v<x.y.z>/*` is `immutable` for a year; `/static/v<major>/*` and `/lucida.js` are cached 5 minutes; a 404 is never cached.
+- **Storage**: every cookie and storage key is listed in `storage.json` (shipped in this package).
 
 ## Interventions
 

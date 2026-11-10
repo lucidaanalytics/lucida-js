@@ -3,7 +3,7 @@ import { CookieStorage, broadestDomain, knownRegistrable } from "../src/storage.
 import { browserTransport } from "../src/transport.js";
 import { hostListed } from "../src/host-headers.js";
 import type { Client } from "../src/index.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 let live: Client | undefined;
 afterEach(async () => {
@@ -32,6 +32,7 @@ describe("methods", () => {
   it("getSessionId, onSessionId (initial + rotation), getProperty, hasOptedOut", async () => {
     const { client } = start({ ...base, session: { idleMs: 60_000 } }); // the minimum idle timeout
     live = client;
+    await tick(20);
     const seen: string[] = [];
     const off = client.onSessionId((s) => seen.push(s));
     const first = client.getSessionId();
@@ -54,6 +55,7 @@ describe("methods", () => {
   it("capture options: timestamp, sendInstantly, beacon transport, bad timestamp ignored", async () => {
     const { client, t } = start({ ...base, flushAt: 100 });
     live = client;
+    await tick(20);
     client.capture("old", {}, { timestamp: "2020-01-02T03:04:05.000Z" });
     client.capture("bad", {}, { timestamp: "nonsense" });
     expect(t.calls).toHaveLength(0);
@@ -156,7 +158,9 @@ describe("tracing headers", () => {
       seen.push({ url: String(input), h: new Headers(init?.headers) });
       return new Response("{}");
     }) as typeof fetch;
+    await tick(20);
     const { client } = start({ ...base, tracingHeaders: ["api.example.com", "localhost"] });
+    await tick(20);
     await window.fetch("https://api.example.com/orders", { headers: { "x-a": "1" } });
     await window.fetch("/local");
     await window.fetch("https://other.test/x");

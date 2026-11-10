@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createStorage } from "../src/storage.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 beforeEach(() => {
   history.replaceState({}, "", "/start");
@@ -32,6 +32,7 @@ describe("capture basics", () => {
     const beacon = vi.fn(() => true);
     Object.defineProperty(navigator, "sendBeacon", { value: beacon, configurable: true });
     const { client } = start({ capturePageview: false, autocapture: false, persistence: "memory", transport: undefined as never });
+    await tick(20);
     client.capture("bye");
     window.dispatchEvent(new Event("pagehide"));
     expect(beacon).toHaveBeenCalledTimes(1);

@@ -40,6 +40,46 @@ describe("snippet loader", () => {
     expect(calls[1]).toEqual(["capture", "x"]);
   });
 
+  describe("manifest (SRI)", () => {
+    const body = "export const replay = () => 1;";
+    const sri = async (s: string) => `sha384-${Buffer.from(await crypto.subtle.digest("SHA-384", new TextEncoder().encode(s))).toString("base64")}`;
+    const boot = async (manifest: unknown, served: string) => {
+      calls.length = 0;
+      const urls: string[] = [];
+      const importer = async (u: string) => (urls.push(u), { replay: () => {} });
+      const fetchImpl = (async (u: string) => {
+        if (u.endsWith("/manifest.json")) return manifest ? new Response(JSON.stringify(manifest)) : new Response("", { status: 404 });
+        return new Response(served);
+      }) as unknown as typeof fetch;
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const w = { lucidaQueue: [["init", "k", { assetHost: "https://cdn.test", modules: ["replay"] }]] };
+      await drain(w as never, importer, fetchImpl);
+      const refused = warn.mock.calls.some((c) => String(c[1]).includes("refused"));
+      warn.mockRestore();
+      return { urls, refused };
+    };
+
+    it("runs a module whose hash matches the manifest", async () => {
+      const r = await boot({ version: LIB_VERSION, files: { "modules/replay.js": await sri(body) } }, body);
+      expect(r.urls).toHaveLength(1);
+      expect(r.refused).toBe(false);
+    });
+    it("refuses a module that differs, or that the manifest does not list, and still starts the client", async () => {
+      const bad = await boot({ version: LIB_VERSION, files: { "modules/replay.js": await sri(body) } }, body + "//evil");
+      expect(bad.urls).toEqual([]);
+      expect(bad.refused).toBe(true);
+      expect(calls[0]![0]).toBe("init");
+      const unlisted = await boot({ version: LIB_VERSION, files: {} }, body);
+      expect(unlisted.urls).toEqual([]);
+      expect(unlisted.refused).toBe(true);
+    });
+    it("without a manifest (an old deploy) loads as before", async () => {
+      const r = await boot(undefined, "anything");
+      expect(r.urls).toHaveLength(1);
+      expect(r.refused).toBe(false);
+    });
+  });
+
   it("extension mode never loads remote modules", async () => {
     calls.length = 0;
     const importer = vi.fn(async () => ({}));

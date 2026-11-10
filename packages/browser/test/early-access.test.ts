@@ -29,6 +29,7 @@ describe("client.earlyAccess", () => {
   it("emits $early_access_opt_in with the enrolment person property", async () => {
     const { client, t, f } = startWith([earlyAccess], { _h: { "/v1/early-access": { features } } } as never);
     live = client;
+    await tick(20);
     client.earlyAccess.optIn("new-editor");
     client.earlyAccess.optOut("new-editor");
     await client.flush();
@@ -39,7 +40,7 @@ describe("client.earlyAccess", () => {
     expect(evs.map((e) => e.properties.$enrolled)).toEqual([true, false]);
     expect(evs[0]!.properties.$feature_flag).toBe("new-editor");
     expect(evs[0]!.$set).toMatchObject({ "$feature_enrollment/new-editor": true });
-    expect(f.calls.some((c) => c.url.includes("api_key=lc_pk_test"))).toBe(false); // nothing fetched by opt-in alone
+    expect(f.calls.some((c) => c.url.includes("api_key=lc_pk_test") && !c.url.includes("/v1/config"))).toBe(false); // nothing fetched by opt-in alone
   });
 
   it("sends the enrolment person property with flag requests so the release condition matches", async () => {

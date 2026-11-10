@@ -1,0 +1,75 @@
+{
+  "$comment": "Every cookie and storage key the Lucida browser SDK writes. Published for consent managers (Cookie Munch preset, docs/integrations/cookiemunch-preset.md). sdks/browser/test/storage-manifest.test.ts fails when the SDK source names an lc_* key that is not listed here.",
+  "sdk": "@lucida-analytics/browser",
+  "version": "0.1.5",
+  "suffix_rule": {
+    "applies_to": "every key with suffixed: true",
+    "rule": "name + '_' + the last 8 word characters of the project's public key (key.replace(/\\W/g, '').slice(-8))",
+    "example": "public key lc_pk_abcd1234wxyz -> lc_identity_1234wxyz",
+    "why": "several projects can share one page without sharing state"
+  },
+  "persistence_modes": {
+    "memory": "nothing is written to the browser",
+    "none": "nothing is written to the browser (cookieless; events carry no distinct id until identify)",
+    "cookie": "keys with store 'persistence' are cookies",
+    "localStorage": "keys with store 'persistence' are in localStorage (default)",
+    "sessionStorage": "keys with store 'persistence' are in sessionStorage",
+    "localStorage+cookie": "keys with cookie_in_combined: true are written to a cookie and localStorage; the other 'persistence' keys to localStorage only"
+  },
+  "expiry": {
+    "cookie": "Max-Age = cookie.expiryDays * 86400 seconds; default 365 days (cookie.expiryDays). Path=/, SameSite=Lax, Secure on https, Domain only with cookie.crossSubdomain or cookie.domain.",
+    "localStorage": "no browser expiry (the SDK never writes an expiry; lc_click_ids remembers ids for clickIds.expiryDays, default 90, inside its value)",
+    "sessionStorage": "ends with the tab"
+  },
+  "categories": {
+    "necessary": "records the visitor's own consent decision",
+    "statistics": "the SDK's consent categories 'analytics' and 'replay'; written only after analytics (or, for lc_replay_ack, replay) consent",
+    "marketing": "the SDK's consent category 'marketing'. The SDK writes no key in this category: marketing consent is recorded and sent with events, and it gates nothing in browser storage"
+  },
+  "consent_notes": [
+    "lc_consent is written on every explicit decision, including a decline, and stays after a decline: it is how the choice is remembered. Every other key is purged (cookies, localStorage, sessionStorage) when analytics is declined.",
+    "With consent.mode opt_in (or a project consent_mode of opt_in, which a page cannot loosen) nothing is written before the visitor decides except lc_consent after the decision. See testdata/consent/precedence.json.",
+    "consentPersistence moves lc_consent to its own persistence mode; consent.storageKey renames it (the suffix rule still applies)."
+  ],
+  "keys": [
+    { "name": "lc_consent", "category": "necessary", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": null, "purpose": "the visitor's consent decision {analytics, replay, marketing}; stays after a decline" },
+    { "name": "lc_device_id", "category": "statistics", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": "analytics", "purpose": "anonymous device id" },
+    { "name": "lc_identity", "category": "statistics", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": "analytics", "purpose": "distinct id and identified flag" },
+    { "name": "lc_session", "category": "statistics", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": "analytics", "purpose": "session id and last activity" },
+    { "name": "lc_person_identified", "category": "statistics", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": "analytics", "purpose": "personProfiles identified_only: this visitor has been identified" },
+    { "name": "lc_props", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "super properties from register()" },
+    { "name": "lc_groups", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "group memberships from group()" },
+    { "name": "lc_pending_set_once", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "first-touch properties kept while the visitor is personless" },
+    { "name": "lc_click_ids", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "ad click ids (gclid, fbclid, ...) of the landing visit, kept clickIds.expiryDays (default 90); off with clickIds: false" },
+    { "name": "lc_internal", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "internal-traffic flag set by markInternal()" },
+    { "name": "lc_flags", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "feature flag values cache" },
+    { "name": "lc_flag_initial", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "first-seen request properties sent with flag requests" },
+    { "name": "lc_flag_overrides_api", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "overrideFlags(..., {persist: true})" },
+    { "name": "lc_rt_events", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "event counters for runtime flag conditions" },
+    { "name": "lc_xp_trig", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "experiment activation trigger state" },
+    { "name": "lc_early_access", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "early-access enrolment per flag" },
+    { "name": "lc_recs_recent", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "recently viewed items for recommendations" },
+    { "name": "lc_agent_session", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "WebMCP agent session id" },
+    { "name": "lc_guide_last", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "time the last guide was shown (frequency capping)" },
+    { "name": "lc_guide_seen", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "guides already seen" },
+    { "name": "lc_guide_views", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "guide show times per guide" },
+    { "name": "lc_guide_progress", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "tour step reached per guide" },
+    { "name": "lc_guide_checked", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "checklist items done per guide" },
+    { "name": "lc_guide_dismissed", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "dismissed guides" },
+    { "name": "lc_guide_holdout", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "guide holdout assignment" },
+    { "name": "lc_guide_snoozed", "category": "statistics", "store": "persistence", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "snoozed guides" },
+    { "name": "lc_offline", "category": "statistics", "store": "localStorage", "cookie_in_combined": false, "suffixed": true, "gated_by": "analytics", "purpose": "undeliverable event batches, replayed when back online (sessionStorage when persistence is sessionStorage; never written in memory/none; off with offlineQueue: false)" },
+    { "name": "lc_replay_ack", "category": "statistics", "store": "sessionStorage", "cookie_in_combined": false, "suffixed": false, "gated_by": "replay", "purpose": "the session id whose recording was acknowledged; written only while recording" },
+    { "name": "lc_preview", "category": "statistics", "store": "sessionStorage", "cookie_in_combined": false, "suffixed": false, "gated_by": null, "purpose": "experiment QA link (?lc_preview=flag:variant) for this tab; written only when that URL parameter is present" },
+    { "name": "lc_flag_overrides", "category": "statistics", "store": "localStorage", "cookie_in_combined": false, "suffixed": false, "gated_by": null, "purpose": "flag overrides set from the toolbar by a signed-in teammate; never written for visitors" },
+    { "name": "lc_toolbar_session", "category": "statistics", "store": "sessionStorage", "cookie_in_combined": false, "suffixed": false, "gated_by": null, "purpose": "toolbar authorization of a signed-in teammate; written only after a toolbar token exchange" },
+    { "name": "lc_toolbar_edit", "category": "statistics", "store": "sessionStorage", "cookie_in_combined": false, "suffixed": false, "gated_by": null, "purpose": "experiment being edited in the toolbar; teammates only" },
+    { "name": "lc_toolbar_check", "category": "statistics", "store": "sessionStorage", "cookie_in_combined": false, "suffixed": false, "gated_by": null, "purpose": "toolbar check to run once; teammates only" },
+    { "name": "lc_toolbar_recording", "category": "statistics", "store": "sessionStorage", "cookie_in_combined": false, "suffixed": false, "gated_by": null, "purpose": "guide recording in progress in the toolbar; teammates only" }
+  ],
+  "not_storage": {
+    "$comment": "lc_* names the SDK source mentions that are never written to cookies or web storage: URL parameters and flag payload keys.",
+    "url_parameters": ["lc_preview", "lc_guide"],
+    "payload_keys": ["lc_trigger", "lc_split_url", "lc_recs", "lc_changes"]
+  }
+}

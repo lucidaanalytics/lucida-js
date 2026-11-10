@@ -1,7 +1,7 @@
 // Versioned static layout for CDN / self-hosting (docs/guides/sdk-pinning.md):
 //   dist/static/v<version>/*.js     immutable; what pinned snippets and lazily loaded `modules` point at
 //   dist/static/v<major>/*.js       floating alias for the latest release of a major (never cache-forever)
-//   dist/static/v<version>/integrity.json   sha384 SRI hash per file, for <script integrity=...>
+//   dist/static/v<version>/manifest.json    {version, files: {"lucida.js": "sha384-...", "modules/<name>.js": "sha384-..."}}
 // Usage: node scripts/static-layout.mjs [distDir] (default ./dist). Run after tsup.
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -18,12 +18,17 @@ if (lib !== version) {
 }
 
 const files = readdirSync(dist).filter((f) => f.endsWith(".js"));
-const integrity = {};
+// manifest.json: sha384 SRI per file. The loader (src/delivery.ts) checks every lazy module against it before running it;
+// the README snippet pins lucida.js with the same hash. Entries are `lucida.js` and `modules/<name>.js` (lazy chunks a
+// module imports are not listed: they are only reachable from a verified entry).
+const sri = (f) => `sha384-${createHash("sha384").update(readFileSync(join(dist, f))).digest("base64")}`;
+const manifestFiles = {};
+for (const f of files.sort()) if (!f.startsWith("chunk-")) manifestFiles[f === "lucida.js" ? f : `modules/${f}`] = sri(f);
+const manifest = JSON.stringify({ version, files: manifestFiles }, null, 2) + "\n";
 for (const dir of [`v${version}`, `v${version.split(".")[0]}`]) {
   const out = join(dist, "static", dir);
   mkdirSync(out, { recursive: true });
   for (const f of files) copyFileSync(join(dist, f), join(out, f));
+  writeFileSync(join(out, "manifest.json"), manifest);
 }
-for (const f of files) integrity[f] = `sha384-${createHash("sha384").update(readFileSync(join(dist, f))).digest("base64")}`;
-writeFileSync(join(dist, "static", `v${version}`, "integrity.json"), JSON.stringify(integrity, null, 2) + "\n");
 console.log(`static layout: ${files.length} files -> static/v${version}/ and static/v${version.split(".")[0]}/`);

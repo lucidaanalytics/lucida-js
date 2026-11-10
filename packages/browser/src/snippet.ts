@@ -23,14 +23,14 @@ const scriptOrigin = ((): string | undefined => {
  * The `modules` named in the init config, loaded from `<assetHost>/static/v<this version>/`. Extension mode never
  * loads remote code (MV3 forbids it): bundle the modules and use `createClient` instead.
  */
-function lazyModules(cfg: BrowserConfig, importer?: Importer): Promise<Module[]> {
+function lazyModules(cfg: BrowserConfig, importer?: Importer, fetchImpl?: typeof fetch): Promise<Module[]> {
   if (!cfg.modules?.length) return Promise.resolve([]);
   if (cfg.extension ?? isExtensionPage()) {
     console.warn("[lucida] extension mode: `modules` are not loaded remotely; bundle them with createClient");
     return Promise.resolve([]);
   }
   const assetHost = cfg.assetHost ?? scriptOrigin ?? cfg.apiHost ?? DEFAULT_HOST; // the loader's own host serves its modules
-  return loadModules(cfg.modules, { assetHost, version: LIB_VERSION }, (...a) => console.warn("[lucida]", ...a), importer);
+  return loadModules(cfg.modules, { assetHost, version: LIB_VERSION }, (...a) => console.warn("[lucida]", ...a), importer, fetchImpl);
 }
 
 /**
@@ -38,7 +38,7 @@ function lazyModules(cfg: BrowserConfig, importer?: Importer): Promise<Module[]>
  * replaces its `push` so later commands run immediately. Commands before `init` wait for it (and for the
  * `modules` it loads).
  */
-export function drain(w: { lucidaQueue?: Command[]; lucida?: Client }, importer?: Importer): Promise<void> {
+export function drain(w: { lucidaQueue?: Command[]; lucida?: Client }, importer?: Importer, fetchImpl?: typeof fetch): Promise<void> {
   const q = (w.lucidaQueue ?? []) as Queue;
   let pending: Command[] = [];
   let starting: Promise<void> = Promise.resolve();
@@ -57,7 +57,7 @@ export function drain(w: { lucidaQueue?: Command[]; lucida?: Client }, importer?
         pending = [];
         later.forEach(run);
       };
-      if (cfg.modules?.length) starting = lazyModules(cfg, importer).then(boot);
+      if (cfg.modules?.length) starting = lazyModules(cfg, importer, fetchImpl).then(boot);
       else boot([]); // no remote modules: start synchronously, as before
       return;
     }

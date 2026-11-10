@@ -133,8 +133,9 @@ describe("toolbar launch", () => {
     const { client } = startWith([toolbar], { fetch: fetchImpl, uiHost: "https://app.lucida.test/" });
     live = client;
     await shadow();
-    expect(calls[0]!.url).toBe("https://app.lucida.test/v1/toolbar/exchange");
-    expect(JSON.parse(calls[0]!.init!.body as string).token).toBe("hashtok");
+    const ex = calls.find((c) => c.url.includes("/v1/toolbar/exchange"))!;
+    expect(ex.url).toBe("https://app.lucida.test/v1/toolbar/exchange");
+    expect(JSON.parse(ex.init!.body as string).token).toBe("hashtok");
     expect(location.hash).toBe("#tab=2");
   });
 
@@ -142,9 +143,9 @@ describe("toolbar launch", () => {
     const { calls, fetchImpl } = server(["heatmaps:read"]);
     const { client } = startWith([toolbar], { fetch: fetchImpl });
     live = client;
-    expect(calls).toHaveLength(0);
+    expect(calls.filter((c) => !c.url.includes("/v1/config"))).toHaveLength(0);
     expect(await client.loadToolbar({ token: "manual" })).toBe(true);
-    expect(JSON.parse(calls[0]!.init!.body as string).token).toBe("manual");
+    expect(JSON.parse(calls.find((c) => c.url.includes("/v1/toolbar/exchange"))!.init!.body as string).token).toBe("manual");
     await shadow();
     const bare = startWith([], {});
     expect(await bare.client.loadToolbar("x")).toBe(false);

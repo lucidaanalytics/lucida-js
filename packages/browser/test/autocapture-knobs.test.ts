@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildChain, ignoreMatcher } from "../src/autocapture/chain.js";
 import { rageHint, watchDeadClick } from "../src/autocapture/frustration.js";
 import type { Host, Client } from "../src/index.js";
-import { start } from "./helpers.js";
+import { start, tick } from "./helpers.js";
 
 let live: Client | undefined;
 beforeEach(() => history.replaceState({}, "", "/home"));
@@ -110,6 +110,7 @@ describe("capturePageleave", () => {
   it("false: pageviews without pageleave", async () => {
     const { client, t } = start({ autocapture: false, capturePageleave: false });
     live = client;
+    await tick(20);
     history.pushState({}, "", "/next");
     await Promise.resolve(); // pageviews are captured a microtask after the route change
     await client.flush();
