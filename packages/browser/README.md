@@ -105,6 +105,10 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   `q`, `s`, `search`, `query`) emits `$site_search {$search_term, $search_param}` after each `$pageview` that carries a
   query param. Reported URLs drop query and hash. `[data-lc-ignore]` subtrees are skipped. `tag404(client)` (from
   `@lucida-analytics/browser`) on a 404 page captures `$page_not_found {$status: 404}`.
+- **Consent default is `opt_out`**: with no `consent` config the SDK stores and sends from the first page view, before any
+  visitor choice. Where consent law applies (EU/UK/other opt-in regions) pass `consent: { mode: "opt_in" }` (nothing is stored
+  or sent until `optIn()` / `setConsent`), or `consent: { geo: ... }` to switch by region. `optIn()` grants analytics and replay;
+  marketing only with `optIn(["analytics", "replay", "marketing"])`.
 - **DNT / GPC**: `respectDnt` (default false) and `respectGpc` (default false). When set and the browser sends the signal,
   an `opt_out` project starts with consent denied, so nothing is stored or sent until `setConsent`. An explicit stored
   decision still wins. (`consent.respectDnt` is kept and enables both.)

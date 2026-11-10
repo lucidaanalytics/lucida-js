@@ -165,7 +165,7 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   offlineQueue?: boolean;
   /** Session replay (the `replay` module). */
   replay?: ReplayConfig;
-  /** Who records the DOM when Watchtower is also on the page. Default 'lucida'. */
+  /** Who records the DOM when Watchtower is also on the page. Unset: Lucida records, unless a Watchtower SDK on the page already announces it is recording; then Lucida yields (and logs a console warning). Set 'lucida' or 'both' to force recording, 'watchtower' to never record. */
   replayOwner?: ReplayOwner;
   /** Watchtower seam: correlate fetch/XHR with the Lucida session via W3C baggage. */
   watchtower?: { correlate?: boolean; origins?: Array<string | RegExp> };
@@ -549,7 +549,8 @@ export interface Client {
   registerOnce(props: Props): void;
   unregister(key: string): void;
   group(type: string, key: string, props?: Props): void;
-  optIn(): void;
+  /** Grant consent. Default `["analytics", "replay"]`; marketing is granted only when named (`optIn(["analytics", "replay", "marketing"])`). */
+  optIn(categories?: ConsentCategory[]): void;
   optOut(): void;
   /** Tag every event from this browser `$internal: true` (staff / test traffic). Persists after consent; pass false to undo. */
   optOutInternal(on?: boolean): void;

@@ -20,6 +20,17 @@ describe("consent API (LC-SEC-1)", () => {
     await client.shutdown();
   });
 
+  it("optIn() grants analytics and replay, never marketing unless named", async () => {
+    const { client } = start({ consent: { mode: "opt_in" }, capturePageview: false, autocapture: false });
+    client.optIn();
+    expect(client.getConsent()).toEqual({ analytics: true, replay: true, marketing: false });
+    client.optIn(["analytics", "replay", "marketing"]);
+    expect(client.getConsent().marketing).toBe(true);
+    client.optIn(["analytics"]);
+    expect(client.getConsent()).toEqual({ analytics: true, replay: false, marketing: false });
+    await client.shutdown();
+  });
+
   it("opt_in starts denied but still pending", async () => {
     const { client } = start({ consent: { mode: "opt_in" }, capturePageview: false, autocapture: false });
     expect(client.getConsent().analytics).toBe(false);

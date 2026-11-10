@@ -1,6 +1,6 @@
 {
   "name": "@lucida-analytics/next",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/next" },
   "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/next",
@@ -35,9 +35,9 @@
     "@lucida-analytics/sdk-core": "workspace:*"
   },
   "peerDependencies": {
-    "@lucida-analytics/browser": "workspace:*",
-    "@lucida-analytics/node": "workspace:*",
-    "@lucida-analytics/react": "workspace:*",
+    "@lucida-analytics/browser": "workspace:^",
+    "@lucida-analytics/node": "workspace:^",
+    "@lucida-analytics/react": "workspace:^",
     "next": ">=14",
     "react": ">=18"
   },

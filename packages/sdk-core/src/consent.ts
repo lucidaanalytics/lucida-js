@@ -13,6 +13,7 @@ export const CONSENT_KEY = "lc_consent";
 const CATEGORIES: ConsentCategory[] = ["analytics", "replay", "marketing"];
 
 export interface ConsentOptions {
+  /** `opt_out` (the default) stores and sends before any visitor choice; use `opt_in` where consent law requires prior consent. */
   mode?: ConsentMode;
   /** Hold events in memory (never stored/sent) until analytics is granted. Default false = drop. */
   queueBeforeConsent?: boolean;

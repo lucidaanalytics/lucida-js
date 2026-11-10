@@ -36,7 +36,12 @@ export const replay: Module = (host) => {
     status.disabledReason = why;
   };
   if (local.enabled === false) return off("disabled_locally");
-  if (!lucidaRecords(host.config.replayOwner ?? local.owner)) return off("owner_watchtower");
+  const owner = host.config.replayOwner ?? local.owner;
+  if (!lucidaRecords(owner)) {
+    // An unset owner yields to a Watchtower SDK that is already recording: say so instead of failing silently.
+    if (!owner) console.warn("[lucida] replay is off: Watchtower is already recording this page. Set replayOwner: 'lucida' (or 'both') to record with Lucida too.");
+    return off("owner_watchtower");
+  }
   const nav = navigator as { connection?: { saveData?: boolean } };
   if (nav.connection?.saveData) return off("data_saver"); // network-quality pause
 

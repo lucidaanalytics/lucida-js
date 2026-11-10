@@ -177,14 +177,24 @@ export function resolveReplay(local: ReplayConfig, remote: RemoteConfig | null):
   };
 }
 
-const test = (list: string[], url: string): boolean =>
-  list.some((p) => {
+/** A pattern matches the full URL or its path + query, so both `example\\.com/pricing` and `^/account` work. */
+const test = (list: string[], url: string): boolean => {
+  let path = url;
+  try {
+    const u = new URL(url, "http://x");
+    path = u.pathname + u.search;
+  } catch {
+    // not parseable: match the string as given
+  }
+  return list.some((p) => {
     try {
-      return new RegExp(p).test(url);
+      const re = new RegExp(p);
+      return re.test(url) || re.test(path);
     } catch {
       return false;
     }
   });
+};
 
 /** Include list (empty = all) minus exclude list. */
 export function urlAllowed(url: string, include: string[], exclude: string[]): boolean {

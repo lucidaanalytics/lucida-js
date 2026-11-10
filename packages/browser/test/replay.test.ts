@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "../src/client.js";
 import { replay, resolveReplay, urlAllowed, lucidaRecords } from "../src/replay/index.js";
 import type { BrowserConfig, Client } from "../src/index.js";
@@ -86,9 +86,12 @@ describe("replay module", () => {
     expect(lucidaRecords(undefined)).toBe(false);
     expect(lucidaRecords("both")).toBe(true);
     expect(lucidaRecords("lucida")).toBe(true);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { f } = boot({});
     await wait(150);
     expect(f.urls).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("replayOwner"));
+    warn.mockRestore();
   });
 
   it("remote session_recording=false and sample_rate=0 prevent recording", async () => {
@@ -185,5 +188,11 @@ describe("replay config", () => {
     expect(urlAllowed("https://a.test/shop", ["/shop"], [])).toBe(true);
     expect(urlAllowed("https://a.test/blog", ["/shop"], [])).toBe(false);
     expect(urlAllowed("https://a.test/shop/admin", ["/shop"], ["/admin"])).toBe(false);
+  });
+  it("anchored path patterns match the pathname, not the whole href", () => {
+    expect(urlAllowed("https://a.test/account/billing", [], ["^/account"])).toBe(false);
+    expect(urlAllowed("https://a.test/shop?account=1", [], ["^/account"])).toBe(true);
+    expect(urlAllowed("https://a.test/shop", ["^/shop"], [])).toBe(true);
+    expect(urlAllowed("https://a.test/x", [], ["^https://a\\.test/x"])).toBe(false);
   });
 });

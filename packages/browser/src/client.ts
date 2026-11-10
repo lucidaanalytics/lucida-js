@@ -13,7 +13,7 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.3";
+export const LIB_VERSION = "0.1.4";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
@@ -280,7 +280,8 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       person.markIdentified();
       core.group(t, k, p);
     },
-    optIn: () => core.optIn(),
+    // Marketing is its own choice: a plain optIn() never grants it.
+    optIn: (categories = ["analytics", "replay"]) => core.setConsent({ analytics: categories.includes("analytics"), replay: categories.includes("replay"), marketing: categories.includes("marketing") }),
     optOut: () => core.optOut(),
     optOutInternal: (on = true) => {
       internal = on;
