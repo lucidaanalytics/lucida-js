@@ -11,7 +11,7 @@ import type { FlagDetails, FlagOptions } from "./flags.js";
 import { LruSet } from "./lru.js";
 import { nodeTransport } from "./transport.js";
 
-export const LIB_VERSION = "0.1.2";
+export const LIB_VERSION = "0.1.3";
 const LIB = "lucida-node";
 const MAX_BATCH = 1000;
 
@@ -112,9 +112,11 @@ export interface CaptureInput {
   processPersonProfile?: boolean;
   /** Overrides the client default for this event. */
   disableGeoip?: boolean;
+  /** @internal identify/groupIdentify dedupe key, released again when the batch is dropped. */
+  identityKey?: string;
 }
 
-export type ImportEvent = Omit<CaptureInput, "groups" | "uuid" | "distinctId"> & { distinctId: string; uuid?: string };
+export type ImportEvent = Omit<CaptureInput, "groups" | "uuid" | "distinctId" | "identityKey"> & { distinctId: string; uuid?: string };
 
 function loadFixture(f: string | DefinitionsResponse | FlagDefinition[]): FlagDefinition[] {
   const body = typeof f === "string" ? (JSON.parse(readFileSync(f, "utf8")) as DefinitionsResponse | FlagDefinition[]) : f;
@@ -142,6 +144,8 @@ export class Lucida {
   private readonly superProps: Props;
   /** identify/groupIdentify calls already sent in this process (id + props hash), bounded. */
   private readonly sentIdentities = new LruSet(1000);
+  /** Queued identity events -> their dedupe key, so a dropped batch frees the key for a retry. */
+  private readonly identityKeys = new WeakMap<WireEvent, string>();
   /** testMode only: every event captured (including `$feature_flag_called` / `$exposure`), in order. */
   readonly captured: WireEvent[] = [];
   /** Resolves after the first definitions fetch (immediately when local evaluation is off). */
@@ -176,7 +180,10 @@ export class Lucida {
       ...(o.maxQueueSize !== undefined ? { maxQueueSize: o.maxQueueSize } : {}),
       ...(o.fetchRetryCount !== undefined ? { maxRetries: o.fetchRetryCount } : {}),
       ...(o.fetchRetryDelayMs !== undefined ? { backoff: { baseMs: o.fetchRetryDelayMs } } : {}),
-      onDrop: (events, reason) => this.fail(new Error(`dropped ${events.length} events: ${reason}`), events),
+      onDrop: (events, reason) => {
+        for (const e of events) this.forgetIdentity(this.identityKeys.get(e));
+        this.fail(new Error(`dropped ${events.length} events: ${reason}`), events);
+      },
     });
     const fixtureDefs = o.testMode ? loadFixture(o.testMode.fixture) : undefined;
     this.poller =
@@ -213,6 +220,10 @@ export class Lucida {
       startConversation: ({ distinctId, ...rest } = {}) =>
         new AgentConversation((event, properties) => this.capture({ ...(distinctId !== undefined ? { distinctId } : {}), event, properties }), rest, captureText).start(),
     };
+  }
+
+  private forgetIdentity(key: string | undefined): void {
+    if (key) this.sentIdentities.delete(key);
   }
 
   private fail(error: Error, events: WireEvent[]): void {
@@ -280,7 +291,7 @@ export class Lucida {
 
   /** Build and enqueue now, or (remote flag evaluation) return the promise that does it. */
   private run(i: CaptureInput): Promise<void> | void {
-    const { flags: snap, sendFeatureFlags: send, ...rest } = i;
+    const { flags: snap, sendFeatureFlags: send, identityKey, ...rest } = i;
     if (snap) return this.run({ ...rest, properties: withFlagProps(i.properties, snap.values as Record<string, FlagValue>) });
     const id = i.distinctId ?? getContext()?.distinctId;
     if (send && id) {
@@ -295,7 +306,8 @@ export class Lucida {
         .then((v) => this.run({ ...rest, distinctId: id, timestamp: at, properties: withFlagProps(i.properties, v) }));
     }
     const e = this.build(rest);
-    if (!e) return;
+    if (!e) return this.forgetIdentity(identityKey);
+    if (identityKey) this.identityKeys.set(e, identityKey);
     if (this.test) this.captured.push(e);
     else this.queue.enqueue(e);
   }
@@ -322,18 +334,36 @@ export class Lucida {
     return undefined;
   }
 
+  private rawImport(e: ImportEvent): WireEvent {
+    return {
+      uuid: e.uuid ?? uuidv7(),
+      event: e.event,
+      distinct_id: e.distinctId,
+      timestamp: iso(e.timestamp),
+      properties: { ...e.properties, $lib: LIB, $lib_version: LIB_VERSION },
+      ...(e.$set ? { $set: e.$set } : {}),
+      ...(e.$set_once ? { $set_once: e.$set_once } : {}),
+    };
+  }
+
   /** Client-wide default properties (context and per-event properties win). */
   register(properties: Props): void {
     Object.assign(this.superProps, properties);
+  }
+
+  /** Like `register`, but keeps a value that is already set. */
+  registerOnce(properties: Props): void {
+    for (const [k, v] of Object.entries(properties)) if (!(k in this.superProps)) this.superProps[k] = v;
   }
 
   unregister(key: string): void {
     delete this.superProps[key];
   }
 
-  /** True the first time this exact call (kind + id + props) is seen in the process. */
-  private firstIdentity(...parts: unknown[]): boolean {
-    return this.sentIdentities.add(createHash("sha256").update(JSON.stringify(parts)).digest("hex"));
+  /** The dedupe key of this call (kind + id + props) when it was not already sent in this process, else undefined. */
+  private firstIdentity(...parts: unknown[]): string | undefined {
+    const key = createHash("sha256").update(JSON.stringify(parts)).digest("hex");
+    return this.sentIdentities.add(key) ? key : undefined;
   }
 
   /** Set person properties via a `$set` event. */
@@ -348,8 +378,10 @@ export class Lucida {
 
   /** `$identify`; an identical call (same id and properties) already sent in this process is skipped. */
   identify(i: { distinctId?: string; properties?: Props; propertiesSetOnce?: Props }): void {
-    if (!this.firstIdentity("identify", i.distinctId ?? getContext()?.distinctId, i.properties, i.propertiesSetOnce)) return;
+    const identityKey = this.firstIdentity("identify", i.distinctId ?? getContext()?.distinctId, i.properties, i.propertiesSetOnce);
+    if (!identityKey) return;
     this.capture({
+      identityKey,
       ...(i.distinctId ? { distinctId: i.distinctId } : {}),
       event: "$identify",
       ...(i.properties ? { $set: i.properties } : {}),
@@ -365,8 +397,10 @@ export class Lucida {
   }
 
   groupIdentify(i: { groupType: string; groupKey: string; properties?: Props; distinctId?: string }): void {
-    if (!this.firstIdentity("group", i.groupType, i.groupKey, i.distinctId, i.properties)) return;
+    const identityKey = this.firstIdentity("group", i.groupType, i.groupKey, i.distinctId, i.properties);
+    if (!identityKey) return;
     this.capture({
+      identityKey,
       distinctId: i.distinctId ?? `$${i.groupType}_${i.groupKey}`,
       event: "$groupidentify",
       properties: { $group_type: i.groupType, $group_key: i.groupKey, $group_set: i.properties ?? {} },
@@ -442,13 +476,17 @@ export class Lucida {
 
   /**
    * Historical import via POST /v1/s2s/batch (secret key, timestamps preserved), chunks of 1000.
-   * Throws on the first non-2xx chunk; resolves with the number of events accepted.
+   * Default properties, `$is_server` and `beforeSend` apply (an event `beforeSend` drops is not sent); `{raw: true}`
+   * sends the events as given. Throws on the first non-2xx chunk; resolves with the number of events accepted.
    */
-  async importEvents(events: ImportEvent[]): Promise<number> {
+  async importEvents(events: ImportEvent[], o: { raw?: boolean } = {}): Promise<number> {
     if (!this.secretKey) throw new Error("importEvents requires secretKey");
     if (this.off) return 0;
     if (this.test) {
-      for (const e of events) this.capture(e);
+      for (const e of events) {
+        if (o.raw) this.captured.push(this.rawImport(e));
+        else this.capture(e);
+      }
       return events.length;
     }
     const transport = nodeTransport({
@@ -458,15 +496,9 @@ export class Lucida {
     });
     let sent = 0;
     for (let i = 0; i < events.length; i += MAX_BATCH) {
-      const batch = events.slice(i, i + MAX_BATCH).map((e) => ({
-        uuid: e.uuid ?? uuidv7(),
-        event: e.event,
-        distinct_id: e.distinctId,
-        timestamp: iso(e.timestamp),
-        properties: { ...e.properties, $lib: LIB, $lib_version: LIB_VERSION },
-        ...(e.$set ? { $set: e.$set } : {}),
-        ...(e.$set_once ? { $set_once: e.$set_once } : {}),
-      }));
+      const chunk = events.slice(i, i + MAX_BATCH);
+      const batch = o.raw ? chunk.map((e) => this.rawImport(e)) : chunk.flatMap((e) => this.build(e) ?? []);
+      if (!batch.length) continue;
       const body = JSON.stringify({ batch, sent_at: new Date().toISOString() });
       const { status } = await transport.send(`${this.host}/v1/s2s/batch`, body);
       if (status < 200 || status >= 300) throw new Error(`import failed: status ${status} after ${sent} events`);

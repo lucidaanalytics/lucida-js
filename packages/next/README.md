@@ -20,6 +20,7 @@ export const getServerSideProps = withLucida(async () => ({ props: {} }), opts);
 <LucidaPagesProvider apiKey={key} pageProps={pageProps}><Component {...pageProps} /></LucidaPagesProvider>
 
 // next.config.js : first-party proxy, then init the browser SDK with apiHost "/ingest" (the default of LucidaNextProvider)
+// LucidaNextProvider also sets exposeGlobal: true, so window.lucida is the client (and `lucida:ready` fires); pass options={{ exposeGlobal: false }} to opt out
 async rewrites() { return lucidaRewrites({ host: "https://ingest.example.com" }); }
 ```
 

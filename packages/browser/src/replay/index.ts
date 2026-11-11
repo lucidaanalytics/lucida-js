@@ -40,6 +40,7 @@ export const replay: Module = (host) => {
   if (!lucidaRecords(owner)) {
     // An unset owner yields to a Watchtower SDK that is already recording: say so instead of failing silently.
     if (!owner) console.warn("[lucida] replay is off: Watchtower is already recording this page. Set replayOwner: 'lucida' (or 'both') to record with Lucida too.");
+    void host.loadConfig(); // the project config (session definition, consent) is not replay's alone: fetch it, consent-gated
     return off("owner_watchtower");
   }
   const nav = navigator as { connection?: { saveData?: boolean } };

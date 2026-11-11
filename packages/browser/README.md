@@ -116,6 +116,7 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   key, no cookies) and holds every storage write and every send, events kept in memory, until it answers. If it does not answer
   within 3 seconds, or answers with a network error or a 5xx, the SDK fails closed as `opt_in`; `flush()` waits for the answer.
   Conformance vector: `testdata/consent/precedence.json`.
+- **One recorder per page.** `replayOwner` is `lucida`, `watchtower` or `both`; unset, Lucida records unless a Watchtower SDK on the page already announces that it is recording, in which case Lucida yields and logs a console warning; set `lucida` or `both` to record regardless. Lucida's player never shows console or network panels: use Watchtower for those.
 - **DNT / GPC**: `respectDnt` (default false) and `respectGpc` (default false). When set and the browser sends the signal,
   an `opt_out` project starts with consent denied, so nothing is stored or sent until `setConsent`. An explicit stored
   decision still wins. (`consent.respectDnt` is kept and enables both.)
@@ -166,8 +167,17 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   values (initial referrer, campaign, click ids): those are kept (first value wins, consent-gated) and sent with the first
   person-processed event. `createPersonProfile()` switches an `identified_only` visitor to a person without `identify`.
   `reuseAnonymousId: true` makes `reset()` keep this device's first anonymous id.
+- **Global and server**: `exposeGlobal: true | "name"` publishes the client as `globalThis.lucida` (the same object the script build puts on
+  `window.lucida`) and fires `lucida:ready` on `window` with the client in `detail`; off by default (on in `@lucida-analytics/next`).
+  On the server (no `window`) `init()` and `createClient()` return a no-op client of the same shape: every method does nothing, nothing throws or warns,
+  `getSessionId()` and `getDistinctId()` return `undefined`.
+- **Watchtower session stamp**: when a Watchtower browser client is present (`watchtower: { client }`, else `globalThis.watchtower`) and analytics consent
+  is granted, the Lucida session id is set on it as the `lucida.session_id` attribute (`setAttribute`) and kept current when the session rotates. Nothing happens
+  without a Watchtower client. Exceptions and web vitals are not copied: Watchtower's browser SDK has no subscription hook for them yet.
 - **Methods**: `setPersonProperties(set, setOnce)` / `unsetPersonProperties(keys)` (send a `$set` event),
-  `getSessionId()`, `onSessionId(cb)` (now and on every rotation), `getProperty(key)`, `hasOptedOut()`,
+  `getSessionId()`, `onSessionId(cb)` (now and on every rotation), `getDistinctId()` (same as the `distinctId` property), `getProperty(key)`,
+  `hasOptedOut()` (true only after an explicit decline: `optOut()`, a denied category, DNT/GPC), `hasOptedIn()` (true only after a grant),
+  `consentStatus()` (`"pending" | "granted" | "denied"`; show your banner while pending), `onConsent(cb)` (after every change; returns the unsubscribe),
   `reset(resetDeviceId)`, `getReplayUrl({withTimestamp, timestampLookBackSeconds})` (uses `uiHost`, else `apiHost`; the classic script sets `uiHost` to its own host when it is Lucida-hosted),
   `debug(on)` (also `?__lucida_debug=1`), `featureView(flag)` / `featureInteraction(flag)` (`$feature_view` /
   `$feature_interaction`, marking the person `$feature_view/<flag>`), `updateFlags(flags, payloads, {merge})`.
@@ -237,7 +247,7 @@ Events use the normal capture path, so consent and opt-out apply.
 ## Classic script (`lucida.js`)
 
 For plain HTML, tag managers and site builders. Pin a version and check it with Subresource Integrity (the hash of each
-release is in `/static/v<version>/manifest.json`; `lucida init --framework html` prints this snippet with it filled in):
+release is in `/static/v<version>/manifest.json`; `lucida init --framework html` (CLI 0.1.6 or later) prints this snippet with it filled in):
 
 ```html
 <script>
@@ -260,8 +270,8 @@ release is in `/static/v<version>/manifest.json`; `lucida init --framework html`
   elsewhere, `uiHost` only when replay links should point elsewhere). `apiHost` is where events go, default `https://capture.lucidace.com`.
 - **`modules: ["consent"]`** adds `client.consent.showBanner()` and follows Cookie Munch: once `CookieMunch.hasResponse` it maps
   `statistics` to analytics + replay and `marketing` to marketing, and follows its change events. Use it with `consent: { mode: "opt_in" }`.
-- **Integrity**: with a `manifest.json` next to the script (every release publishes one: `{version, files: {"lucida.js":
-  "sha384-...", "modules/<name>.js": "sha384-..."}}`), the loader fetches each lazy module and checks it with WebCrypto
+- **Integrity**: with a `manifest.json` next to the script (releases from 0.1.5 on publish one; 0.1.1 to 0.1.4 have none; keys are the served file names relative to `/static/v<ver>/`: `{version, files: {"lucida.js":
+  "sha384-...", "<name>.js": "sha384-..."}}`), the loader fetches each lazy module and checks it with WebCrypto
   (`SHA-384`) against the manifest before running it. A module that differs, one the manifest does not list, or a page
   without WebCrypto is refused with a `console.warn`, and the client starts without it. With no manifest (an old deploy) modules
   load as before. Lazy chunks a module imports are not hashed separately.

@@ -60,12 +60,12 @@ describe("snippet loader", () => {
     };
 
     it("runs a module whose hash matches the manifest", async () => {
-      const r = await boot({ version: LIB_VERSION, files: { "modules/replay.js": await sri(body) } }, body);
+      const r = await boot({ version: LIB_VERSION, files: { "replay.js": await sri(body) } }, body);
       expect(r.urls).toHaveLength(1);
       expect(r.refused).toBe(false);
     });
     it("refuses a module that differs, or that the manifest does not list, and still starts the client", async () => {
-      const bad = await boot({ version: LIB_VERSION, files: { "modules/replay.js": await sri(body) } }, body + "//evil");
+      const bad = await boot({ version: LIB_VERSION, files: { "replay.js": await sri(body) } }, body + "//evil");
       expect(bad.urls).toEqual([]);
       expect(bad.refused).toBe(true);
       expect(calls[0]![0]).toBe("init");

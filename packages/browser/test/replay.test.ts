@@ -75,10 +75,12 @@ describe("replay module", () => {
     expect(f.posts).toHaveLength(0);
   });
 
-  it("replayOwner=watchtower: no recorder, not even the config fetch", async () => {
+  it("replayOwner=watchtower: no recorder and no replay traffic, but the project config is still fetched", async () => {
     const { f } = boot({ replayOwner: "watchtower" });
     await wait(150);
-    expect(f.urls.filter((u) => !u.includes("/v1/config"))).toEqual([]); // only the consent wait's config read
+    expect(f.urls.filter((u) => !u.includes("/v1/config"))).toEqual([]);
+    expect(f.urls.filter((u) => u.includes("/v1/config"))).toHaveLength(1);
+    expect(f.posts).toHaveLength(0);
   });
 
   it("yields to a Watchtower SDK that announces it records, unless the owner is explicit", async () => {

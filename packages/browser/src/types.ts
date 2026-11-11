@@ -11,6 +11,11 @@ import type { RecommendationOptions, Recommendations, RecsService } from "./recs
 
 export type { AutocaptureConfig, DeliveryConfig, FrustrationConfig, LazyModuleName, Persistence, StorageConfig } from "./config-types.js";
 
+/** The part of a Watchtower browser client the seam uses (`@watchtower/browser` `setAttribute`). */
+export interface WatchtowerLike {
+  setAttribute(key: string, value: string | number | boolean): void;
+}
+
 export interface BootstrapConfig {
   distinctId?: string;
   /** distinctId belongs to a signed-in user (identified), not an anonymous visitor. */
@@ -168,7 +173,9 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   /** Who records the DOM when Watchtower is also on the page. Unset: Lucida records, unless a Watchtower SDK on the page already announces it is recording; then Lucida yields (and logs a console warning). Set 'lucida' or 'both' to force recording, 'watchtower' to never record. */
   replayOwner?: ReplayOwner;
   /** Watchtower seam: correlate fetch/XHR with the Lucida session via W3C baggage. */
-  watchtower?: { correlate?: boolean; origins?: Array<string | RegExp> };
+  watchtower?: { correlate?: boolean; origins?: Array<string | RegExp>; client?: WatchtowerLike };
+  /** Publish the client as `globalThis.lucida` (or the given name), the same object the classic script exposes, and fire `lucida:ready` on window. Default off (on in the Next integration). */
+  exposeGlobal?: boolean | string;
   /** Heatmap capture options (the `heatmaps` module). `attention` batches visible time per scroll band and element. */
   heatmaps?: { moves?: boolean; moveIntervalMs?: number; attention?: boolean };
   /** Subscribe to GET /v1/flags/stream (public key; change notices only) and refetch flags on a notice. `pollMs` = fallback poll while the stream is down (default 60s, 0 = off). Default off. */
@@ -192,6 +199,8 @@ export interface AgentAnalytics {
 
 export interface RemoteConfig {
   autocapture?: boolean;
+  /** `false`: autocapture drops input, change and submit events (clicks stay). Absent = true. */
+  autocapture_inputs?: boolean;
   /** Mirrors go/gateway ProjectConfig. */
   session_recording?: boolean;
   replay_sample_rate?: number;
@@ -510,6 +519,8 @@ export type Module = (host: Host) => void | (() => void);
 
 export interface Client {
   readonly distinctId: string;
+  /** Same value as `distinctId`, as a method (for code that passes the client around as a callback source). */
+  getDistinctId(): string;
   capture(event: string, props?: Props, options?: CaptureOptions): void;
   identify(id: string, set?: Props, setOnce?: Props): void;
   alias(alias: string, original?: string): void;
@@ -535,8 +546,12 @@ export interface Client {
   onSessionId(cb: (sessionId: string) => void): () => void;
   /** A registered super property (`register`). */
   getProperty(key: string): unknown;
-  /** True while analytics capture is not allowed (opted out, or an opt_in project not yet opted in). */
+  /** True only after an explicit decline (optOut, a denied category, DNT/GPC). False while the choice is still pending. */
   hasOptedOut(): boolean;
+  /** True only after an explicit grant (optIn / setConsent). False while pending. */
+  hasOptedIn(): boolean;
+  /** Called after every consent change (grant, decline, revoke); returns the unsubscribe. */
+  onConsent(cb: () => void): () => void;
   /** Link to this session's replay in the Lucida app (uiHost, else apiHost). */
   getReplayUrl(o?: { withTimestamp?: boolean; timestampLookBackSeconds?: number }): string;
   /** Flip debug logging at runtime (also enabled by `?__lucida_debug=1`). */

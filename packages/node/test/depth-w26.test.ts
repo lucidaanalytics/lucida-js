@@ -74,4 +74,43 @@ describe("defaultProperties and maxQueueSize (LC-DX-68)", () => {
     expect(ev).toHaveLength(2);
     expect(ev[0]?.properties.app).toBe("a");
   });
+
+  it("re-sends an identical identify after its batch failed", async () => {
+    const g = fakeGateway();
+    let calls = 0;
+    const flaky = ((u: string, init?: RequestInit) =>
+      /\/v1\/batch/.test(String(u)) && ++calls === 1 ? Promise.resolve(new Response("", { status: 400 })) : g.fetch(u, init)) as typeof fetch;
+    const errors: unknown[] = [];
+    const l = mk(g, { fetch: flaky, onError: (e: unknown) => errors.push(e) });
+    l.identify({ distinctId: "u", properties: { a: 1 } });
+    l.groupIdentify({ groupType: "org", groupKey: "acme", properties: { n: 1 } });
+    await l.flush();
+    expect(errors).toHaveLength(1);
+    l.identify({ distinctId: "u", properties: { a: 1 } });
+    l.groupIdentify({ groupType: "org", groupKey: "acme", properties: { n: 1 } });
+    await l.shutdown();
+    expect(g.events().map((e) => e.event)).toEqual(["$identify", "$groupidentify"]);
+  });
+
+  it("importEvents applies defaults and beforeSend unless raw; registerOnce keeps set values", async () => {
+    const g = fakeGateway();
+    const l = mk(g, {
+      secretKey: "lc_sk_x",
+      defaultProperties: { env: "prod" },
+      beforeSend: (e: { event: string; properties: Record<string, unknown> }) => (e.event === "drop" ? null : { ...e, properties: { ...e.properties, hooked: 1 } }),
+    });
+    l.registerOnce({ env: "dev", region: "eu" });
+    l.registerOnce({ region: "us" });
+    await l.importEvents([
+      { distinctId: "u", event: "keep" },
+      { distinctId: "u", event: "drop" },
+    ]);
+    await l.importEvents([{ distinctId: "u", event: "plain" }], { raw: true });
+    const [a, b] = g.events() as [Record<string, any>, Record<string, any>]; // eslint-disable-line
+    expect(g.events()).toHaveLength(2);
+    expect(a.properties).toMatchObject({ env: "prod", region: "eu", hooked: 1 });
+    expect(b.properties.hooked).toBeUndefined();
+    expect(b.properties.env).toBeUndefined();
+    await l.shutdown();
+  });
 });

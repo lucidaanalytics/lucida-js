@@ -26,7 +26,8 @@ const { grant } = useConsent();
   `bootstrapFlags` (server-resolved flags, rendered on the server and the first client render).
 - Composables: `useLucida()` (the client or `null`), `useCapture()` (a no-op without a client), `useFlag(key)` (the exposure is
   recorded after mount and when the value changes, never during setup), `useFlagPayload(key)`, `useActiveFlags()` (keys that are on),
-  `useConsent()` (`setConsent`, `optIn`, `optOut`, `grant`, `revoke`).
+  `useConsent()` (`setConsent`, `optIn`, `optOut`, `grant`, `revoke`, plus reactive `status`, `hasOptedIn`, `hasOptedOut`),
+  `useSessionId()` (a ref that follows session rotation), `useDistinctId()` (read when called).
 - Also exported: `LUCIDA_KEY`, types `LucidaPluginOptions`, `LucidaState`, `Flags`.
 - A composable called without `app.use(lucida, ...)` throws.
 - Nuxt: use `@lucida-analytics/nuxt`, which wires this plugin for you.

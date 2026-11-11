@@ -23,7 +23,7 @@ const elementOf = (n: Node | null | undefined): Element | null => (!n ? null : n
  * element chain only (never the content). Copy / cut (opt-in `copyCut`): `$copy_autocapture` with `$copy_type`; the
  * selected text only with `captureCopiedText`, masked. Nothing inside form controls, ignored or denied areas is seen.
  */
-export function startEditCopyCapture(host: Host, cfg: AutocaptureConfig, enabled: () => boolean): () => void {
+export function startEditCopyCapture(host: Host, cfg: AutocaptureConfig, enabled: () => boolean, editsEnabled: () => boolean = () => true): () => void {
   const events = cfg.events ?? ["click", "change", "submit"];
   const edits = cfg.contentEditable !== false && events.includes("change");
   const dirty = new WeakSet<Element>();
@@ -36,14 +36,14 @@ export function startEditCopyCapture(host: Host, cfg: AutocaptureConfig, enabled
     return el && !hidden(el, cfg) ? el : null;
   };
   const onInput = (ev: Event): void => {
-    const r = enabled() ? root(ev.target) : null;
+    const r = enabled() && editsEnabled() ? root(ev.target) : null;
     if (r) dirty.add(r);
   };
   const onLeave = (ev: FocusEvent): void => {
     const r = root(ev.target);
     if (!r || !dirty.has(r) || (ev.relatedTarget instanceof Node && r.contains(ev.relatedTarget))) return;
     dirty.delete(r);
-    if (enabled()) host.client.capture("$autocapture", { $event_type: "change", $el_contenteditable: true, ...chainProps(r) });
+    if (enabled() && editsEnabled()) host.client.capture("$autocapture", { $event_type: "change", $el_contenteditable: true, ...chainProps(r) });
   };
   const onCopy = (ev: Event): void => {
     if (!enabled() || !cfg.copyCut) return;

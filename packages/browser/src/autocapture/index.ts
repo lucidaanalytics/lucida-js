@@ -26,12 +26,14 @@ export const autocapture: Module = (host) => {
   const stops: Array<() => void> = [];
   const ac = host.config.autocapture;
   let remoteOff = false;
+  let inputsOff = false;
   if (ac !== false) {
     const cfg: AutocaptureConfig = typeof ac === "object" ? ac : {};
     const on = (): boolean => !remoteOff && !(cfg.urlIgnorelist?.length && urlMatches(cfg.urlIgnorelist));
+    const inputs = (): boolean => !inputsOff;
     stops.push(
-      startEventCapture(host, cfg, on),
-      startEditCopyCapture(host, cfg, on),
+      startEventCapture(host, cfg, on, inputs),
+      startEditCopyCapture(host, cfg, on, inputs),
       startLinkCapture(host, cfg, on),
       startContentCapture(host, cfg, on),
       startArticleCapture(host, cfg, on),
@@ -40,6 +42,8 @@ export const autocapture: Module = (host) => {
     );
     // Remote config can switch autocapture off unless the page set it explicitly.
     if (ac === undefined) void host.loadConfig().then((r) => (remoteOff = r?.autocapture === false));
+    // Inputs follow the project setting whether or not the page set autocapture explicitly.
+    void host.loadConfig().then((r) => (inputsOff = r?.autocapture_inputs === false));
   }
   const pv = host.config.capturePageview ?? "history";
   const pl = host.config.capturePageleave ?? "if_capture_pageview";

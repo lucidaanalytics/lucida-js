@@ -4,10 +4,10 @@ import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FeatureGate, LucidaProvider, useActiveFeatureFlags, useCapture, useFeatureFlag, useFeatureFlagPayload,
-  useFeatureFlagVariant, useLucida,
+  useFeatureFlagVariant, useLucida, useConsent, useDistinctId, useSessionId,
 } from "../src/index.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -21,7 +21,7 @@ const flagsBody = {
   request_id: "r1",
 };
 
-function setup(flagsDelayMs = 20) {
+function setup(flagsDelayMs = 20, extra: Partial<Parameters<typeof init>[1]> = {}) {
   const sent: Array<{ event: string; properties: Record<string, unknown> }> = [];
   let key = 0;
   const client: Client = init(`lc_pk_${key++}`, {
@@ -30,6 +30,7 @@ function setup(flagsDelayMs = 20) {
     autocapture: false,
     capturePageview: false,
     flushAt: 1,
+    ...extra,
     transport: {
       send: async (_u, body) => {
         sent.push(...(JSON.parse(body) as { batch: typeof sent }).batch);
@@ -118,5 +119,40 @@ describe("hooks", () => {
     console.error = () => undefined;
     await expect(render(<Probe />)).rejects.toThrow(/LucidaProvider/);
     console.error = err;
+  });
+});
+
+describe("identity and consent hooks", () => {
+  it("useSessionId follows rotation, useDistinctId reads the id, useConsent re-renders on changes", async () => {
+    const { client } = setup(0, { session: { idleMs: 60_000 } });
+    function P() {
+      const sid = useSessionId();
+      const did = useDistinctId();
+      const c = useConsent();
+      return <p>{JSON.stringify({ sid, did, status: c.status, in: c.hasOptedIn, out: c.hasOptedOut })}</p>;
+    }
+    await render(<LucidaProvider client={client}><P /></LucidaProvider>);
+    const first = JSON.parse(el.textContent!);
+    expect(first.sid).toBe(client.getSessionId());
+    expect(first.did).toBe(client.distinctId);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 61_000);
+    let second = "";
+    await act(async () => void (second = client.getSessionId())); // rotates and notifies
+    vi.useRealTimers();
+    expect(second).not.toBe(first.sid);
+    expect(JSON.parse(el.textContent!).sid).toBe(second);
+    await act(async () => client.optOut());
+    expect(JSON.parse(el.textContent!)).toMatchObject({ status: "denied", in: false, out: true });
+    await act(async () => client.optIn());
+    expect(JSON.parse(el.textContent!)).toMatchObject({ status: "granted", in: true, out: false });
+  });
+
+  it("are inert without a client", async () => {
+    function P() {
+      return <p>{JSON.stringify({ sid: useSessionId() ?? null, did: useDistinctId() ?? null, status: useConsent().status })}</p>;
+    }
+    await render(<LucidaProvider><P /></LucidaProvider>);
+    expect(JSON.parse(el.textContent!)).toEqual({ sid: null, did: null, status: "pending" });
   });
 });

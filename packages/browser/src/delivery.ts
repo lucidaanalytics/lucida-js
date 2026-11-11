@@ -28,7 +28,7 @@ export type Importer = (url: string) => Promise<Record<string, unknown>>;
 
 const nativeImport: Importer = (url) => import(/* @vite-ignore */ url) as Promise<Record<string, unknown>>;
 
-/** `manifest.json` beside the SDK files: the sha384 of `lucida.js` and every `modules/<name>.js` of this version. */
+/** `manifest.json` beside the SDK files: the sha384 of `lucida.js` and every `<name>.js` of this version. */
 export interface Manifest {
   version: string;
   files: Record<string, string>;
@@ -75,7 +75,7 @@ export async function loadModules(
       const url = assetUrl(base.assetHost, base.version, `${n}.js`);
       try {
         if (manifest) {
-          const want = manifest.files[`modules/${n}.js`];
+          const want = manifest.files[`${n}.js`];
           const res = want ? await fetchImpl(url, { credentials: "omit", cache: "force-cache" }) : undefined;
           if (!res?.ok || (await sri384(await res.arrayBuffer())) !== want) return log("module refused, it does not match the manifest", n);
         }

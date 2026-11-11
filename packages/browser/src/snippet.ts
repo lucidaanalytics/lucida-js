@@ -1,5 +1,6 @@
 import { DEFAULT_HOST, LIB_VERSION } from "./client.js";
 import { isExtensionPage, loadModules } from "./delivery.js";
+import { exposeGlobal } from "./global.js";
 import { init } from "./index.js";
 import type { Importer } from "./delivery.js";
 import type { BrowserConfig, Client, Module } from "./types.js";
@@ -53,6 +54,7 @@ export function drain(w: { lucidaQueue?: Command[]; lucida?: Client }, importer?
         // A Lucida-hosted loader (no assetHost) sits on the app host, so replay links point there, not at the capture host.
         const ui = !cfg.uiHost && !cfg.assetHost && scriptOrigin ? { uiHost: scriptOrigin } : {};
         w.lucida = init(String(args[0]), { ...ui, ...cfg }, mods);
+        exposeGlobal(w.lucida, true, w as unknown as Window);
         const later = pending;
         pending = [];
         later.forEach(run);

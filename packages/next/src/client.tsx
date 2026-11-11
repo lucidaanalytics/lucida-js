@@ -32,6 +32,7 @@ export function LucidaNextProvider({ apiKey, bootstrap, options, routeTemplates,
   const templated = !!routeTemplates || !!router;
   const merged: BrowserConfig = {
     apiHost: "/ingest",
+    exposeGlobal: true, // window.lucida, like the script build; pass `exposeGlobal: false` to opt out
     ...(templated ? { capturePageview: false, capturePageleave: true } : {}),
     ...options,
     ...(bootstrap ? { bootstrap: { ...options?.bootstrap, distinctId: bootstrap.distinctId } } : {}),

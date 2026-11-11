@@ -19,6 +19,8 @@ export { blocksInlineStyle, captureCspViolations, styleTag } from "./csp.js";
 export type { CspCaptureOptions } from "./csp.js";
 export { autocapture, tag404 } from "./autocapture/index.js";
 export { crossDomain } from "./linker.js";
+export { exposeGlobal } from "./global.js";
+export { noopClient } from "./noop-client.js";
 export { flags } from "./flags/index.js";
 export { hostHeaders } from "./host-headers.js";
 export { sampleHook, denylistHook } from "./policy.js";
@@ -32,6 +34,6 @@ export type { FlagTargetingSources } from "./flags/request-props.js";
 export { recommendations, placementFlag, RECS_PAYLOAD_KEY } from "./recs/index.js";
 export type { RecommendationItem, RecommendationOptions, Recommendations, RecsService } from "./recs/index.js";
 export type {
-  AgentAnalytics, BrowserConfig, AutocaptureConfig, StorageConfig, DeliveryConfig, LazyModuleName, CaptureOptions, BootstrapConfig, FlagOptions, FrustrationConfig, Client, Host, Module, Persistence, FlagValue, FlagsService, ReplayControl, Guide, GuideKind, GuideStep, GuideAutomation, GuideRule, GuideTokens, TargetConditions, GuideButton, PropFilter, GuidesService, RemoteConfig,
+  AgentAnalytics, BrowserConfig, AutocaptureConfig, StorageConfig, DeliveryConfig, LazyModuleName, CaptureOptions, BootstrapConfig, WatchtowerLike, FlagOptions, FrustrationConfig, Client, Host, Module, Persistence, FlagValue, FlagsService, ReplayControl, Guide, GuideKind, GuideStep, GuideAutomation, GuideRule, GuideTokens, TargetConditions, GuideButton, PropFilter, GuidesService, RemoteConfig,
 } from "./types.js";
 export type { AgentConversation, AgentConversationOptions, AgentFeedback, AgentOutcome, AgentRole, EarlyAccessFeature, EarlyAccessService, FlagResult, Intervention } from "@lucida-analytics/sdk-core";

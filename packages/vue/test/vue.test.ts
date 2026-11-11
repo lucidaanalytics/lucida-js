@@ -1,21 +1,35 @@
 import { createApp, defineComponent, h, nextTick } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Client } from "@lucida-analytics/browser";
-import { lucida, useActiveFlags, useCapture, useConsent, useFlag, useFlagPayload, useLucida } from "../src/index.js";
+import { lucida, useActiveFlags, useCapture, useConsent, useDistinctId, useFlag, useFlagPayload, useLucida, useSessionId } from "../src/index.js";
 
 type FlagCb = (f: Record<string, boolean | string>) => void;
 
 function fakeClient() {
   const calls: string[] = [];
   let cb: FlagCb = () => {};
+  let status: "pending" | "granted" | "denied" = "pending";
+  let onConsent: () => void = () => {};
+  let onSession: (s: string) => void = () => {};
   const client = {
     capture: (e: string) => calls.push(`capture:${e}`),
     getFlag: (k: string) => calls.push(`expose:${k}`),
     getFlagPayload: (k: string) => ({ k }),
     setConsent: (u: object) => calls.push(`consent:${JSON.stringify(u)}`),
     onFlags: (f: FlagCb) => ((cb = f), () => calls.push("unsub")),
+    consentStatus: () => status,
+    onConsent: (f: () => void) => ((onConsent = f), () => {}),
+    getSessionId: () => "s1",
+    onSessionId: (f: (s: string) => void) => ((onSession = f), () => {}),
+    getDistinctId: () => "d1",
   } as unknown as Client;
-  return { client, calls, push: (f: Record<string, boolean | string>) => cb(f) };
+  return {
+    client,
+    calls,
+    push: (f: Record<string, boolean | string>) => cb(f),
+    setStatus: (s: typeof status) => ((status = s), onConsent()),
+    rotate: (s: string) => onSession(s),
+  };
 }
 
 let unmount: (() => void) | undefined;
@@ -67,6 +81,18 @@ describe("@lucida-analytics/vue", () => {
       'consent:{"analytics":true,"replay":true}',
       'consent:{"analytics":false,"replay":false,"marketing":false}',
     ]);
+  });
+
+  it("useSessionId, useDistinctId and useConsent state are reactive", () => {
+    const f = fakeClient();
+    const r = mount(() => ({ sid: useSessionId(), did: useDistinctId(), consent: useConsent() }), { client: f.client });
+    const v = r.value as { sid: { value: string }; did: string; consent: ReturnType<typeof useConsent> };
+    expect([v.sid.value, v.did, v.consent.status.value, v.consent.hasOptedIn.value]).toEqual(["s1", "d1", "pending", false]);
+    f.rotate("s2");
+    f.setStatus("granted");
+    expect([v.sid.value, v.consent.status.value, v.consent.hasOptedIn.value, v.consent.hasOptedOut.value]).toEqual(["s2", "granted", true, false]);
+    f.setStatus("denied");
+    expect(v.consent.hasOptedOut.value).toBe(true);
   });
 
   it("is inert without a client or apiKey, and throws without the plugin", () => {

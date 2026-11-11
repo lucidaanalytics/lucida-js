@@ -10,13 +10,14 @@ describe("consent API", () => {
   it("exposes getConsent, consentStatus and hasOptedOut", () => {
     const c = init("lc_pk_c1", { ...base, persistence: "memory", transport: fakeTransport(), consent: { mode: "opt_in" } });
     expect(c.consentStatus()).toBe("pending");
-    expect(c.hasOptedOut()).toBe(true);
+    expect([c.hasOptedOut(), c.hasOptedIn()]).toEqual([false, false]);
     c.setConsent({ analytics: true });
     expect(c.consentStatus()).toBe("granted");
+    expect([c.hasOptedOut(), c.hasOptedIn()]).toEqual([false, true]);
     expect(c.getConsent().analytics).toBe(true);
     c.optOut();
     expect(c.consentStatus()).toBe("denied");
-    expect(c.hasOptedOut()).toBe(true);
+    expect([c.hasOptedOut(), c.hasOptedIn()]).toEqual([true, false]);
   });
 
   it("beforeSend redacts before the event is queued", async () => {

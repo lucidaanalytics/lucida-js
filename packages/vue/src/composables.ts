@@ -1,6 +1,6 @@
 import type { Client, FlagValue } from "@lucida-analytics/browser";
-import { computed, onMounted, watch } from "vue";
-import type { ComputedRef } from "vue";
+import { computed, getCurrentScope, onMounted, onScopeDispose, ref, watch } from "vue";
+import type { ComputedRef, Ref } from "vue";
 import { useLucidaState } from "./plugin.js";
 
 export function useLucida(): Client | null {
@@ -37,10 +37,36 @@ export function useActiveFlags(): ComputedRef<string[]> {
   return computed(() => Object.keys(flags.value).filter((k) => flags.value[k] !== false));
 }
 
-/** Consent controls for a cookie banner. Nothing is stored or sent until `grant()` in opt_in mode. */
-export function useConsent(): Pick<Client, "setConsent" | "optIn" | "optOut"> & { grant(): void; revoke(): void } {
+/** Reactive session id; follows rotations. undefined during SSR. */
+export function useSessionId(): Ref<string | undefined> {
   const { client } = useLucidaState();
+  const id = ref<string | undefined>(client?.getSessionId());
+  const stop = client?.onSessionId((s) => (id.value = s));
+  if (stop && getCurrentScope()) onScopeDispose(stop);
+  return id;
+}
+
+/** Distinct id (read when called; undefined during SSR). Call again after `identify`/`reset`. */
+export function useDistinctId(): string | undefined {
+  return useLucidaState().client?.getDistinctId();
+}
+
+/** Reactive consent state plus the controls for a cookie banner. Nothing is stored or sent until `grant()` in opt_in mode. */
+export function useConsent(): Pick<Client, "setConsent" | "optIn" | "optOut"> & {
+  grant(): void;
+  revoke(): void;
+  status: Ref<"pending" | "granted" | "denied">;
+  hasOptedIn: ComputedRef<boolean>;
+  hasOptedOut: ComputedRef<boolean>;
+} {
+  const { client } = useLucidaState();
+  const status = ref<"pending" | "granted" | "denied">(client?.consentStatus() ?? "pending");
+  const stop = client?.onConsent(() => (status.value = client.consentStatus()));
+  if (stop && getCurrentScope()) onScopeDispose(stop);
   return {
+    status,
+    hasOptedIn: computed(() => status.value === "granted"),
+    hasOptedOut: computed(() => status.value === "denied"),
     setConsent: (u) => client?.setConsent(u),
     optIn: () => client?.optIn(),
     optOut: () => client?.optOut(),

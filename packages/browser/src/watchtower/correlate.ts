@@ -1,5 +1,5 @@
 import { patchRequests } from "../netpatch.js";
-import type { Module } from "../types.js";
+import type { Host, Module, WatchtowerLike } from "../types.js";
 
 const KEY = "lucida.session_id";
 
@@ -30,14 +30,32 @@ export function correlatable(url: string, allow: Array<string | RegExp> = []): b
  */
 export const correlate: Module = (host) => {
   const w = host.config.watchtower;
-  if (!w?.correlate) return;
   const { core } = host;
+  const stop = stampSession(host);
+  if (!w?.correlate) return stop;
   let sid = core.sessionId;
   host.onCapture((e) => (sid = String(e.properties.$session_id ?? sid)));
   const ok = (url: string): boolean =>
     core.hasConsent("analytics") && !url.startsWith(host.config.apiHost) && correlatable(url, w.origins);
 
-  return patchRequests((url, headers) => {
+  const unpatch = patchRequests((url, headers) => {
     if (ok(url)) headers.set("baggage", withBaggage(headers.get("baggage"), sid));
   });
+  return () => (unpatch(), stop?.());
 };
+
+/**
+ * One session id across both SDKs: when a Watchtower browser client is present (`watchtower.client`, else
+ * `globalThis.watchtower`) the Lucida session id is set as its `lucida.session_id` attribute, now and on every
+ * rotation, once analytics consent is granted. Absent client: nothing happens.
+ */
+export function stampSession(host: Host): (() => void) | undefined {
+  const wt = host.config.watchtower?.client ?? (globalThis as { watchtower?: WatchtowerLike }).watchtower;
+  if (typeof wt?.setAttribute !== "function") return;
+  const { core } = host;
+  const put = (id: string): void => {
+    if (core.hasConsent("analytics")) wt.setAttribute(KEY, id);
+  };
+  host.whenConsented(() => put(core.sessionId));
+  return core.onSessionId(put);
+}

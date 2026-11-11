@@ -6,6 +6,8 @@ import { captureCspViolations, cspHint } from "./csp.js";
 import { isExtensionPage, withRewrite } from "./delivery.js";
 import { connectDevtools } from "./devtools-hook.js";
 import { campaignKey, enrich } from "./env.js";
+import { exposeGlobal } from "./global.js";
+import { noopClient } from "./noop-client.js";
 import { takeLinker } from "./linker.js";
 import { installPolicy } from "./policy.js";
 import { DebouncedStorage, WebStorageAdapter, createStorage, keySuffix, purgeStored } from "./storage.js";
@@ -13,7 +15,7 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.5";
+export const LIB_VERSION = "0.1.6";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
@@ -23,6 +25,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 
 /** Build a client from the shared core plus the given modules (pass none for the smallest bundle). */
 export function createClient(apiKey: string, config: BrowserConfig = {}, modules: Module[] = []): Client {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return noopClient(); // server: nothing to track, nothing to throw
   let debugOn = !!config.debug || (typeof location !== "undefined" && /[?&]__(lc|lucida)_debug=(1|true)/.test(location.search));
   const log = (...a: unknown[]): void => {
     if (debugOn) console.debug("[lucida]", ...a);
@@ -142,6 +145,9 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       purgeStored(raw, apiKey, config.consent?.storageKey || CONSENT_KEY);
     });
   }
+
+  const consentCbs = new Set<() => void>();
+  core.onChange((c) => void (c === "consent" && [...consentCbs].forEach((f) => f())));
 
   const unload: Array<() => void> = [];
   const teardowns: Array<() => void> = [cspHint(log, config.nonce)];
@@ -268,10 +274,16 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       person.markIdentified();
       core.capture("$set", {}, { $unset: keys });
     },
+    getDistinctId: () => core.distinctId,
     getSessionId: () => core.sessionId,
     onSessionId: (cb) => core.onSessionId((id) => cb(id)),
     getProperty: (k) => core.getProperty(k),
-    hasOptedOut: () => !core.hasConsent("analytics"),
+    hasOptedOut: () => core.consentStatus() === "denied",
+    hasOptedIn: () => core.consentStatus() === "granted",
+    onConsent: (cb) => {
+      consentCbs.add(cb);
+      return () => void consentCbs.delete(cb);
+    },
     getReplayUrl: (o) => {
       const base = (config.uiHost ?? apiHost).replace(/\/+$/, "");
       const url = `${base}/replays/${encodeURIComponent(core.sessionId)}`;
@@ -398,6 +410,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     if (!modules.length) void host.loadConfig();
     connectDevtools(host, client, apiHost);
   }
+  exposeGlobal(client, config.exposeGlobal);
   log("initialised", { apiHost, consent: core.getConsent() });
   return client;
 }

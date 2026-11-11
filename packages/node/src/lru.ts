@@ -11,6 +11,10 @@ export class LruSet {
     return !had;
   }
 
+  delete(key: string): void {
+    this.m.delete(key);
+  }
+
   get size(): number {
     return this.m.size;
   }

@@ -1,5 +1,5 @@
 import type { Client, FlagValue } from "@lucida-analytics/browser";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { useLucidaContext } from "./provider.js";
 
@@ -67,4 +67,49 @@ export function FeatureGate({ flag, variant, fallback = null, children }: Featur
   const v = useFeatureFlag(flag);
   const on = variant !== undefined ? v === variant : v !== undefined && v !== false;
   return <>{on ? children : fallback}</>;
+}
+
+const none = (): (() => void) => () => {};
+
+/** Current distinct id (read at render; undefined during SSR). Re-render the component after `identify`/`reset` to refresh it. */
+export function useDistinctId(): string | undefined {
+  return useLucidaContext().client?.getDistinctId();
+}
+
+/** Current session id; re-renders when the session rotates. undefined during SSR. */
+export function useSessionId(): string | undefined {
+  const { client } = useLucidaContext();
+  return useSyncExternalStore(
+    (cb) => client?.onSessionId(cb) ?? none(),
+    () => client?.getSessionId(),
+    () => undefined,
+  );
+}
+
+export interface UseConsent {
+  /** "pending" until the visitor chooses, then "granted" or "denied"; re-renders on every change. */
+  status: "pending" | "granted" | "denied";
+  hasOptedIn: boolean;
+  hasOptedOut: boolean;
+  optIn: Client["optIn"];
+  optOut: Client["optOut"];
+  setConsent: Client["setConsent"];
+}
+
+/** Consent state plus the controls for a cookie banner. Inert ("pending") while there is no client (SSR). */
+export function useConsent(): UseConsent {
+  const { client } = useLucidaContext();
+  const status = useSyncExternalStore(
+    (cb) => client?.onConsent(cb) ?? none(),
+    () => client?.consentStatus() ?? "pending",
+    () => "pending" as const,
+  );
+  return {
+    status,
+    hasOptedIn: status === "granted",
+    hasOptedOut: status === "denied",
+    optIn: (c) => client?.optIn(c),
+    optOut: () => client?.optOut(),
+    setConsent: (u) => client?.setConsent(u),
+  };
 }

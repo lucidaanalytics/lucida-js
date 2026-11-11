@@ -22,20 +22,21 @@ export const hidden = (el: Element, cfg: AutocaptureConfig): boolean =>
  * Click / change / submit autocapture. Never reads input values; text of form controls is
  * skipped; anything inside [data-lc-ignore] or a deny selector is invisible to the SDK. Key presses are only
  * counted (never which key) and the count rides on the next autocapture event as `$keystroke_count`; password
- * fields and ignored or denied areas are not counted.
+ * fields and ignored or denied areas are not counted. `inputsEnabled` false (remote `autocapture_inputs`) drops
+ * change / submit events and key counting; clicks stay.
  */
-export function startEventCapture(host: Host, cfg: AutocaptureConfig, enabled: () => boolean): () => void {
+export function startEventCapture(host: Host, cfg: AutocaptureConfig, enabled: () => boolean, inputsEnabled: () => boolean = () => true): () => void {
   const events = cfg.events ?? ["click", "change", "submit"];
   let keystrokes = 0;
   const onKey = (ev: KeyboardEvent): void => {
     const target = ev.target;
-    if (!enabled() || ev.isComposing || !(target instanceof Element) || hidden(target, cfg)) return;
+    if (!enabled() || !inputsEnabled() || ev.isComposing || !(target instanceof Element) || hidden(target, cfg)) return;
     if (target instanceof HTMLInputElement && target.type === "password") return;
     keystrokes += 1;
   };
 
   const handle = (type: "click" | "change" | "submit") => (ev: Event): void => {
-    if (!enabled()) return;
+    if (!enabled() || (type !== "click" && !inputsEnabled())) return;
     const target = ev.target;
     if (!(target instanceof Element) || hidden(target, cfg)) return;
     if (cfg.allowSelectors?.length && !target.closest(cfg.allowSelectors.join(","))) return;
