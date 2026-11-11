@@ -15,6 +15,14 @@ export interface ResponseLike {
   cookies: { set(name: string, value: string, opts?: Record<string, unknown>): unknown };
 }
 
+export interface LucidaMiddlewareOptions extends LucidaNextOptions {
+  /**
+   * Your own consent read (e.g. a Cookie Munch cookie). `true` allows the distinct-id cookie, `false` forbids it,
+   * `undefined` falls back to the `lc_consent` cookie the browser SDK's CMP bridges write.
+   */
+  consent?: (req: RequestLike) => boolean | undefined;
+}
+
 export interface LucidaMiddleware {
   distinctId: string;
   flags: Flags;
@@ -38,13 +46,14 @@ const YEAR_S = 365 * 24 * 3600;
  *   return lc.apply(NextResponse.next({ request: { headers: lc.requestHeaders } }));
  * }
  * ```
+ * With a CMP bridge in the browser SDK, `lc_consent` is written on each decision; pass `consent` to read your CMP yourself.
  * Without consent no cookie is written and the id lasts for this request only; the browser SDK then
  * keeps its own consent-gated identity.
  */
-export async function lucidaMiddleware(req: RequestLike, o: LucidaNextOptions): Promise<LucidaMiddleware> {
+export async function lucidaMiddleware(req: RequestLike, o: LucidaMiddlewareOptions): Promise<LucidaMiddleware> {
   const cookie = (n: string) => req.cookies.get(n)?.value;
   const existing = cookie(COOKIE_ID);
-  const store = mayStoreId(o, cookie);
+  const store = o.consent?.(req) ?? mayStoreId(o, cookie);
   const distinctId = existing ?? newDistinctId();
   const flags = await resolveFlags(o, distinctId);
   const requestHeaders = new Headers(req.headers);

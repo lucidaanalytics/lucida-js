@@ -5,6 +5,25 @@ import type { ConsentSource } from "./options.js";
 
 export const CONSENT_EVENT = "$consent_updated";
 
+export const CONSENT_COOKIE = "lc_consent";
+export const ID_COOKIE = "lc_distinct_id";
+
+/**
+ * First-party cookies for server code (the Next edge helpers), same attributes as the ones `lucidaMiddleware` writes.
+ * Only called after a decision: `lc_consent=granted|denied`, and on a grant the anonymous distinct id as
+ * `lc_distinct_id` (so the server bootstrap matches this browser); a denial removes it.
+ */
+function writeDecisionCookies(granted: boolean, anonId: string | undefined): void {
+  try {
+    const tail = `; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+    document.cookie = `${CONSENT_COOKIE}=${granted ? "granted" : "denied"}; Max-Age=31536000${tail}`;
+    if (granted && anonId) document.cookie = `${ID_COOKIE}=${encodeURIComponent(anonId)}; Max-Age=31536000${tail}`;
+    else if (!granted) document.cookie = `${ID_COOKIE}=; Max-Age=0${tail}`;
+  } catch {
+    /* cookies blocked */
+  }
+}
+
 /**
  * Apply a consent decision and write the consent-log record `$consent_updated` { categories, source, version }.
  * The record travels like any event, so it is sent only once analytics consent exists. A visitor who declines
@@ -16,13 +35,19 @@ export function applyConsent(
   host: Host,
   update: Partial<ConsentState>,
   source: ConsentSource,
-  opts: { version?: string; onlyIfChanged?: boolean } = {},
+  opts: { version?: string; onlyIfChanged?: boolean; cookie?: boolean; receiptId?: string } = {},
 ): void {
   const before = JSON.stringify(host.core.getConsent());
   host.client.setConsent(update);
   const categories = host.core.getConsent();
+  if (opts.cookie) writeDecisionCookies(categories.analytics, host.core.identity.isIdentified ? undefined : host.core.distinctId);
   if (opts.onlyIfChanged && JSON.stringify(categories) === before) return;
-  const props = { categories, source, version: opts.version ?? host.config.consent?.policyVersion ?? "1" };
+  const props = {
+    categories,
+    source,
+    version: opts.version ?? host.config.consent?.policyVersion ?? "1",
+    ...(opts.receiptId ? { consent_receipt_id: opts.receiptId } : {}),
+  };
   if (host.core.hasConsent("analytics")) host.client.capture(CONSENT_EVENT, props);
   else if (host.config.consent?.logBeacon && !host.config.disabled) {
     const body = JSON.stringify({

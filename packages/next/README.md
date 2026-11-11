@@ -4,12 +4,14 @@ Next.js helpers (App Router and Pages Router). Three entries: `@lucida-analytics
 `@lucida-analytics/next/client` (provider + React hooks, `"use client"`), `@lucida-analytics/next/server` (Node only: local flag evaluation).
 
 ```ts
-// middleware.ts : resolve id + flags once per request, no flicker
+// middleware.ts (Next 14/15) or proxy.ts (Next 16): resolve id + flags once per request, no flicker.
+// Next 16 renamed the file to proxy.ts and the exported function to `proxy`; `lucidaMiddleware` is the same helper in both.
 import { lucidaMiddleware } from "@lucida-analytics/next";
-export async function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) { // Next 16: export async function proxy(req: NextRequest)
   const lc = await lucidaMiddleware(req, { apiKey: process.env.NEXT_PUBLIC_LUCIDA_KEY!, middleware: true });
   return lc.apply(NextResponse.next({ request: { headers: lc.requestHeaders } }));
 }
+// Optional second option: consent(req) => boolean | undefined, to read your own CMP; undefined falls back to the lc_consent cookie.
 
 // app/layout.tsx (App Router)
 const b = await getBootstrap(await headers(), opts); // opts.middleware = true to trust the forwarded headers
@@ -27,6 +29,10 @@ async rewrites() { return lucidaRewrites({ host: "https://ingest.example.com" })
 Server-side local evaluation (Node runtime, secret key stays on the server):
 `const evaluate = nodeEvaluator({ apiKey, secretKey: process.env.LUCIDA_SECRET_KEY! })` then pass `{ evaluate }` in the options.
 The node SDK streams definition changes over SSE, so a kill switch reaches the server within seconds.
+
+Consent banner bridges: `<LucidaNextProvider modules={[cookieMunchConsent]}>` (from `@lucida-analytics/browser/consent`) passes browser modules as the third
+`init` argument. Pass it from a `"use client"` file (functions cannot cross from a server component). Every CMP bridge writes `lc_consent=granted|denied` on each
+decision (and `lc_distinct_id` on a grant), which is what the middleware reads. Peer range: `next >=14`, `react >=18`.
 
 Privacy: the anonymous-id cookie (`lc_distinct_id`) is written only with consent (`consentMode`, default `opt_in`:
 cookie `lc_consent=granted`). Without it the id lives for one request. Forwarded `x-lc-*` headers are trusted only

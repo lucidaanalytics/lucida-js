@@ -13,6 +13,18 @@ function campaignParams(custom: readonly string[]): Record<string, string> {
   return out;
 }
 
+export const REFERRAL_PARAMS = ["ref", "referral", "via", "aff"];
+
+/** First non-empty value among the given URL params (capped at 256 chars). */
+export function referralCode(params: readonly string[]): string | undefined {
+  const q = new URLSearchParams(location.search);
+  for (const k of params) {
+    const v = q.get(k);
+    if (v) return v.slice(0, 256);
+  }
+  return undefined;
+}
+
 /** Signature of the current campaign; a change rotates the session. Click ids are excluded. */
 export function campaignKey(): string | undefined {
   const q = new URLSearchParams(location.search);

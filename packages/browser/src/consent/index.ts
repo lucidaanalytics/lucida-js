@@ -1,5 +1,5 @@
 export {
-  tcfConsent, gcmConsent, oneTrustConsent, cookiebotConsent, cookieMunchConsent, osanoConsent, usercentricsConsent, usercentricsBridge,
+  tcfConsent, gcmConsent, oneTrustConsent, cookiebotConsent, cookieMunchConsent, cookieMunchBridge, osanoConsent, usercentricsConsent, usercentricsBridge,
   tcfToConsent, gcmToConsent, oneTrustToConsent, cookiebotToConsent, cookieMunchToConsent, osanoToConsent, usercentricsToConsent,
 } from "./cmp.js";
 export type { UcService } from "./cmp.js";

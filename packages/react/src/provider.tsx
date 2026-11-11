@@ -1,5 +1,5 @@
 import { init } from "@lucida-analytics/browser";
-import type { BrowserConfig, Client, FlagValue } from "@lucida-analytics/browser";
+import type { BrowserConfig, Client, FlagValue, Module } from "@lucida-analytics/browser";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -17,6 +17,8 @@ export interface LucidaProviderProps {
   client?: Client;
   apiKey?: string;
   options?: BrowserConfig;
+  /** Browser modules passed as the third `init` argument, e.g. `[cookieMunchConsent]` from `@lucida-analytics/browser/consent`. Read once, when the client is created. */
+  modules?: Module[];
   /** Server-resolved flags: rendered on the server and first client render (no flicker). */
   bootstrapFlags?: Flags;
   children?: ReactNode;
@@ -30,10 +32,11 @@ function resolveClient(p: LucidaProviderProps): Client | null {
   if (!p.apiKey || typeof window === "undefined") return null; // SSR: never touch the browser SDK
   let c = owned.get(p.apiKey);
   if (!c) {
-    c = init(p.apiKey, {
+    const config: BrowserConfig = {
       ...p.options,
       ...(p.bootstrapFlags ? { bootstrap: { ...p.options?.bootstrap, flags: p.bootstrapFlags } } : {}),
-    });
+    };
+    c = init(p.apiKey, config, p.modules);
     owned.set(p.apiKey, c);
   }
   return c;

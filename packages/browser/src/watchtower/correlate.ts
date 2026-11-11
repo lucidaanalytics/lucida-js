@@ -25,7 +25,7 @@ export function correlatable(url: string, allow: Array<string | RegExp> = []): b
 }
 
 /**
- * Watchtower seam (docs/seam/watchtower.md): with `watchtower.correlate = true`, same-origin and
+ * Watchtower link: with `watchtower.correlate = true`, same-origin and
  * allowlisted fetch/XHR requests carry `baggage: lucida.session_id=<id>` so Watchtower links its
  * spans and errors to the Lucida session. Lucida's own ingest host is never touched.
  */

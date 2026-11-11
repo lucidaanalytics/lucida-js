@@ -32,7 +32,7 @@ export function blocksInlineStyle(policy: string): boolean {
 export function cspHint(log: (...a: unknown[]) => void, nonce: string | undefined): () => void {
   if (typeof document === "undefined") return () => {};
   if (!nonce && metaPolicies().some(blocksInlineStyle)) {
-    log("CSP hint: this page's Content-Security-Policy blocks inline <style>; set the `nonce` option so guides and the experiment veil render (docs/guides/csp.md)");
+    log("CSP hint: this page's Content-Security-Policy blocks inline <style>; set the `nonce` option so guides and the experiment veil render (see the Content Security Policy help page)");
   }
   const on = (e: Event): void => {
     const v = e as SecurityPolicyViolationEvent;

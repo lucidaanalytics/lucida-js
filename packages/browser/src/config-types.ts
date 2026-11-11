@@ -8,7 +8,7 @@ import type { CookieOptions } from "./storage.js";
  */
 export type Persistence = "cookie" | "localStorage" | "sessionStorage" | "localStorage+cookie" | "memory" | "none";
 
-/** Modules the classic script (`lucida.js`) can load from `assetHost` (see docs/guides/sdk-pinning.md). */
+/** Modules the classic script (`lucida.js`) can load from `assetHost` (see the SDK pinning help page). */
 export type LazyModuleName = "replay" | "heatmaps" | "forms" | "toolbar" | "guides" | "inspector" | "experiments" | "early-access" | "consent";
 
 export interface StorageConfig {

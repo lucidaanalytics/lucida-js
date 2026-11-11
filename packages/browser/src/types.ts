@@ -11,10 +11,10 @@ import type { RecommendationOptions, Recommendations, RecsService } from "./recs
 
 export type { AutocaptureConfig, DeliveryConfig, FrustrationConfig, LazyModuleName, Persistence, StorageConfig } from "./config-types.js";
 
-/** The part of a Watchtower browser client the seam uses (`@watchtower/browser` `setAttribute`). */
+/** The part of a Watchtower browser client the link uses (`@watchtowerobservability/browser` `setAttribute`). */
 export interface WatchtowerLike {
   setAttribute(key: string, value: string | number | boolean): void;
-  /** Event hooks (Watchtower asks item 6). Absent on older clients: the seam then does nothing. */
+  /** Event hooks (`@watchtowerobservability/browser` 0.5.0 or later). Absent on older clients: nothing is recorded. */
   on?(event: "error" | "vital", cb: (payload: never) => void): () => void;
 }
 
@@ -161,6 +161,8 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   onRequestError?: (e: { url: string; status: number }) => void;
   /** Extra query parameters treated as campaign params (stored as `$<name>` on `$pageview`). */
   customCampaignParams?: string[];
+  /** URL params read for a referral code on the first `$pageview` of a session (first one present wins). Sets `$referral_code` on the event and `initial_referral_code` once on the person. Default `["ref", "referral", "via", "aff"]`; `[]` turns it off. */
+  referralParams?: string[];
   /** `$pageleave`: true = also without pageview capture, false = never, "if_capture_pageview" (default) = with pageviews. */
   capturePageleave?: boolean | "if_capture_pageview";
   /** Origin for /v1/flags when flags are proxied separately. Default apiHost. */
@@ -174,7 +176,7 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   replay?: ReplayConfig;
   /** Who records the DOM when Watchtower is also on the page. Unset: Lucida records, unless a Watchtower SDK on the page already announces it is recording; then Lucida yields (and logs a console warning). Set 'lucida' or 'both' to force recording, 'watchtower' to never record. */
   replayOwner?: ReplayOwner;
-  /** Watchtower seam: correlate fetch/XHR with the Lucida session via W3C baggage. */
+  /** Watchtower link: correlate fetch/XHR with the Lucida session via W3C baggage. */
   watchtower?: { correlate?: boolean; origins?: Array<string | RegExp>; client?: WatchtowerLike };
   /** Publish the client as `globalThis.lucida` (or the given name), the same object the classic script exposes, and fire `lucida:ready` on window. Default off (on in the Next integration). */
   exposeGlobal?: boolean | string;

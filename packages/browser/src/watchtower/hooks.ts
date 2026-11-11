@@ -1,6 +1,6 @@
 import type { Host, WatchtowerLike } from "../types.js";
 
-/** Watchtower `error` hook payload (docs/seam/watchtower-asks.md item 6). */
+/** Watchtower `error` hook payload (needs `@watchtowerobservability/browser` 0.5.0 or later). */
 export interface WtErrorEvent {
   event_id: string;
   trace_id?: string;
@@ -45,7 +45,7 @@ function withClient(host: Host, use: (wt: WatchtowerLike) => () => void): () => 
 }
 
 /**
- * Feature-detected Watchtower hooks (docs/seam/watchtower-asks.md item 6). With `wt.on` present: each Watchtower
+ * Feature-detected Watchtower hooks (needs `@watchtowerobservability/browser` 0.5.0 or later). With `wt.on` present: each Watchtower
  * error becomes `$exception_seen`, and each page view's vitals become one `$web_vitals`. Nothing is subscribed until
  * analytics consent is held; absent hooks do nothing. Returns the teardown.
  */

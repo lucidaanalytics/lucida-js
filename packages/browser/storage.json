@@ -1,7 +1,7 @@
 {
   "$comment": "Every cookie and storage key the Lucida browser SDK writes. Published for consent managers (Cookie Munch preset, docs/integrations/cookiemunch-preset.md). sdks/browser/test/storage-manifest.test.ts fails when the SDK source names an lc_* key that is not listed here.",
   "sdk": "@lucida-analytics/browser",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "suffix_rule": {
     "applies_to": "every key with suffixed: true",
     "rule": "name + '_' + the last 8 word characters of the project's public key (key.replace(/\\W/g, '').slice(-8))",
@@ -29,10 +29,12 @@
   "consent_notes": [
     "lc_consent is written on every explicit decision, including a decline, and stays after a decline: it is how the choice is remembered. Every other key is purged (cookies, localStorage, sessionStorage) when analytics is declined.",
     "With consent.mode opt_in (or a project consent_mode of opt_in, which a page cannot loosen) nothing is written before the visitor decides except lc_consent after the decision. See testdata/consent/precedence.json.",
-    "consentPersistence moves lc_consent to its own persistence mode; consent.storageKey renames it (the suffix rule still applies)."
+    "consentPersistence moves lc_consent to its own persistence mode; consent.storageKey renames it (the suffix rule still applies).",
+    "A consent-manager bridge (Cookie Munch and others) also mirrors each decision into an unsuffixed first-party lc_consent=granted|denied cookie and, on a grant, lc_distinct_id, for the Next edge helpers."
   ],
   "keys": [
     { "name": "lc_consent", "category": "necessary", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": null, "purpose": "the visitor's consent decision {analytics, replay, marketing}; stays after a decline" },
+    { "name": "lc_distinct_id", "category": "statistics", "store": "cookie", "cookie_in_combined": false, "suffixed": false, "gated_by": "analytics", "purpose": "anonymous id for server rendering (Next edge helpers); written only by a consent-manager bridge after analytics is granted, removed on a denial" },
     { "name": "lc_device_id", "category": "statistics", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": "analytics", "purpose": "anonymous device id" },
     { "name": "lc_identity", "category": "statistics", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": "analytics", "purpose": "distinct id and identified flag" },
     { "name": "lc_session", "category": "statistics", "store": "persistence", "cookie_in_combined": true, "suffixed": true, "gated_by": "analytics", "purpose": "session id and last activity" },

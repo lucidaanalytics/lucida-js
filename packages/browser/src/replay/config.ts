@@ -206,7 +206,7 @@ interface WatchtowerGlobal {
 }
 
 /**
- * docs/seam/watchtower.md: one recorder per page. An explicit owner 'lucida' or 'both' records;
+ * One recorder per page (Lucida and Watchtower). An explicit owner 'lucida' or 'both' records;
  * 'watchtower' never does; unset yields to a Watchtower SDK that announces it is recording
  * (`window.__WATCHTOWER__.replayActive === true`).
  */

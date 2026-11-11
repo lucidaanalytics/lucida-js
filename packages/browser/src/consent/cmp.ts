@@ -1,6 +1,9 @@
 import type { Module } from "../types.js";
 import { applyConsent } from "./record.js";
 
+/** Bridge decisions: skip unchanged re-announcements, mirror the decision into the first-party `lc_consent` cookie (read by the Next edge helpers). */
+const CMP = { onlyIfChanged: true, cookie: true } as const;
+
 type Update = { analytics?: boolean; replay?: boolean; marketing?: boolean };
 
 interface TCData {
@@ -51,9 +54,11 @@ export function cookiebotToConsent(c: { statistics?: boolean; marketing?: boolea
   return { analytics: !!c.statistics, replay: !!c.statistics, marketing: !!c.marketing };
 }
 
-/** Cookie Munch snapshot (`CookieMunch.consent`): statistics = analytics + replay, marketing = marketing. `preferences` has no Lucida category (it gates the site's own storage, not Lucida's). */
-export function cookieMunchToConsent(c: { statistics?: boolean; marketing?: boolean }): Update {
-  return { analytics: !!c.statistics, replay: !!c.statistics, marketing: !!c.marketing };
+type CmSnapshot = Record<string, boolean | undefined>;
+
+/** Cookie Munch snapshot (`CookieMunch.consent`): statistics = analytics + replay (or analytics only, with `replayCategory` naming a separate Cookie Munch category for replay), marketing = marketing. `preferences` has no Lucida category (it gates the site's own storage, not Lucida's). */
+export function cookieMunchToConsent(c: CmSnapshot, replayCategory?: string): Update {
+  return { analytics: !!c.statistics, replay: replayCategory ? !!c[replayCategory] : !!c.statistics, marketing: !!c.marketing };
 }
 
 /** Follow an IAB TCF v2.2 CMP (`window.__tcfapi`); waits up to 10 s for the CMP to appear. */
@@ -66,7 +71,7 @@ export const tcfConsent: Module = (host) => {
       if (!ok || (d.eventStatus !== "tcloaded" && d.eventStatus !== "useractioncomplete")) return;
       removeId = d.listenerId;
       const u = tcfToConsent(d);
-      if (u) applyConsent(host, u, "tcf", { onlyIfChanged: true });
+      if (u) applyConsent(host, u, "tcf", CMP);
     });
     return true;
   };
@@ -85,7 +90,7 @@ export const gcmConsent: Module = (host) => {
   const seen = (entry: unknown): void => {
     const a = entry as ArrayLike<unknown> | null;
     if (a && typeof a === "object" && a[0] === "consent" && (a[1] === "default" || a[1] === "update") && a[2] && typeof a[2] === "object") {
-      applyConsent(host, gcmToConsent(a[2] as Record<string, unknown>), "gcm", { onlyIfChanged: true });
+      applyConsent(host, gcmToConsent(a[2] as Record<string, unknown>), "gcm", CMP);
     }
   };
   layer.forEach(seen);
@@ -102,7 +107,7 @@ export const gcmConsent: Module = (host) => {
 /** Follow OneTrust: `OnetrustActiveGroups` now, and the `OneTrustGroupsUpdated` window event. */
 export const oneTrustConsent: Module = (host) => {
   const read = (groups: unknown): void => {
-    if (typeof groups === "string" || Array.isArray(groups)) applyConsent(host, oneTrustToConsent(groups as string | string[]), "onetrust", { onlyIfChanged: true });
+    if (typeof groups === "string" || Array.isArray(groups)) applyConsent(host, oneTrustToConsent(groups as string | string[]), "onetrust", CMP);
   };
   const w = window as { OnetrustActiveGroups?: string };
   const on = (e: Event): void => read((e as CustomEvent<string[]>).detail ?? w.OnetrustActiveGroups);
@@ -116,7 +121,7 @@ export const cookiebotConsent: Module = (host) => {
   const w = window as { Cookiebot?: { hasResponse?: boolean; consent?: { statistics?: boolean; marketing?: boolean } } };
   const read = (): void => {
     const cb = w.Cookiebot;
-    if (cb?.consent && cb.hasResponse !== false) applyConsent(host, cookiebotToConsent(cb.consent), "cookiebot", { onlyIfChanged: true });
+    if (cb?.consent && cb.hasResponse !== false) applyConsent(host, cookiebotToConsent(cb.consent), "cookiebot", CMP);
   };
   const events = ["CookiebotOnConsentReady", "CookiebotOnAccept", "CookiebotOnDecline"];
   for (const e of events) window.addEventListener(e, read);
@@ -152,7 +157,7 @@ export const osanoConsent: Module = (host) => {
   let cm: OsanoCm | undefined;
   const on = (c: OsanoConsent | undefined): void => {
     const cur = c && typeof c === "object" && Object.keys(c).length ? c : cm?.getConsent?.();
-    if (cur && Object.keys(cur).length) applyConsent(host, osanoToConsent(cur), "osano", { onlyIfChanged: true });
+    if (cur && Object.keys(cur).length) applyConsent(host, osanoToConsent(cur), "osano", CMP);
   };
   const stop = whenReady(() => {
     cm = (window as { Osano?: { cm?: OsanoCm } }).Osano?.cm;
@@ -196,7 +201,7 @@ export function usercentricsBridge(serviceName = "Lucida"): Module {
       const list = ui?.getServicesBaseInfo?.();
       if (!list) return false;
       const u = usercentricsToConsent(list, serviceName);
-      if (u) applyConsent(host, u, "usercentrics", { onlyIfChanged: true });
+      if (u) applyConsent(host, u, "usercentrics", CMP);
       else host.log(`usercentrics: no service named "${serviceName}"; consent left unchanged`);
       return true;
     };
@@ -215,17 +220,45 @@ export const usercentricsConsent: Module = usercentricsBridge();
 
 const CM_EVENTS = ["CookieMunchOnConsentReady", "CookieMunchOnChange"];
 
+interface CmGlobal {
+  hasResponse?: boolean;
+  consent?: CmSnapshot;
+  receiptId?: unknown;
+  consentReceiptId?: unknown;
+  consentId?: unknown;
+  ledgerId?: unknown;
+}
+
+/** The receipt / ledger id Cookie Munch exposes for the visitor's current decision (event detail first, then the global), if any. */
+function receiptOf(cm: CmGlobal, e?: Event): string | undefined {
+  const d = ((e as CustomEvent<CmGlobal | undefined> | undefined)?.detail ?? {}) as CmGlobal;
+  for (const v of [d.receiptId, d.consentReceiptId, d.consentId, d.ledgerId, cm.receiptId, cm.consentReceiptId, cm.consentId, cm.ledgerId]) {
+    if (typeof v === "string" && v) return v.slice(0, 128);
+  }
+  return undefined;
+}
+
+/**
+ * Cookie Munch bridge with options. `replayCategory`: name of a custom Cookie Munch category that gates session
+ * replay on its own (default: replay follows `statistics`).
+ */
+export function cookieMunchBridge(o: { replayCategory?: string } = {}): Module {
+  return (host) => {
+    const read = (e?: Event): void => {
+      const cm = (window as { CookieMunch?: CmGlobal }).CookieMunch;
+      if (!cm?.consent || cm.hasResponse !== true) return;
+      const receiptId = receiptOf(cm, e);
+      applyConsent(host, cookieMunchToConsent(cm.consent, o.replayCategory), "cookiemunch", { ...CMP, ...(receiptId ? { receiptId } : {}) });
+    };
+    for (const e of CM_EVENTS) window.addEventListener(e, read);
+    read();
+    return () => CM_EVENTS.forEach((e) => window.removeEventListener(e, read));
+  };
+}
+
 /**
  * Follow Cookie Munch (cookiemunch.net): `CookieMunch.consent` once the visitor has a decision (`hasResponse`; the
  * snapshot is all-false before that, which is never read as a decline), then its change events. Cookie Munch is
  * Cookiebot-compatible, so `cookiebotConsent` also works; this one uses the native event names.
  */
-export const cookieMunchConsent: Module = (host) => {
-  const read = (): void => {
-    const cm = (window as { CookieMunch?: { hasResponse?: boolean; consent?: { statistics?: boolean; marketing?: boolean } } }).CookieMunch;
-    if (cm?.consent && cm.hasResponse === true) applyConsent(host, cookieMunchToConsent(cm.consent), "cookiemunch", { onlyIfChanged: true });
-  };
-  for (const e of CM_EVENTS) window.addEventListener(e, read);
-  read();
-  return () => CM_EVENTS.forEach((e) => window.removeEventListener(e, read));
-};
+export const cookieMunchConsent: Module = cookieMunchBridge();

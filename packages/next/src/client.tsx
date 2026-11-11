@@ -1,7 +1,7 @@
 "use client";
 
 import { LucidaProvider } from "@lucida-analytics/react";
-import type { BrowserConfig } from "@lucida-analytics/browser";
+import type { BrowserConfig, Module } from "@lucida-analytics/browser";
 import type { ReactNode } from "react";
 import { PAGE_PROP } from "./pages.js";
 import { LucidaPagesRouteViews, LucidaRouteViews } from "./route-views.js";
@@ -17,6 +17,8 @@ export interface LucidaNextProviderProps {
   bootstrap?: Bootstrap;
   /** Browser SDK options. `apiHost` defaults to "/ingest" (see `lucidaRewrites`). */
   options?: BrowserConfig;
+  /** Browser modules (third `init` argument), e.g. `[cookieMunchConsent]` from `@lucida-analytics/browser/consent`. Read once, when the client is created. */
+  modules?: Module[];
   /**
    * App Router: send each `$pageview` with `$route` (`/blog/[slug]`). The SDK's own pageview capture is switched off
    * (views come from `LucidaRouteViews`; `$pageleave` still fires on route changes).
@@ -28,7 +30,7 @@ export interface LucidaNextProviderProps {
 }
 
 /** `LucidaProvider` wired for Next: first-party `/ingest` host, server bootstrap for flags and the distinct id. */
-export function LucidaNextProvider({ apiKey, bootstrap, options, routeTemplates, router, children }: LucidaNextProviderProps) {
+export function LucidaNextProvider({ apiKey, bootstrap, options, modules, routeTemplates, router, children }: LucidaNextProviderProps) {
   const templated = !!routeTemplates || !!router;
   const merged: BrowserConfig = {
     apiHost: "/ingest",
@@ -38,7 +40,7 @@ export function LucidaNextProvider({ apiKey, bootstrap, options, routeTemplates,
     ...(bootstrap ? { bootstrap: { ...options?.bootstrap, distinctId: bootstrap.distinctId } } : {}),
   };
   return (
-    <LucidaProvider apiKey={apiKey} options={merged} {...(bootstrap ? { bootstrapFlags: bootstrap.flags } : {})}>
+    <LucidaProvider apiKey={apiKey} options={merged} {...(modules ? { modules } : {})} {...(bootstrap ? { bootstrapFlags: bootstrap.flags } : {})}>
       {routeTemplates ? <LucidaRouteViews /> : null}
       {router ? <LucidaPagesRouteViews router={router} /> : null}
       {children}

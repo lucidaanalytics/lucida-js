@@ -120,11 +120,28 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **DNT / GPC**: `respectDnt` (default false) and `respectGpc` (default false). When set and the browser sends the signal,
   an `opt_out` project starts with consent denied, so nothing is stored or sent until `setConsent`. An explicit stored
   decision still wins. (`consent.respectDnt` is kept and enables both.)
-- **Cookie Munch**: `import { cookieMunchConsent } from "@lucida-analytics/browser/consent"` and pass it as a module; it follows
-  `CookieMunch.consent` after the visitor's decision (`statistics` -> analytics + replay, `marketing` -> marketing). See `docs/guides/cookie-munch.md`.
-- **Consent state**: `client.getConsent()` returns the current decision per category; `client.getConsentStatus(category?)`
-  is `pending` until the visitor chose (stored or `setConsent`), then `granted` or `denied`, so a banner can show only
-  while pending. `consent.storageKey` (default `lc_consent`) names the stored decision; `cookie: { domain: ".example.com" }`
+- **Cookie Munch** (since 0.1.1): `import { cookieMunchConsent } from "@lucida-analytics/browser/consent"` and pass it as a module (third
+  argument of `init`, or `modules` on the React and Next providers); it follows `CookieMunch.consent` after the visitor's decision
+  (`statistics` -> analytics + replay, `marketing` -> marketing). For a separate replay category use
+  `cookieMunchBridge({ replayCategory: "session_replay" })` (that Cookie Munch category then drives replay, `statistics` only analytics).
+  When Cookie Munch exposes a receipt / ledger id (`receiptId`, `consentReceiptId`, `consentId` or `ledgerId`, on the event detail or the
+  `CookieMunch` object) it is added to `$consent_updated` as `consent_receipt_id`. See the Cookie Munch help page.
+- **Decision cookies for server code**: every CMP bridge (Cookie Munch, Cookiebot, OneTrust, Osano, TCF, Consent Mode, Usercentrics) writes the
+  first-party cookie `lc_consent=granted|denied` on each decision (never before one; `Path=/`, one year, `SameSite=Lax`), and on a grant the anonymous
+  id as `lc_distinct_id`; a denial removes `lc_distinct_id`. `@lucida-analytics/next` reads them (`@lucida-analytics/next` 0.1.5 and later).
+- **Consent state**: `client.getConsent()` returns the current decision per category. `getConsentStatus(category?)` and
+  `consentStatus()` return `pending` until the visitor chose (stored or `setConsent`), then `granted` or `denied`, so a banner can show only
+  while pending. `consentStatus()` is the analytics decision and equals `getConsentStatus()` / `getConsentStatus("analytics")`; prefer
+  `getConsentStatus(category)` when you gate a feature on `replay` or `marketing`.
+
+  | State | `getConsentStatus()` / `consentStatus()` | `getConsentStatus("replay")` | `getConsentStatus("marketing")` |
+  |---|---|---|---|
+  | Before a decision | `pending` | `pending` | `pending` |
+  | After a full grant (all categories) | `granted` | `granted` | `granted` |
+  | After a partial grant (analytics + replay, no marketing) | `granted` | `granted` | `denied` |
+  | After a deny | `denied` | `denied` | `denied` |
+
+  `consent.storageKey` (default `lc_consent`) names the stored decision; `cookie: { domain: ".example.com" }`
   (or `crossSubdomain: true`) shares identity, session and the decision across subdomains. While `pending` no `lc_*` cookie or
   storage item is written; on a denial the SDK removes the `lc_*` items stored earlier **except the decision itself** (`lc_consent_<suffix>`).
 - **Cross-domain**: `crossDomains: ["shop.example.com"]` (exact host or subdomains; list the other site on both sides). While
@@ -193,7 +210,9 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   are reported as one `$$client_ingestion_warning {$dropped_count}` per minute. `onCapture` listeners (inspector, replay
   triggers) only see events that passed `beforeSend`, sampling and the limit;
   `session: {idleMs, maxMs}` changes the 30 min idle / 24 h rotation; `customCampaignParams: ["ref_code"]` adds
-  `$ref_code` (and `$initial_ref_code`) on pageviews.
+  `$ref_code` (and `$initial_ref_code`) on pageviews. `referralParams` (default `["ref", "referral", "via", "aff"]`, `[]` = off):
+  on the first `$pageview` of a session the first of these URL params that is present becomes `$referral_code` on the event and
+  `initial_referral_code` (set once) on the person; like every event it is sent only after consent.
 - **Transport**: `disableBeacon`, `requestHeaders` (adds a CORS preflight to the ingest host), `onRequestError({url, status})`,
   `rewritePath: (path) => path` (renames every request path on `apiHost` / `flagsApiHost`, for proxies). Every event carries
   `$lib_custom_api_host` when `apiHost` is not the Lucida default, so proxy coverage is measurable.
@@ -224,6 +243,20 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **Flags**: `flagsApiHost` (separate origin for `/v1/flags`), `flagOptions: {timeoutMs, refreshMs, keys, evaluationContexts,
   disableRemote}`. `keys` scopes both the request (`flag_keys`) and what the client exposes; `disableRemote` leaves values to
   bootstrap, `localFlags` and `updateFlags`.
+
+## Since which version
+
+Derived from `git log -S` on `sdks/browser/src` and the version bump commits (see `CHANGELOG.md`). Anything documented above and not listed here is in 0.1.0.
+
+| Option / API | Since |
+|---|---|
+| `cookieMunchConsent` | 0.1.1 |
+| `urlPrivacy`, default sensitive-param masking | 0.1.1 |
+| consent precedence (project `consent_mode`, geo default) | 0.1.5 |
+| `exposeGlobal`, server no-op client, `hasOptedIn()`, `onConsent()`, Watchtower session stamp | 0.1.6 |
+| Watchtower error and vital hooks (`$exception_seen`, `$web_vitals`) | 0.1.7 |
+| `referralParams`, `cookieMunchBridge({ replayCategory })`, `consent_receipt_id`, `lc_consent` / `lc_distinct_id` decision cookies | after 0.1.7 |
+| `outboundLinks`, `fileDownloads`, `siteSearch`, `respectGpc`, `replayOwner`, `getConsentStatus`, `consentStatus`, `consent.storageKey`, `crossDomains`, `crossSubdomain`, `beforeSend`, `propertyDenylist`, `personProfiles`, `reuseAnonymousId`, `tracingHeaders`, `rateLimit`, `customCampaignParams`, `disableBeacon`, `rewritePath`, `persistence` modes, `persistedProperties`, `storageWriteDelayMs`, `flagPersistence`, `consentPersistence`, `cookieless`, `assetHost`, `nonce`, `capturePageleave`, autocapture options, `flagsApiHost`, `flagOptions`, `setConfig`, `bootstrap`, `watchtower`, `replay.mask_all_text` | 0.1.0 |
 
 ## Agent analytics
 

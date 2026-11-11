@@ -24,7 +24,7 @@ export interface Storage {
 
 export type Props = Record<string, unknown>;
 
-/** Wire event v1 (docs/plan/03-data-model.md). */
+/** Wire event v1. */
 export interface WireEvent {
   uuid: string;
   event: string;
