@@ -1,6 +1,6 @@
 {
   "name": "@lucida-analytics/browser",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/browser" },
   "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/browser",

@@ -14,6 +14,8 @@ export type { AutocaptureConfig, DeliveryConfig, FrustrationConfig, LazyModuleNa
 /** The part of a Watchtower browser client the seam uses (`@watchtower/browser` `setAttribute`). */
 export interface WatchtowerLike {
   setAttribute(key: string, value: string | number | boolean): void;
+  /** Event hooks (Watchtower asks item 6). Absent on older clients: the seam then does nothing. */
+  on?(event: "error" | "vital", cb: (payload: never) => void): () => void;
 }
 
 export interface BootstrapConfig {

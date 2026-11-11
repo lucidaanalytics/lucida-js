@@ -1,4 +1,5 @@
 import { patchRequests } from "../netpatch.js";
+import { watchtowerHooks } from "./hooks.js";
 import type { Host, Module, WatchtowerLike } from "../types.js";
 
 const KEY = "lucida.session_id";
@@ -31,7 +32,9 @@ export function correlatable(url: string, allow: Array<string | RegExp> = []): b
 export const correlate: Module = (host) => {
   const w = host.config.watchtower;
   const { core } = host;
-  const stop = stampSession(host);
+  const stopStamp = stampSession(host);
+  const stopHooks = watchtowerHooks(host);
+  const stop = (): void => (stopStamp?.(), stopHooks());
   if (!w?.correlate) return stop;
   let sid = core.sessionId;
   host.onCapture((e) => (sid = String(e.properties.$session_id ?? sid)));
@@ -41,7 +44,7 @@ export const correlate: Module = (host) => {
   const unpatch = patchRequests((url, headers) => {
     if (ok(url)) headers.set("baggage", withBaggage(headers.get("baggage"), sid));
   });
-  return () => (unpatch(), stop?.());
+  return () => (unpatch(), stop());
 };
 
 /**

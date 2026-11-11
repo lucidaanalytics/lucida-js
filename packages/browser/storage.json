@@ -1,7 +1,7 @@
 {
   "$comment": "Every cookie and storage key the Lucida browser SDK writes. Published for consent managers (Cookie Munch preset, docs/integrations/cookiemunch-preset.md). sdks/browser/test/storage-manifest.test.ts fails when the SDK source names an lc_* key that is not listed here.",
   "sdk": "@lucida-analytics/browser",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "suffix_rule": {
     "applies_to": "every key with suffixed: true",
     "rule": "name + '_' + the last 8 word characters of the project's public key (key.replace(/\\W/g, '').slice(-8))",
