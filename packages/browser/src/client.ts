@@ -5,7 +5,7 @@ import { clickIdTracker } from "./clickids.js";
 import { captureCspViolations, cspHint } from "./csp.js";
 import { isExtensionPage, withRewrite } from "./delivery.js";
 import { connectDevtools } from "./devtools-hook.js";
-import { REFERRAL_PARAMS, campaignKey, enrich, referralCode } from "./env.js";
+import { campaignKey, enrich, referralCode, referralOptions } from "./env.js";
 import { exposeGlobal } from "./global.js";
 import { noopClient } from "./noop-client.js";
 import { takeLinker } from "./linker.js";
@@ -15,7 +15,7 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.8";
+export const LIB_VERSION = "0.1.9";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
@@ -73,6 +73,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
   let flagsSvc: FlagsService | undefined; // read at capture time (modules run after the core exists)
   let internal = false;
   let referralSession: string | undefined;
+  const categoryGrants: Host["categoryGrants"] = new Map();
   let clickIds: ReturnType<typeof clickIdTracker> | undefined;
   const eventExtras: Host["eventExtras"] = [];
   const core = new Core({
@@ -110,11 +111,15 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       if (event === "$pageview") {
         const sid = core.sessionId;
         if (sid !== referralSession) {
-          referralSession = sid; // first pageview of a session only
-          const ref = referralCode(config.referralParams ?? REFERRAL_PARAMS);
-          if (ref) {
-            e.properties = { ...e.properties, $referral_code: ref };
-            e.$set_once = { ...e.$set_once, initial_referral_code: ref };
+          const rp = referralOptions(config.referralParams);
+          // A named CMP category must be granted first; until then the next pageview of the session tries again.
+          if (rp && (!rp.category || categoryGrants.get(rp.category) === true)) {
+            referralSession = sid; // first pageview of a session only
+            const ref = referralCode(rp.params);
+            if (ref) {
+              e.properties = { ...e.properties, $referral_code: ref };
+              e.$set_once = { ...e.$set_once, initial_referral_code: ref };
+            }
           }
         }
       }
@@ -198,6 +203,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     eventExtras,
     clickExtras: [],
     flagPersonProps: [],
+    categoryGrants,
     loadConfig: () =>
       (cfg ??= new Promise<RemoteConfig | null>((resolve) =>
         whenConsented(() => {

@@ -1,4 +1,4 @@
-import type { Module } from "../types.js";
+import type { Host, Module } from "../types.js";
 import { applyConsent } from "./record.js";
 
 /** Bridge decisions: skip unchanged re-announcements, mirror the decision into the first-party `lc_consent` cookie (read by the Next edge helpers). */
@@ -55,6 +55,11 @@ export function cookiebotToConsent(c: { statistics?: boolean; marketing?: boolea
 }
 
 type CmSnapshot = Record<string, boolean | undefined>;
+
+/** Remember every named CMP category of a decision (Cookie Munch "referrals", ...) for options gated on a category (`referralParams.category`). */
+function noteCategories(host: Host, snapshot: Record<string, unknown>): void {
+  for (const [k, v] of Object.entries(snapshot)) if (typeof v === "boolean") host.categoryGrants.set(k, v);
+}
 
 /** Cookie Munch snapshot (`CookieMunch.consent`): statistics = analytics + replay (or analytics only, with `replayCategory` naming a separate Cookie Munch category for replay), marketing = marketing. `preferences` has no Lucida category (it gates the site's own storage, not Lucida's). */
 export function cookieMunchToConsent(c: CmSnapshot, replayCategory?: string): Update {
@@ -121,7 +126,9 @@ export const cookiebotConsent: Module = (host) => {
   const w = window as { Cookiebot?: { hasResponse?: boolean; consent?: { statistics?: boolean; marketing?: boolean } } };
   const read = (): void => {
     const cb = w.Cookiebot;
-    if (cb?.consent && cb.hasResponse !== false) applyConsent(host, cookiebotToConsent(cb.consent), "cookiebot", CMP);
+    if (!cb?.consent || cb.hasResponse === false) return;
+    noteCategories(host, cb.consent);
+    applyConsent(host, cookiebotToConsent(cb.consent), "cookiebot", CMP);
   };
   const events = ["CookiebotOnConsentReady", "CookiebotOnAccept", "CookiebotOnDecline"];
   for (const e of events) window.addEventListener(e, read);
@@ -247,6 +254,7 @@ export function cookieMunchBridge(o: { replayCategory?: string } = {}): Module {
     const read = (e?: Event): void => {
       const cm = (window as { CookieMunch?: CmGlobal }).CookieMunch;
       if (!cm?.consent || cm.hasResponse !== true) return;
+      noteCategories(host, cm.consent);
       const receiptId = receiptOf(cm, e);
       applyConsent(host, cookieMunchToConsent(cm.consent, o.replayCategory), "cookiemunch", { ...CMP, ...(receiptId ? { receiptId } : {}) });
     };

@@ -210,9 +210,12 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   are reported as one `$$client_ingestion_warning {$dropped_count}` per minute. `onCapture` listeners (inspector, replay
   triggers) only see events that passed `beforeSend`, sampling and the limit;
   `session: {idleMs, maxMs}` changes the 30 min idle / 24 h rotation; `customCampaignParams: ["ref_code"]` adds
-  `$ref_code` (and `$initial_ref_code`) on pageviews. `referralParams` (default `["ref", "referral", "via", "aff"]`, `[]` = off):
+  `$ref_code` (and `$initial_ref_code`) on pageviews. `referralParams` (**off by default** since 0.1.9; `["ref"]` or
+  `{ params?: string[], category?: string }`, `params` defaulting to `["ref", "referral", "via", "aff"]`):
   on the first `$pageview` of a session the first of these URL params that is present becomes `$referral_code` on the event and
-  `initial_referral_code` (set once) on the person; like every event it is sent only after consent.
+  `initial_referral_code` (set once) on the person. Without `category` it is sent under analytics consent; with
+  `category: "referrals"` (Cookie Munch's referral category) only once that category is granted, as reported by the Cookie Munch or
+  Cookiebot bridge.
 - **Transport**: `disableBeacon`, `requestHeaders` (adds a CORS preflight to the ingest host), `onRequestError({url, status})`,
   `rewritePath: (path) => path` (renames every request path on `apiHost` / `flagsApiHost`, for proxies). Every event carries
   `$lib_custom_api_host` when `apiHost` is not the Lucida default, so proxy coverage is measurable.
@@ -255,7 +258,8 @@ Derived from `git log -S` on `sdks/browser/src` and the version bump commits (se
 | consent precedence (project `consent_mode`, geo default) | 0.1.5 |
 | `exposeGlobal`, server no-op client, `hasOptedIn()`, `onConsent()`, Watchtower session stamp | 0.1.6 |
 | Watchtower error and vital hooks (`$exception_seen`, `$web_vitals`) | 0.1.7 |
-| `referralParams`, `cookieMunchBridge({ replayCategory })`, `consent_receipt_id`, `lc_consent` / `lc_distinct_id` decision cookies | after 0.1.7 |
+| `referralParams`, `cookieMunchBridge({ replayCategory })`, `consent_receipt_id`, `lc_consent` / `lc_distinct_id` decision cookies | 0.1.8 |
+| `referralParams` off by default and `{ params, category }`, `exposeGlobal` hint for Watchtower, `lucida-embed.json` | 0.1.9 |
 | `outboundLinks`, `fileDownloads`, `siteSearch`, `respectGpc`, `replayOwner`, `getConsentStatus`, `consentStatus`, `consent.storageKey`, `crossDomains`, `crossSubdomain`, `beforeSend`, `propertyDenylist`, `personProfiles`, `reuseAnonymousId`, `tracingHeaders`, `rateLimit`, `customCampaignParams`, `disableBeacon`, `rewritePath`, `persistence` modes, `persistedProperties`, `storageWriteDelayMs`, `flagPersistence`, `consentPersistence`, `cookieless`, `assetHost`, `nonce`, `capturePageleave`, autocapture options, `flagsApiHost`, `flagOptions`, `setConfig`, `bootstrap`, `watchtower`, `replay.mask_all_text` | 0.1.0 |
 
 ## Agent analytics

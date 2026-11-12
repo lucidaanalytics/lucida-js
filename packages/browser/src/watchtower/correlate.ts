@@ -1,5 +1,6 @@
 import { patchRequests } from "../netpatch.js";
 import { watchtowerHooks } from "./hooks.js";
+import { exposeGlobalHint } from "./hint.js";
 import type { Host, Module, WatchtowerLike } from "../types.js";
 
 const KEY = "lucida.session_id";
@@ -34,7 +35,8 @@ export const correlate: Module = (host) => {
   const { core } = host;
   const stopStamp = stampSession(host);
   const stopHooks = watchtowerHooks(host);
-  const stop = (): void => (stopStamp?.(), stopHooks());
+  const stopHint = exposeGlobalHint(host);
+  const stop = (): void => (stopStamp?.(), stopHooks(), stopHint());
   if (!w?.correlate) return stop;
   let sid = core.sessionId;
   host.onCapture((e) => (sid = String(e.properties.$session_id ?? sid)));

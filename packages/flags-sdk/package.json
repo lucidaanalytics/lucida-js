@@ -3,7 +3,7 @@
   "version": "0.1.2",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/flags-sdk" },
-  "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/flags-sdk",
+  "homepage": "https://lucidace.com/help/quickstart",
   "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
   "type": "module",
   "description": "Lucida adapter for the Vercel Flags SDK (flags/next) and the Flags Explorer",

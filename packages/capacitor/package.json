@@ -3,7 +3,7 @@
   "version": "0.1.2",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/capacitor" },
-  "homepage": "https://github.com/lucidaanalytics/lucida-js/tree/main/packages/capacitor",
+  "homepage": "https://lucidace.com/help/quickstart",
   "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
   "type": "module",
   "sideEffects": false,

@@ -2,6 +2,17 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.9 (2026-11-11)
+
+BEHAVIOUR CHANGE: `referralParams` is now OFF by default. In 0.1.8 it was on (`ref`, `referral`, `via`, `aff`) and recorded `$referral_code` / `initial_referral_code` under Lucida's analytics consent, which is not the consent category referral platforms use. If you relied on it, set `referralParams: ["ref"]` (or `{ params: [...] }`) explicitly.
+
+Added:
+- `referralParams: { params?: string[], category?: string }`: with `category: "referrals"` the code is recorded only once that consent-manager category is granted. The Cookie Munch and Cookiebot bridges now pass every named category of a decision through (`host.categoryGrants`). The string array form still works and follows analytics consent.
+- One console hint (once per page) when Watchtower's SDK is on the page (`globalThis.watchtower` or `watchtower:ready`) while `exposeGlobal` is off: Watchtower cannot find Lucida without it.
+- `lucida-embed.json`, a Cookie Munch embed-v1 manifest generated from `storage.json` (`node scripts/gen-embed-manifest.mjs`), served at `https://lucidace.com/.well-known/lucida-embed.json` for the Cookie Munch `lucida` preset. `storage.json` gains `updated`.
+
+Compliance note, cookie and storage names (unchanged by this release, now published in the manifest): `lc_consent` (necessary; the unsuffixed first-party cookie written by consent-manager bridges, and `lc_consent_<suffix>` in the SDK's persistence), `lc_distinct_id` (statistics cookie, written by a bridge only after analytics is granted), plus every `lc_*_<suffix>` statistics key listed in `storage.json`.
+
 ## 0.1.8 (2026-11-11)
 
 Added:

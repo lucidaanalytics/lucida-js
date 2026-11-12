@@ -1,5 +1,6 @@
 import type { Enrichment } from "@lucida-analytics/sdk-core";
 import { CLICK_IDS } from "./clickids.js";
+import type { BrowserConfig } from "./types.js";
 
 export const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"] as const;
 
@@ -13,7 +14,15 @@ function campaignParams(custom: readonly string[]): Record<string, string> {
   return out;
 }
 
+/** The URL params a page that sets `referralParams: { category }` without `params` gets. */
 export const REFERRAL_PARAMS = ["ref", "referral", "via", "aff"];
+
+/** Normalise `referralParams`: off (undefined) by default and for `[]`; an array is the params, an object adds the consent `category` (a CMP category such as Cookie Munch's "referrals"). */
+export function referralOptions(o: BrowserConfig["referralParams"]): { params: readonly string[]; category?: string } | undefined {
+  if (!o) return undefined;
+  const r = Array.isArray(o) ? { params: o } : { params: o.params ?? REFERRAL_PARAMS, ...(o.category ? { category: o.category } : {}) };
+  return r.params.length ? r : undefined;
+}
 
 /** First non-empty value among the given URL params (capped at 256 chars). */
 export function referralCode(params: readonly string[]): string | undefined {

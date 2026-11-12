@@ -161,8 +161,13 @@ export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   onRequestError?: (e: { url: string; status: number }) => void;
   /** Extra query parameters treated as campaign params (stored as `$<name>` on `$pageview`). */
   customCampaignParams?: string[];
-  /** URL params read for a referral code on the first `$pageview` of a session (first one present wins). Sets `$referral_code` on the event and `initial_referral_code` once on the person. Default `["ref", "referral", "via", "aff"]`; `[]` turns it off. */
-  referralParams?: string[];
+  /**
+   * Referral codes, OFF by default (0.1.9; they were on in 0.1.8). On the first `$pageview` of a session the first URL param present sets
+   * `$referral_code` on the event and `initial_referral_code` once on the person. `string[]` = the params; `{ params, category }` adds the
+   * consent-manager category that must be granted first (Cookie Munch: `"referrals"`); `params` defaults to `["ref", "referral", "via", "aff"]`.
+   * Without `category` the codes follow Lucida's analytics consent. A category needs a CMP bridge that reports it (Cookie Munch, Cookiebot).
+   */
+  referralParams?: string[] | { params?: string[]; category?: string };
   /** `$pageleave`: true = also without pageview capture, false = never, "if_capture_pageview" (default) = with pageviews. */
   capturePageleave?: boolean | "if_capture_pageview";
   /** Origin for /v1/flags when flags are proxied separately. Default apiHost. */
@@ -498,6 +503,8 @@ export interface Host {
   clickExtras: Array<(ev: MouseEvent, el: Element) => Props>;
   /** Person properties modules add to flag requests and local evaluation (early-access enrolment). */
   flagPersonProps: Array<() => Props>;
+  /** Consent-manager categories by name (e.g. Cookie Munch "referrals"), kept by the CMP bridges; read by `referralParams.category`. */
+  categoryGrants: Map<string, boolean>;
   /** Set by autocapture when it already captures interactive clicks (heatmaps then adds only the rest). */
   autocaptureClicks?: boolean;
   /** A module registers the flags service here. */
