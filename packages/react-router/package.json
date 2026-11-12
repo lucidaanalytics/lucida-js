@@ -42,7 +42,7 @@
     "@lucida-analytics/browser": "workspace:*",
     "@lucida-analytics/react": "workspace:*",
     "@types/node": "^22.0.0",
-    "@types/react": "^18.3.0",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^18.3.0",
     "jsdom": "^26.1.0",
     "react": "^18.3.1",
