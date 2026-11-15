@@ -90,7 +90,7 @@ export function startRecorder(host: Host, cfg: ResolvedReplay, status: ReplaySta
   const startedAt = cfg.min_duration_mode === "session" ? sessionStart(core.sessionId) : Date.now();
   status.bufferLength = () => ring.size;
   const sync = (): void => {
-    status.status = stopped ? "disabled" : paused ? "paused" : live ? "active" : "buffering";
+    status.status = stopped ? "disabled" : paused ? (urlPaused ? "excluded" : "paused") : live ? "active" : "buffering";
   };
 
   const snapshot = (): void => {

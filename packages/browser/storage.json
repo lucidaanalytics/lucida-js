@@ -1,8 +1,9 @@
 {
   "$comment": "Every cookie and storage key the Lucida browser SDK writes. Published for consent managers (Cookie Munch preset, docs/integrations/cookiemunch-preset.md). sdks/browser/test/storage-manifest.test.ts fails when the SDK source names an lc_* key that is not listed here.",
   "sdk": "@lucida-analytics/browser",
-  "version": "0.1.9",
-  "updated": "2026-11-11T00:00:00Z",
+  "default_persistence": "cookie",
+  "version": "0.1.10",
+  "updated": "2026-11-15T00:00:00Z",
   "suffix_rule": {
     "applies_to": "every key with suffixed: true",
     "rule": "name + '_' + the last 8 word characters of the project's public key (key.replace(/\\W/g, '').slice(-8))",
@@ -13,7 +14,7 @@
     "memory": "nothing is written to the browser",
     "none": "nothing is written to the browser (cookieless; events carry no distinct id until identify)",
     "cookie": "keys with store 'persistence' are cookies",
-    "localStorage": "keys with store 'persistence' are in localStorage (default)",
+    "localStorage": "keys with store 'persistence' are in localStorage (not the default; the default is cookie)",
     "sessionStorage": "keys with store 'persistence' are in sessionStorage",
     "localStorage+cookie": "keys with cookie_in_combined: true are written to a cookie and localStorage; the other 'persistence' keys to localStorage only"
   },

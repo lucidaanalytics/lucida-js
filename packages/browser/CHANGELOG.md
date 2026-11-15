@@ -2,6 +2,15 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.10 (2026-11-15)
+
+Fixed:
+- Replay starts on the current page when consent is granted mid-page (through `cookieMunchConsent`, another consent bridge or `setConsent`); before, the first recording began on the next page load. Never-record rules are checked against the page the grant happens on.
+- `$recording_status` reads `excluded` on a URL blocked by `replay.exclude_urls` (or outside `include_urls`), instead of `sampled`.
+
+Docs:
+- `persistence` defaults to `cookie`; the README and `storage.json` (new `default_persistence` field) now say so.
+
 ## 0.1.9 (2026-11-11)
 
 BEHAVIOUR CHANGE: `referralParams` is now OFF by default. In 0.1.8 it was on (`ref`, `referral`, `via`, `aff`) and recorded `$referral_code` / `initial_referral_code` under Lucida's analytics consent, which is not the consent category referral platforms use. If you relied on it, set `referralParams: ["ref"]` (or `{ params: [...] }`) explicitly.

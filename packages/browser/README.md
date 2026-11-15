@@ -219,7 +219,7 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **Transport**: `disableBeacon`, `requestHeaders` (adds a CORS preflight to the ingest host), `onRequestError({url, status})`,
   `rewritePath: (path) => path` (renames every request path on `apiHost` / `flagsApiHost`, for proxies). Every event carries
   `$lib_custom_api_host` when `apiHost` is not the Lucida default, so proxy coverage is measurable.
-- **Storage**: `persistence: "cookie" | "localStorage" | "sessionStorage" | "localStorage+cookie" | "memory" | "none"`.
+- **Storage**: **`cookie` is the default** (an unset `persistence` uses cookies, not localStorage). `persistence: "cookie" | "localStorage" | "sessionStorage" | "localStorage+cookie" | "memory" | "none"`.
   `localStorage+cookie` keeps identity, session, device id and consent in a cookie and localStorage (cookie wins on
   conflict, either fills in for the other) and everything else in localStorage. `persistedProperties: ["plan"]` persists only
   those super properties; `storageWriteDelayMs` coalesces writes (flushed on page hide); `flagPersistence` and

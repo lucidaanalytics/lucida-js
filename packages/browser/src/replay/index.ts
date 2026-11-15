@@ -1,6 +1,6 @@
 import type { Module, ReplayStartOverride } from "../types.js";
 import type { Recorder } from "./recorder.js";
-import { lucidaRecords, policyMatches, resolveReplay } from "./config.js";
+import { lucidaRecords, policyMatches, resolveReplay, urlAllowed } from "./config.js";
 import { replayStatus } from "./status.js";
 import { sampled } from "./groups.js";
 import { attachReplayUrl } from "./support.js";
@@ -54,14 +54,14 @@ export const replay: Module = (host) => {
   const consented = (): boolean => host.core.hasConsent("analytics") && host.core.hasConsent("replay");
 
   /** A manual start (replay.start()) skips sampling and, when asked, triggers; consent, owner, remote kill-switch and never-record pages still apply. */
-  const start = async (manual?: ReplayStartOverride): Promise<void> => {
+  const start = async (manual?: ReplayStartOverride, late = false): Promise<void> => {
     if (state !== "idle") return;
     if (!consented()) return off("no_consent");
     state = "starting";
     status.status = "awaiting_config";
     const mine = ++gen;
     const remote = await host.loadConfig();
-    const never = policyMatches(remote?.replay_never_record, startUrl) || (!!manual && policyMatches(remote?.replay_never_record, location.href));
+    const never = policyMatches(remote?.replay_never_record, startUrl) || ((!!manual || late) && policyMatches(remote?.replay_never_record, location.href));
     const cfg = never ? null : resolveReplay(local, remote);
     if (mine !== gen) return void (state = "idle");
     if (!cfg) {
@@ -75,7 +75,7 @@ export const replay: Module = (host) => {
     status.sampleRate = groups ? undefined : cfg.sample_rate;
     status.minDurationMs = cfg.min_duration_ms;
     if (!sampledIn) {
-      status.status = "sampled";
+      status.status = urlAllowed(location.href, cfg.include_urls, cfg.exclude_urls) ? "sampled" : "excluded"; // an excluded URL is not a sampling miss
       return void (state = "idle");
     }
     status.status = "lazy_loading";
@@ -113,7 +113,7 @@ export const replay: Module = (host) => {
   host.core.onChange((c) => {
     if (c !== "consent") return;
     if (consented()) {
-      if (!userStopped) void start();
+      if (!userStopped) void start(undefined, true); // consent granted mid-page: record this page now
     } else {
       halt();
       off("no_consent");

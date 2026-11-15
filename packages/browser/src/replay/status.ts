@@ -6,6 +6,7 @@ export type RecordingStatus =
   | "disabled"
   | "awaiting_config"
   | "sampled"
+  | "excluded"
   | "lazy_loading"
   | "buffering"
   | "active"
