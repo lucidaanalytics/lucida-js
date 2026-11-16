@@ -15,6 +15,8 @@ const MAX_TEXT = 255;
 const NO_TEXT = new Set(["input", "textarea", "select", "option"]);
 /** Plain attributes worth keeping; `value` is deliberately absent. */
 const KEEP_ATTRS = ["name", "type", "role", "aria-label", "title", "alt", "placeholder"];
+/** Free-text attributes: dropped when captureText is false (`aria-description`, `value` and `label` are never kept anyway). */
+const TEXT_ATTRS = new Set(["aria-label", "aria-description", "title", "alt", "placeholder", "value", "label"]);
 /** Digit runs that look like card/SSN numbers are dropped from text. */
 const SENSITIVE = /(?:\d[ -]?){9,}/;
 
@@ -54,7 +56,7 @@ export function attrProps(target: Element): Record<string, string> {
   return out;
 }
 
-function describe(el: Element, withText: boolean, ignored: (a: string) => boolean, mask: (a: string, v: string) => string): ElementInfo {
+function describe(el: Element, withText: boolean, textAttrs: boolean, ignored: (a: string) => boolean, mask: (a: string, v: string) => string): ElementInfo {
   const parent = el.parentElement;
   const sibs = parent ? Array.from(parent.children) : [el];
   const info: ElementInfo = {
@@ -69,7 +71,7 @@ function describe(el: Element, withText: boolean, ignored: (a: string) => boolea
   if (href && !ignored("href")) info.href = mask("href", href.slice(0, 1024));
   const attrs: Record<string, string> = {};
   for (const a of Array.from(el.attributes)) {
-    if ((a.name.startsWith("data-lc-") || KEEP_ATTRS.includes(a.name)) && !ignored(a.name)) attrs[a.name] = mask(a.name, a.value.slice(0, 255));
+    if ((a.name.startsWith("data-lc-") || KEEP_ATTRS.includes(a.name)) && !ignored(a.name) && (textAttrs || !TEXT_ATTRS.has(a.name))) attrs[a.name] = mask(a.name, a.value.slice(0, 255));
   }
   if (Object.keys(attrs).length) info.attrs = attrs;
   if (withText) {
@@ -87,7 +89,7 @@ export function buildChain(target: Element, captureText: boolean, textUpTo?: Ele
   const mask = maskOpts.maskAll ? (a: string, v: string): string => (allowed(a) ? v : MASKED) : (_a: string, v: string): string => v;
   let withText = captureText;
   for (let el: Element | null = target; el && out.length < MAX_DEPTH; el = el.parentElement) {
-    out.push(describe(el, withText, ignored, mask));
+    out.push(describe(el, withText, captureText, ignored, mask));
     if (el === textUpTo || !textUpTo) withText = false; // text for target..interactive ancestor only
   }
   return out;

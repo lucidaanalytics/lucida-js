@@ -2,6 +2,11 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.11 (2026-11-16)
+
+Fixed:
+- With `autocapture: { captureText: false }`, `$elements_chain` no longer carries text-bearing attributes (`aria-label`, `aria-description`, `title`, `alt`, `placeholder`, `value`, `label`). Tag, classes, id, nth-child, nth-of-type, href, `name`, `type`, `role` and `data-lc-*` are kept.
+
 ## 0.1.10 (2026-11-15)
 
 Fixed:

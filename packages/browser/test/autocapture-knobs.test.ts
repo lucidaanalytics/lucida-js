@@ -17,6 +17,15 @@ const click = (sel: string, init: MouseEventInit = {}) => document.querySelector
 const names = (t: ReturnType<typeof start>["t"]) => t.events().map((e) => e.event);
 
 describe("autocapture element filters", () => {
+  it("captureText false drops text-bearing attributes and keeps structural ones", () => {
+    document.body.innerHTML = `<a id="go" class="btn" href="/x" name="n" type="t" role="link" title="t" alt="a" placeholder="p" value="v" label="l" aria-label="Site links" aria-description="d" data-lc-track="c">Go</a>`;
+    const el = document.getElementById("go")!;
+    const off = buildChain(el, false, el)[0]!;
+    expect(off.attrs).toEqual({ name: "n", type: "t", role: "link", "data-lc-track": "c" });
+    expect(off).toMatchObject({ attr__id: "go", classes: ["btn"], href: "/x" });
+    expect(buildChain(el, true, el)[0]!.attrs).toMatchObject({ "aria-label": "Site links", title: "t" });
+  });
+
   it("elementAllowlist limits capture to listed tags (or their descendants)", async () => {
     document.body.innerHTML = `<button id="b"><span id="in">x</span></button><a id="a" href="/x">l</a>`;
     const { client, t } = start({ capturePageview: false, autocapture: { elementAllowlist: ["button"] } });
@@ -34,7 +43,7 @@ describe("autocapture element filters", () => {
     const el = document.getElementById("go")!;
     const full = buildChain(el, false, el)[0]!;
     expect(full).toMatchObject({ attr__id: "go", classes: ["btn"], href: "/x" });
-    const cut = buildChain(el, false, el, ["title", "data-*", "href", "id", "class"])[0]!;
+    const cut = buildChain(el, true, el, ["title", "data-*", "href", "id", "class"])[0]!;
     expect(cut.attrs).toEqual({ "aria-label": "al" });
     expect(cut.href).toBeUndefined();
     expect(cut.attr__id).toBeUndefined();

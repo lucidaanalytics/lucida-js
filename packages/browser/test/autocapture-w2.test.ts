@@ -126,7 +126,7 @@ describe("data-lc-attr-* and attribute masking", () => {
   it("maskAllAttributes masks id, href and kept attributes except the allowlist", () => {
     document.body.innerHTML = `<a id="acct-991" href="/u/991" title="Jane" aria-label="profile" class="nav">x</a>`;
     const el = document.querySelector("a")!;
-    const [m] = buildChain(el, false, el, undefined, { maskAll: true, allow: ["aria-*"] });
+    const [m] = buildChain(el, true, el, undefined, { maskAll: true, allow: ["aria-*"] });
     expect(m).toMatchObject({ attr__id: MASKED, href: MASKED, classes: ["nav"] });
     expect(m!.attrs).toEqual({ title: MASKED, "aria-label": "profile" });
     expect(buildChain(el, false, el)[0]!.attr__id).toBe("acct-991");

@@ -234,6 +234,9 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
 - **Cookies**: `cookie: {secure, expiryDays, crossSubdomain, domain}`. `crossSubdomain` probes for the broadest parent domain
   the browser accepts (on first write, which is after consent); all cookie writes stay behind consent.
 - **Pageleave**: `capturePageleave: true | false | "if_capture_pageview"` (default).
+- **Autocapture text**: with `captureText: false` element text is dropped and so are the text-bearing attributes
+  (`aria-label`, `aria-description`, `title`, `alt`, `placeholder`, `value`, `label`). `$elements_chain` keeps only tag,
+  classes, id, nth-child, nth-of-type, href, `name`, `type`, `role` and `data-lc-*` attributes (minus `attributeIgnore`).
 - **Autocapture**: `elementAllowlist: ["a", "button"]`, `attributeIgnore: ["data-*", "title", "href"]`,
   `maskAllAttributes` + `attributeAllowlist` (every attribute value in `$elements` reads `***` except the allowlist),
   `urlIgnorelist: ["/admin", /\/checkout\//]` (autocapture off on those pages), `contentEditable` (default on: an edited
