@@ -2,6 +2,11 @@
 
 Built from the git history of `sdks/react` and its version bumps.
 
+## 0.1.4 (2026-11-16)
+
+Added:
+- `LucidaTag`: a one-line, consent-gated loader (lazy `import`, init memoised per key, never throws, renders nothing).
+
 ## 0.1.3 (2026-11-11)
 
 Added:

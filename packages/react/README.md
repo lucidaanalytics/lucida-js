@@ -21,6 +21,18 @@ function Buy() {
 }
 ```
 
+### One-line tag
+
+```tsx
+<LucidaTag uid={user?.id} />
+```
+
+Props: `publicKey` (default `process.env.NEXT_PUBLIC_LUCIDA_KEY`), `uid`, `options`, `modules`, `cookieMunch` (default true).
+
+- Inert without a key: renders nothing and imports nothing. Next inlines `NEXT_PUBLIC_*` at build time, so a key set only at runtime ships empty.
+- Never throws: a failed load or init resolves to nothing; init runs once per key, even under StrictMode.
+- Defaults: `consent.mode: "opt_in"`, `referralParams: []`, `exposeGlobal: true`; your `options` win. Browser SDK and consent code load lazily.
+
 - `LucidaProvider` props: `apiKey`, `options` (browser SDK config), `client` (use an existing one), `bootstrapFlags` (server-resolved
   flags: rendered on the server and the first client render, no flicker).
 - Hooks: `useLucida()` (the client or `null`), `useCapture()`, `useFeatureFlag(key)` (the exposure is recorded after mount, never during
