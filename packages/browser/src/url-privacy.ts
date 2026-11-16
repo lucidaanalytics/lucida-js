@@ -10,6 +10,10 @@ export interface UrlPrivacy {
   maskCampaignParams?: boolean;
   /** Drop the `#fragment` from URLs (not for hash routers: their route lives there). */
   stripHash?: boolean;
+  /** Rewrite the URL path, in order, with `String.replace` semantics (a string is a regex source; a RegExp needs `g` to replace every match). Applies to every URL the SDK sends, `$pathname` and autocapture hrefs. */
+  pathRules?: Array<{ match: RegExp | string; replace: string }>;
+  /** Replace id-like path segments (UUID, ULID, all digits >= 4, hex >= 16, mixed alphanumeric >= 20 with a digit) with `:id`. Default false. */
+  maskPathIds?: boolean;
 }
 
 export const MASKED = "<masked>";
@@ -19,13 +23,38 @@ export const SENSITIVE_PARAMS = [
   "client_secret", "api_key", "apikey", "key", "auth", "authorization", "code", "otp", "email", "ssn",
 ];
 /** Properties that hold a full page URL. */
-const URL_KEYS = ["$current_url", "$referrer", "$initial_referrer", "$initial_current_url", "$last_current_url"];
+const URL_KEYS = ["$pathname", "$current_url", "$referrer", "$initial_referrer", "$initial_current_url", "$last_current_url"];
+
+const ID_SEGMENT = [
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  /^[0-9a-hjkmnp-tv-z]{26}$/i,
+  /^\d{4,}$/,
+  /^[0-9a-f]{16,}$/i,
+  /^(?=.*\d)[a-z0-9_-]{20,}$/i,
+];
 
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Applies the rules to one URL string. */
+function rewritePath(path: string, p: UrlPrivacy): string {
+  let out = path;
+  for (const r of p.pathRules ?? []) {
+    try {
+      out = out.replace(typeof r.match === "string" ? new RegExp(r.match) : r.match, r.replace);
+    } catch {
+      /* an invalid rule must not break capture */
+    }
+  }
+  return p.maskPathIds ? out.split("/").map((seg) => (ID_SEGMENT.some((re) => re.test(seg)) ? ":id" : seg)).join("/") : out;
+}
+
+/** Applies the rules to one URL string (absolute, or a path such as `$pathname` or a relative href). */
 export function privatizeUrl(url: string, p: UrlPrivacy): string {
   let out = url;
+  if (p.pathRules?.length || p.maskPathIds) {
+    // origin (if any) | path | query and fragment
+    const m = /^((?:[a-z][a-z0-9+.-]*:)?\/\/[^/?#]*)?([^?#]*)([\s\S]*)$/i.exec(out);
+    if (m) out = (m[1] ?? "") + rewritePath(m[2]!, p) + m[3];
+  }
   const names = [...SENSITIVE_PARAMS, ...(p.maskParams ?? []), ...(p.maskCampaignParams ? [...UTM_PARAMS, ...CLICK_IDS] : [])];
   if (names.length) {
     // a name is matched whole (`?` or `&` before, `=` after) and only in the query part, never in the fragment
@@ -54,6 +83,13 @@ export function urlPrivacyHook(p: UrlPrivacy): BeforeSend {
       if (typeof v !== "string") continue;
       const next = privatizeUrl(v, p);
       if (next !== v) (out ??= { ...props })[k] = next;
+    }
+    if (typeof props.$elements_chain === "string") {
+      const next = props.$elements_chain.replace(/href="((?:[^"\\]|\\.)*)"/g, (_, h: string) => `href="${privatizeUrl(h, p)}"`);
+      if (next !== props.$elements_chain) (out ??= { ...props }).$elements_chain = next;
+    }
+    if (Array.isArray(props.$elements)) {
+      (out ??= { ...props }).$elements = (props.$elements as Array<Record<string, unknown>>).map((e) => (typeof e?.href === "string" ? { ...e, href: privatizeUrl(e.href, p) } : e));
     }
     return out ?? props;
   };

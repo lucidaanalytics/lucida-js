@@ -227,7 +227,7 @@ inside `[data-lc-unmask]` or the unmask list (a mask selector inside still wins)
   All writes stay behind consent.
 - **Runtime config**: `client.setConfig(partial)` merges options one level deep; per-event options (debug, autocapture
   options, hooks, sampling, denylist, rate limit, persisted properties) apply at once.
-- **URL privacy**: well-known sensitive query params (`password`, `token`, `key`, `code`, `email`, ... see the quickstart) are always masked as `<masked>` in every URL sent and in replay; `urlPrivacy: {maskParams, maskCampaignParams, stripHash}` adds to that.
+- **URL privacy**: well-known sensitive query params (`password`, `token`, `key`, `code`, `email`, ... see the quickstart) are always masked as `<masked>` in every URL sent and in replay; `urlPrivacy: {maskParams, maskCampaignParams, stripHash, pathRules, maskPathIds}` adds to that. `pathRules: [{match, replace}]` rewrites the URL path in order (`String.replace` semantics; a string `match` is a regex source, a RegExp needs `g` to replace every match), `maskPathIds: true` turns id-like segments (UUID, ULID, 4+ digits, 16+ hex, 20+ mixed alphanumeric with a digit) into `:id`. Both apply to `$current_url`, `$referrer`, `$initial_*`, `$pathname`, replay URLs and autocapture hrefs.
 - **Delivery**: `assetHost` (default: the host `lucida.js` was loaded from) + `modules: ["replay", ...]` (classic script only) load versioned modules from
   `<assetHost>/static/v<version>/`; `nonce` goes on every injected `<style>`; `extension: true` (auto on extension pages) for
   Manifest V3. See docs/guides/sdk-pinning.md, csp.md and browser-extension.md.
@@ -258,6 +258,7 @@ Derived from `git log -S` on `sdks/browser/src` and the version bump commits (se
 |---|---|
 | `cookieMunchConsent` | 0.1.1 |
 | `urlPrivacy`, default sensitive-param masking | 0.1.1 |
+| `urlPrivacy.pathRules`, `urlPrivacy.maskPathIds`, `assetHost` as a path | 0.1.12 |
 | consent precedence (project `consent_mode`, geo default) | 0.1.5 |
 | `exposeGlobal`, server no-op client, `hasOptedIn()`, `onConsent()`, Watchtower session stamp | 0.1.6 |
 | Watchtower error and vital hooks (`$exception_seen`, `$web_vitals`) | 0.1.7 |
@@ -306,8 +307,9 @@ release is in `/static/v<version>/manifest.json`; `lucida init --framework html`
 - **`modules`** (init config, names only): `replay`, `heatmaps`, `forms`, `toolbar`, `guides`, `inspector`, `experiments`,
   `early-access`, `consent`. Each loads from `<assetHost>/static/v<this script's version>/<name>.js` before the client
   starts; one that fails to load is skipped. Not loaded in extension mode.
-- **`assetHost`, `uiHost`** default to the origin the script was loaded from (set `assetHost` only when the files are hosted
+- **`assetHost`, `uiHost`** default to the origin the script was loaded from (set `assetHost`, an absolute URL or a path on this site, only when the files are hosted
   elsewhere, `uiHost` only when replay links should point elsewhere). `apiHost` is where events go, default `https://capture.lucidace.com`.
+- **Self-hosting the classic script**: the npm package ships it under `dist/static/v<version>/` (`lucida.js`, the lazy modules and `manifest.json` with the SRI hashes). A self-hosted copy must keep the `/static/v<version>/` layout, because modules load next to `lucida.js`; set `assetHost` (an absolute URL, or a path on your site such as `/dashboard/lucida`) when serving from somewhere other than the page that loads the script.
 - **`modules: ["consent"]`** adds `client.consent.showBanner()` and follows Cookie Munch: once `CookieMunch.hasResponse` it maps
   `statistics` to analytics + replay and `marketing` to marketing, and follows its change events. Use it with `consent: { mode: "opt_in" }`.
 - **Integrity**: with a `manifest.json` next to the script (releases from 0.1.5 on publish one; 0.1.1 to 0.1.4 have none; keys are the served file names relative to `/static/v<ver>/`: `{version, files: {"lucida.js":

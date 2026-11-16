@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { privatizeUrl } from "../src/url-privacy.js";
+import { privatizeUrl, urlPrivacyHook } from "../src/url-privacy.js";
 import type { Client } from "../src/index.js";
 import { start } from "./helpers.js";
 
@@ -34,5 +34,37 @@ describe("urlPrivacy", () => {
     expect(String(e.properties.$current_url)).not.toContain("#");
     expect(JSON.stringify(e)).not.toContain("SECRET");
     expect(e.properties.$utm_medium).toBe("<masked>");
+  });
+
+  it("pathRules rewrite the path only, in order, for absolute URLs and bare paths", () => {
+    const p = { pathRules: [{ match: /\/instances\/[^/]+/g, replace: "/instances/:id" }, { match: "/users/\\d+", replace: "/users/:n" }] };
+    expect(privatizeUrl("https://a.test/instances/ab12/users/42?x=/users/7#/instances/z", p)).toBe("https://a.test/instances/:id/users/:n?x=/users/7#/instances/z");
+    expect(privatizeUrl("/instances/ab12/users/42", p)).toBe("/instances/:id/users/:n");
+    expect(privatizeUrl("/x", { pathRules: [{ match: "(", replace: "" }] })).toBe("/x"); // invalid rule is skipped
+  });
+
+  it("maskPathIds replaces id-like segments only", () => {
+    const u = "https://a.test/u/123e4567-e89b-12d3-a456-426614174000/o/01ARZ3NDEKTSV4RRFFQ69G5FAV/n/12345/h/0123456789abcdef/m/abcDEF123456ghiJKL789x/n/123/plain-slug";
+    expect(privatizeUrl(u, { maskPathIds: true })).toBe("https://a.test/u/:id/o/:id/n/:id/h/:id/m/:id/n/123/plain-slug");
+    expect(privatizeUrl(u, {})).toBe(u);
+  });
+
+  it("the hook applies path rules to $pathname, $current_url, $referrer, $initial_* and autocapture hrefs", () => {
+    const hook = urlPrivacyHook({ maskPathIds: true });
+    const out = hook({
+      event: "$autocapture",
+      properties: {
+        $pathname: "/users/12345",
+        $current_url: "https://a.test/users/12345?a=1",
+        $referrer: "https://r.test/users/99999",
+        $elements_chain: 'a:href="/users/12345"nth-child="1"nth-of-type="1"',
+        $elements: [{ tag_name: "a", href: "/users/12345" }],
+      },
+      $set_once: { $initial_current_url: "https://a.test/users/12345" },
+    } as never) as unknown as { properties: Record<string, unknown>; $set_once: Record<string, unknown> };
+    expect(JSON.stringify(out)).not.toContain("12345");
+    expect(JSON.stringify(out)).not.toContain("99999");
+    expect(out.properties.$pathname).toBe("/users/:id");
+    expect(out.properties.$elements_chain).toContain('href="/users/:id"');
   });
 });

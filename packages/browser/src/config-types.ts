@@ -31,7 +31,7 @@ export interface StorageConfig {
 }
 
 export interface DeliveryConfig {
-  /** Origin that serves the SDK's versioned static files (`/static/v<version>/...`). Default `apiHost`. */
+  /** Where the SDK's versioned static files (`/static/v<version>/...`) are served: an absolute URL or a path on this site (`/dashboard/lucida`, resolved against the page URL). Default `apiHost`. */
   assetHost?: string;
   /** Classic script only: modules to load from `assetHost` before the client starts. Refused in extension mode. */
   modules?: LazyModuleName[];

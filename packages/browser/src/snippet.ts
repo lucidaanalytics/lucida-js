@@ -1,5 +1,5 @@
 import { DEFAULT_HOST, LIB_VERSION } from "./client.js";
-import { isExtensionPage, loadModules } from "./delivery.js";
+import { isExtensionPage, loadModules, resolveAssetHost } from "./delivery.js";
 import { exposeGlobal } from "./global.js";
 import { init } from "./index.js";
 import type { Importer } from "./delivery.js";
@@ -30,7 +30,7 @@ function lazyModules(cfg: BrowserConfig, importer?: Importer, fetchImpl?: typeof
     console.warn("[lucida] extension mode: `modules` are not loaded remotely; bundle them with createClient");
     return Promise.resolve([]);
   }
-  const assetHost = cfg.assetHost ?? scriptOrigin ?? cfg.apiHost ?? DEFAULT_HOST; // the loader's own host serves its modules
+  const assetHost = (cfg.assetHost ? resolveAssetHost(cfg.assetHost) : undefined) ?? scriptOrigin ?? cfg.apiHost ?? DEFAULT_HOST; // the loader's own host serves its modules
   return loadModules(cfg.modules, { assetHost, version: LIB_VERSION }, (...a) => console.warn("[lucida]", ...a), importer, fetchImpl);
 }
 

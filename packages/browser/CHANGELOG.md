@@ -2,6 +2,16 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.12 (2026-11-17)
+
+Added:
+- `urlPrivacy.pathRules` (`[{match, replace}]`, applied in order with `String.replace` semantics) and `urlPrivacy.maskPathIds` (UUID, ULID, long digit, long hex and long mixed-alphanumeric segments become `:id`). Both apply to every URL the SDK sends: `$current_url`, `$referrer`, `$initial_*`, `$pathname`, replay meta URLs and autocapture hrefs (`$elements_chain`, `$elements`).
+- `assetHost` accepts a path on this site (`/dashboard/lucida`), resolved against the page URL; a trailing slash is dropped.
+
+Docs:
+- README: where the npm package ships the classic script, and self-hosting rules.
+- Confirmed in `consent: { mode: "opt_in" }` (without `geo`) no request and no storage write happens before consent is granted; a test pins it.
+
 ## 0.1.11 (2026-11-16)
 
 Fixed:

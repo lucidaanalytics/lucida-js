@@ -7,6 +7,9 @@ const EXTENSION_PROTOCOLS = ["chrome-extension:", "moz-extension:", "safari-web-
 
 export const isExtensionPage = (): boolean => typeof location !== "undefined" && EXTENSION_PROTOCOLS.includes(location.protocol);
 
+/** `assetHost` may be an absolute URL or a path on this site (`/dashboard/lucida`): resolved against the page URL, trailing slash dropped. */
+export const resolveAssetHost = (assetHost: string): string => new URL(assetHost, location.href).href.replace(/\/+$/, "");
+
 /** Immutable, versioned URL of an SDK static file: `<assetHost>/static/v<version>/<file>`. */
 export const assetUrl = (assetHost: string, version: string, file: string): string =>
   `${assetHost.replace(/\/+$/, "")}/static/v${version}/${file}`;
