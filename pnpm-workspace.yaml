@@ -3,3 +3,7 @@ packages:
 # shortcut: rollup 4.68.2 shipped without its platform binaries (npm 404, 2026-11-09); drop this pin once a later rollup installs.
 overrides:
   rollup: 4.68.1
+  # The mirror has no lockfile; a fresh resolve paired react-dom 18 with react 19 (2026-11-17), so hold React
+  # at the line the monorepo lockfile tests against.
+  react: 18.3.1
+  react-dom: 18.3.1
