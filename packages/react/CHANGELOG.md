@@ -2,6 +2,10 @@
 
 Built from the git history of `sdks/react` and its version bumps.
 
+## 0.1.5
+
+- The built bundle starts with `"use client"`, so `import { LucidaTag } from "@lucida-analytics/react"` works from a React Server Component (Next App Router `app/layout.tsx`) with no wrapper file.
+
 ## 0.1.4 (2026-11-16)
 
 Added:
