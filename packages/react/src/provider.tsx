@@ -23,9 +23,9 @@ export interface LucidaProviderProps {
   /** Server-resolved flags: rendered on the server and first client render (no flicker). */
   bootstrapFlags?: Flags;
   /** Your signed-in user id: identifies when it becomes a non-empty string, resets when it goes from a string to null/undefined/"" (never on an initial signed-out render). */
-  identify?: string | null;
+  identify?: string | null | undefined;
   /** Person properties sent with `identify`. */
-  identifyProps?: Record<string, unknown>;
+  identifyProps?: Record<string, unknown> | undefined;
   children?: ReactNode;
 }
 

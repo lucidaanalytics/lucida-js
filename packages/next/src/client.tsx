@@ -27,9 +27,9 @@ export interface LucidaNextProviderProps {
   /** Pages Router `useRouter()` result: sends `$route` from `router.pathname` the same way. */
   router?: { pathname: string; asPath: string };
   /** Your signed-in user id (e.g. `session?.user.id ?? null`): identifies on sign-in, resets on sign-out (never on an initial signed-out render). */
-  identify?: string | null;
+  identify?: string | null | undefined;
   /** Person properties sent with `identify`. */
-  identifyProps?: Record<string, unknown>;
+  identifyProps?: Record<string, unknown> | undefined;
   children?: ReactNode;
 }
 

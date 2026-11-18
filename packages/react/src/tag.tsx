@@ -13,9 +13,9 @@ export interface LucidaTagProps {
   /** Identify this user once the client is ready; re-identifies when it changes. */
   uid?: string;
   /** Your signed-in user id: identifies when it becomes a non-empty string, resets on a signed-in to signed-out transition only. */
-  identify?: string | null;
+  identify?: string | null | undefined;
   /** Person properties sent with `identify`. */
-  identifyProps?: Record<string, unknown>;
+  identifyProps?: Record<string, unknown> | undefined;
   /** Merged over the defaults (`consent.mode: "opt_in"`, `referralParams: []`, `exposeGlobal: true`). */
   options?: BrowserConfig;
   /** Extra browser modules, after the Cookie Munch follower. */
