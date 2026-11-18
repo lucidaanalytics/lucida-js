@@ -2,6 +2,11 @@
 
 Built from the git history of `sdks/react` and its version bumps.
 
+## 0.1.6 (2026-11-18)
+
+Added:
+- `identify` and `identifyProps` on `LucidaProvider` and `LucidaTag`, and the `useIdentityTransition(client, id, props)` hook: identify when the id becomes a non-empty string, `reset()` only on a signed-in to signed-out transition.
+
 ## 0.1.5
 
 - The built bundle starts with `"use client"`, so `import { LucidaTag } from "@lucida-analytics/react"` works from a React Server Component (Next App Router `app/layout.tsx`) with no wrapper file.

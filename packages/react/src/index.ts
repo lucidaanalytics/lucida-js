@@ -8,5 +8,6 @@ export { useEarlyAccess } from "./early-access.js";
 export type { UseEarlyAccess } from "./early-access.js";
 export { CaptureOnViewed, Feature } from "./viewed.js";
 export type { CaptureOnViewedProps, FeatureProps } from "./viewed.js";
+export { useIdentityTransition } from "./identity.js";
 export { LucidaTag } from "./tag.js";
 export type { LucidaTagProps } from "./tag.js";

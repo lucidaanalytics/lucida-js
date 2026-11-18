@@ -2,6 +2,11 @@
 
 Built from the git history of `sdks/next` and its version bumps.
 
+## 0.1.6 (2026-11-18)
+
+Added:
+- `LucidaNextProvider` and `LucidaPagesProvider` take `identify` (your signed-in user id) and `identifyProps`: identify on sign-in, `reset()` on sign-out only.
+
 ## 0.1.5 (2026-11-11)
 
 Added:

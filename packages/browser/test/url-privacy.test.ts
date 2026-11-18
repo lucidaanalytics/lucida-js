@@ -24,6 +24,10 @@ describe("urlPrivacy", () => {
     );
   });
 
+  it("masks OAuth state and magic-link session params", () => {
+    expect(privatizeUrl("https://a.test/cb?state=S&session=T&q=1", {})).toBe("https://a.test/cb?state=<masked>&session=<masked>&q=1");
+  });
+
   it("applies to $current_url, $referrer and the initial_* person properties on sent events", async () => {
     history.replaceState({}, "", "/landing?token=SECRET&utm_medium=mail#top");
     const { client, t } = start({ autocapture: false, urlPrivacy: { maskParams: ["token"], maskCampaignParams: true, stripHash: true } });

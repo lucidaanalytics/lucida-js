@@ -1,4 +1,4 @@
-import type { Host, Module } from "../types.js";
+import type { Client, Host, Module } from "../types.js";
 import { applyConsent } from "./record.js";
 
 /** Bridge decisions: skip unchanged re-announcements, mirror the decision into the first-party `lc_consent` cookie (read by the Next edge helpers). */
@@ -234,6 +234,29 @@ interface CmGlobal {
   consentReceiptId?: unknown;
   consentId?: unknown;
   ledgerId?: unknown;
+  getSubjectId?: () => Promise<unknown> | unknown;
+}
+
+/** Set `$cm_subject_id` from `CookieMunch.getSubjectId()` after every identify() (unless the app passed its own) and once now if already identified. Never throws, never blocks identify. */
+function syncSubjectId(host: Host): () => void {
+  const send = async (): Promise<void> => {
+    try {
+      const id = await (window as { CookieMunch?: CmGlobal }).CookieMunch?.getSubjectId?.();
+      if (typeof id === "string" && id) host.client.setPersonProperties({ $cm_subject_id: id });
+    } catch {
+      /* Cookie Munch not ready: the next identify retries */
+    }
+  };
+  const client = host.client as { identify: Client["identify"] };
+  const orig = client.identify;
+  client.identify = (id, set, once) => {
+    orig(id, set, once);
+    if (set?.$cm_subject_id === undefined) void send();
+  };
+  if (host.core.identity.isIdentified) void send();
+  return () => {
+    client.identify = orig;
+  };
 }
 
 /** The receipt / ledger id Cookie Munch exposes for the visitor's current decision (event detail first, then the global), if any. */
@@ -260,7 +283,11 @@ export function cookieMunchBridge(o: { replayCategory?: string } = {}): Module {
     };
     for (const e of CM_EVENTS) window.addEventListener(e, read);
     read();
-    return () => CM_EVENTS.forEach((e) => window.removeEventListener(e, read));
+    const unsync = syncSubjectId(host);
+    return () => {
+      unsync();
+      CM_EVENTS.forEach((e) => window.removeEventListener(e, read));
+    };
   };
 }
 
@@ -268,5 +295,9 @@ export function cookieMunchBridge(o: { replayCategory?: string } = {}): Module {
  * Follow Cookie Munch (cookiemunch.net): `CookieMunch.consent` once the visitor has a decision (`hasResponse`; the
  * snapshot is all-false before that, which is never read as a decline), then its change events. Cookie Munch is
  * Cookiebot-compatible, so `cookiebotConsent` also works; this one uses the native event names.
+ *
+ * It also sets the person property `$cm_subject_id` from `await CookieMunch.getSubjectId()` after each `identify()`
+ * (and once at start when already identified), only when that resolves to a non-empty string and the app did not pass
+ * its own `$cm_subject_id` to `identify`.
  */
 export const cookieMunchConsent: Module = cookieMunchBridge();

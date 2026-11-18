@@ -20,7 +20,7 @@ export const MASKED = "<masked>";
 /** Always masked, case-insensitively, in every URL property and replay meta event (a GET login form must not leak credentials). */
 export const SENSITIVE_PARAMS = [
   "password", "passwd", "pwd", "pass", "token", "access_token", "refresh_token", "id_token", "secret",
-  "client_secret", "api_key", "apikey", "key", "auth", "authorization", "code", "otp", "email", "ssn",
+  "client_secret", "state", "session", "api_key", "apikey", "key", "auth", "authorization", "code", "otp", "email", "ssn",
 ];
 /** Properties that hold a full page URL. */
 const URL_KEYS = ["$pathname", "$current_url", "$referrer", "$initial_referrer", "$initial_current_url", "$last_current_url"];

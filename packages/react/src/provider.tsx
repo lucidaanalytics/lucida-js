@@ -2,6 +2,7 @@ import { init } from "@lucida-analytics/browser";
 import type { BrowserConfig, Client, FlagValue, Module } from "@lucida-analytics/browser";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { useIdentityTransition } from "./identity.js";
 
 export type Flags = Record<string, FlagValue>;
 
@@ -21,6 +22,10 @@ export interface LucidaProviderProps {
   modules?: Module[];
   /** Server-resolved flags: rendered on the server and first client render (no flicker). */
   bootstrapFlags?: Flags;
+  /** Your signed-in user id: identifies when it becomes a non-empty string, resets when it goes from a string to null/undefined/"" (never on an initial signed-out render). */
+  identify?: string | null;
+  /** Person properties sent with `identify`. */
+  identifyProps?: Record<string, unknown>;
   children?: ReactNode;
 }
 
@@ -45,6 +50,7 @@ function resolveClient(p: LucidaProviderProps): Client | null {
 export function LucidaProvider(p: LucidaProviderProps) {
   const client = resolveClient(p);
   const [flags, setFlags] = useState<Flags>(p.bootstrapFlags ?? {});
+  useIdentityTransition(client, p.identify, p.identifyProps);
   useEffect(() => client?.onFlags((f) => setFlags(f)), [client]);
   return <LucidaContext.Provider value={{ client, flags }}>{p.children}</LucidaContext.Provider>;
 }

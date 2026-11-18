@@ -1,7 +1,8 @@
 "use client";
 
 import type { BrowserConfig, Client, Module } from "@lucida-analytics/browser";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useIdentityTransition } from "./identity.js";
 
 export interface LucidaTagProps {
   /**
@@ -11,6 +12,10 @@ export interface LucidaTagProps {
   publicKey?: string;
   /** Identify this user once the client is ready; re-identifies when it changes. */
   uid?: string;
+  /** Your signed-in user id: identifies when it becomes a non-empty string, resets on a signed-in to signed-out transition only. */
+  identify?: string | null;
+  /** Person properties sent with `identify`. */
+  identifyProps?: Record<string, unknown>;
   /** Merged over the defaults (`consent.mode: "opt_in"`, `referralParams: []`, `exposeGlobal: true`). */
   options?: BrowserConfig;
   /** Extra browser modules, after the Cookie Munch follower. */
@@ -61,10 +66,13 @@ function envKey(): string | undefined {
 /** One-line, consent-gated analytics loader. Renders nothing, never throws. */
 export function LucidaTag(p: LucidaTagProps): null {
   const key = p.publicKey ?? envKey();
+  const [client, setClient] = useState<Client | null>(null);
+  useIdentityTransition(client, p.identify, p.identifyProps);
   useEffect(() => {
     if (!key) return;
     let live = true;
     void start(key, p).then((c) => {
+      if (live && c) setClient(c);
       if (live && c && p.uid) c.identify(p.uid);
     });
     return () => {

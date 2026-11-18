@@ -26,11 +26,15 @@ export interface LucidaNextProviderProps {
   routeTemplates?: boolean;
   /** Pages Router `useRouter()` result: sends `$route` from `router.pathname` the same way. */
   router?: { pathname: string; asPath: string };
+  /** Your signed-in user id (e.g. `session?.user.id ?? null`): identifies on sign-in, resets on sign-out (never on an initial signed-out render). */
+  identify?: string | null;
+  /** Person properties sent with `identify`. */
+  identifyProps?: Record<string, unknown>;
   children?: ReactNode;
 }
 
 /** `LucidaProvider` wired for Next: first-party `/ingest` host, server bootstrap for flags and the distinct id. */
-export function LucidaNextProvider({ apiKey, bootstrap, options, modules, routeTemplates, router, children }: LucidaNextProviderProps) {
+export function LucidaNextProvider({ apiKey, bootstrap, options, modules, routeTemplates, router, identify, identifyProps, children }: LucidaNextProviderProps) {
   const templated = !!routeTemplates || !!router;
   const merged: BrowserConfig = {
     apiHost: "/ingest",
@@ -40,7 +44,7 @@ export function LucidaNextProvider({ apiKey, bootstrap, options, modules, routeT
     ...(bootstrap ? { bootstrap: { ...options?.bootstrap, distinctId: bootstrap.distinctId } } : {}),
   };
   return (
-    <LucidaProvider apiKey={apiKey} options={merged} {...(modules ? { modules } : {})} {...(bootstrap ? { bootstrapFlags: bootstrap.flags } : {})}>
+    <LucidaProvider apiKey={apiKey} options={merged} {...(modules ? { modules } : {})} {...(identify !== undefined ? { identify } : {})} {...(identifyProps ? { identifyProps } : {})} {...(bootstrap ? { bootstrapFlags: bootstrap.flags } : {})}>
       {routeTemplates ? <LucidaRouteViews /> : null}
       {router ? <LucidaPagesRouteViews router={router} /> : null}
       {children}

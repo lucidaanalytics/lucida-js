@@ -68,3 +68,24 @@ describe("Cookie Munch receipt and replay category", () => {
     expect(cookieMunchToConsent({ statistics: true })).toMatchObject({ analytics: true, replay: true });
   });
 });
+
+describe("cookieMunchBridge $cm_subject_id", () => {
+  const subjectEvents = async (client: Client, t: ReturnType<typeof fakeTransport>) => {
+    await new Promise((r) => setTimeout(r, 0));
+    await client.flush();
+    return t.events().filter((e) => (e as { $set?: Record<string, unknown> }).$set?.$cm_subject_id !== undefined || e.properties.$set !== undefined);
+  };
+
+  it("sets it after identify from getSubjectId, never when the app passed its own or the id is empty", async () => {
+    const { t, client } = boot([cookieMunchBridge()]);
+    cm({ hasResponse: true, consent: { statistics: true }, getSubjectId: async () => "sub_1" });
+    fire();
+    client.identify("u1");
+    expect(JSON.stringify(await subjectEvents(client, t))).toContain("sub_1");
+    const own = boot([cookieMunchBridge()]);
+    own.client.identify("u2", { $cm_subject_id: "mine" });
+    expect(JSON.stringify(await subjectEvents(own.client, own.t))).not.toContain("sub_1");
+    cm({ hasResponse: true, consent: { statistics: true }, getSubjectId: async () => undefined });
+    expect(() => client.identify("u3")).not.toThrow();
+  });
+});

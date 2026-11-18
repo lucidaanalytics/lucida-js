@@ -2,6 +2,14 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.13 (2026-11-18)
+
+Added:
+- `cookieMunchConsent` sets the person property `$cm_subject_id` from `await CookieMunch.getSubjectId()` after each `identify()` (and once at start when already identified), only when it resolves to a non-empty string and the app did not pass its own `$cm_subject_id`. It never throws and never delays `identify`.
+
+Changed:
+- `state` (OAuth) and `session` (magic-link) join the always-masked URL query parameters.
+
 ## 0.1.12 (2026-11-17)
 
 Added:

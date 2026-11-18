@@ -17,6 +17,9 @@ export async function middleware(req: NextRequest) { // Next 16: export async fu
 const b = await getBootstrap(await headers(), opts); // opts.middleware = true to trust the forwarded headers
 <LucidaNextProvider apiKey={key} bootstrap={b}>{children}</LucidaNextProvider>
 
+// Tie Lucida to your session: identify on sign-in, reset on sign-out (not on a first signed-out render)
+<LucidaNextProvider apiKey={key} bootstrap={b} identify={session?.user.id ?? null}>{children}</LucidaNextProvider>
+
 // pages/_app.tsx + page (Pages Router)
 export const getServerSideProps = withLucida(async () => ({ props: {} }), opts);
 <LucidaPagesProvider apiKey={key} pageProps={pageProps}><Component {...pageProps} /></LucidaPagesProvider>
