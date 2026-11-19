@@ -31,6 +31,8 @@ jobs:
           pnpm --filter @lucida-analytics/react-native pack --pack-destination "$RUNNER_TEMP"
       - name: Fresh Expo app with the package and plugin
         run: |
+          # Resolve only versions at least a day old: a fresh publish can 404 on npm's CDN for a while.
+          export npm_config_before="$(node -p 'new Date(Date.now() - 864e5).toISOString()')"
           npx --yes "$CREATE_EXPO_APP" example --template blank-typescript@sdk-52 --no-install
           cd example
           npm install --legacy-peer-deps "$RUNNER_TEMP"/lucida-analytics-react-native-*.tgz
@@ -58,6 +60,8 @@ jobs:
           pnpm --filter @lucida-analytics/react-native pack --pack-destination "$RUNNER_TEMP"
       - name: Fresh Expo app with the package and plugin
         run: |
+          # Resolve only versions at least a day old: a fresh publish can 404 on npm's CDN for a while.
+          export npm_config_before="$(node -p 'new Date(Date.now() - 864e5).toISOString()')"
           npx --yes "$CREATE_EXPO_APP" example --template blank-typescript@sdk-52 --no-install
           cd example
           npm install --legacy-peer-deps "$RUNNER_TEMP"/lucida-analytics-react-native-*.tgz
