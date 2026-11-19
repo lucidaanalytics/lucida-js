@@ -1,6 +1,6 @@
 {
   "name": "@lucida-analytics/browser",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/browser" },
   "homepage": "https://lucidace.com/help/quickstart",
@@ -19,6 +19,7 @@
     "./toolbar": "./src/toolbar/index.ts",
     "./inspector": "./src/inspector/index.ts",
     "./consent": "./src/consent/index.ts",
+    "./atlas": "./src/atlas/index.ts",
     "./correlate": "./src/watchtower/correlate.ts",
     "./host-headers": "./src/host-headers.ts",
     "./replay": "./src/replay/index.ts",
@@ -68,6 +69,10 @@
       "./consent": {
         "types": "./dist/consent.d.ts",
         "default": "./dist/consent.js"
+      },
+      "./atlas": {
+        "types": "./dist/atlas.d.ts",
+        "default": "./dist/atlas.js"
       },
       "./correlate": {
         "types": "./dist/correlate.d.ts",

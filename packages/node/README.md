@@ -56,6 +56,13 @@ dropped or `captureImmediate` fails, `maxBatchSize` (per request, separate from 
 Personless events: `capture({ event, processPersonProfile: false })` sends `$process_person_profile: false` and a random
 UUID distinct id when none is given.
 
+## One-shot capture
+
+`captureImmediate({ event, distinctId, properties?, $set?, uuid?, timestamp? }, { apiKey?, host? })` (a root export, no client
+needed) sends one event with a single POST to `${host}/v1/batch` and resolves `{ ok, status?, error? }`. It never throws, has
+a 5 s timeout, retries nothing and queues nothing. The key comes from `apiKey` or `LUCIDA_SECRET_KEY`, the host from `host`,
+`LUCIDA_HOST`, or `https://capture.lucidace.com`; with no key it resolves `{ ok: false }` without any request.
+
 ## Flags
 
 With a `secretKey` the SDK polls `GET /v1/flags/definitions` and evaluates locally with the shared sdk-core evaluator

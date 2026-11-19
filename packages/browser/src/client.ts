@@ -16,7 +16,7 @@ import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.14";
+export const LIB_VERSION = "0.1.15";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
@@ -93,6 +93,8 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       ...(!disabled && (config.consent?.geo || config.consent?.mode !== "opt_in") ? { awaitRemote: true } : {}),
       respectDnt: true,
       dnt,
+      // page left respectGpc unset: the project's remote `respect_gpc` decides
+      ...(gpc && config.respectGpc === undefined && legacy === undefined ? { gpcSignal: true } : {}),
     },
     queue: {
       ...(config.flushAt ? { flushAt: config.flushAt } : {}),
@@ -436,7 +438,12 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
     if (!modules.length) void host.loadConfig();
     connectDevtools(host, client, apiHost);
   }
+  // Watchtower finds Lucida only through the global, so detecting it turns exposure on unless the page said otherwise.
   exposeGlobal(client, config.exposeGlobal);
+  if (config.exposeGlobal === undefined && !disabled) {
+    if ((globalThis as { watchtower?: unknown }).watchtower) exposeGlobal(client, true);
+    else window.addEventListener("watchtower:ready", () => exposeGlobal(client, true), { once: true });
+  }
   log("initialised", { apiHost, consent: core.getConsent() });
   return client;
 }

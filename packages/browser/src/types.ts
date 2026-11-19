@@ -240,6 +240,8 @@ export interface RemoteConfig {
   consent_default?: "opt_in" | "opt_out" | "cookieless";
   /** The project's consent mode; it can only make the page's `consent.mode` stricter. */
   consent_mode?: "off" | "opt_in" | "opt_out";
+  /** Project-level: treat Global Privacy Control as an opt-out (the page's own `respectGpc` wins). */
+  respect_gpc?: boolean;
   consent_country?: string;
   consent_region?: string;
   [k: string]: unknown;

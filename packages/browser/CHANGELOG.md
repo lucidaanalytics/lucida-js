@@ -2,6 +2,14 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.15 (2026-11-19)
+
+Added:
+- Declining analytics while identified sends one identified `$consent_updated` that sets `$consent_analytics`/`$consent_replay` to `denied` on the person (no longer only an anonymous `logBeacon` record).
+- `@lucida-analytics/browser/atlas`: `atlasIdentity({ property? })` follows the Atlas browser session (`window.Atlas.session`, `atlas:session` event): identifies on sign-in, resets on sign-out (only if it identified), and optionally sets a person property to the Atlas user id.
+- `exposeGlobal` defaults to on when a Watchtower browser SDK is on the page (`globalThis.watchtower` at init, or a later `watchtower:ready`). An explicit `exposeGlobal: false` still wins.
+- The project's `respect_gpc` (remote config) applies Global Privacy Control as an opt-out when the page does not set `respectGpc` itself.
+
 ## 0.1.14 (2026-11-19)
 
 Fixed:

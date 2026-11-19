@@ -32,6 +32,8 @@ export interface ConsentOptions {
   /** opt_out mode only: treat Do Not Track / Global Privacy Control as a denial. */
   respectDnt?: boolean;
   dnt?: boolean;
+  /** The browser sent a GPC signal and the page left `respectGpc` unset: the project's `respect_gpc` (setRemoteGpc) decides. */
+  gpcSignal?: boolean;
   /** Storage key of the stored decision (default `lc_consent`); set it to share one decision across SDK instances or to match your CMP. */
   storageKey?: string;
   /**
@@ -55,6 +57,7 @@ export class Consent {
   private decided = false;
   private waiting: boolean;
   private geoCookieless = false;
+  private remoteGpc = false;
   private readonly key: string;
   private listeners: Array<(s: ConsentState, prev: ConsentState) => void> = [];
 
@@ -82,12 +85,17 @@ export class Consent {
 
   /** Whether the current mode starts categories granted. */
   private opens(): boolean {
-    return this.modeNow === "opt_out" && !(this.o.respectDnt && this.o.dnt);
+    return this.modeNow === "opt_out" && !(this.o.respectDnt && (this.o.dnt || (this.o.gpcSignal && this.remoteGpc)));
   }
 
   /** The effective mode: the local one, or the geo default once resolve() applied it. */
   get mode(): ConsentMode {
     return this.modeNow;
+  }
+
+  /** The project's `respect_gpc`; call before resolve(). */
+  setRemoteGpc(v: boolean): void {
+    this.remoteGpc = v;
   }
 
   /** True until resolve() ran on a consent that awaits the remote geo default. */

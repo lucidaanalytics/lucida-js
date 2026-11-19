@@ -26,6 +26,7 @@ const dtsEntries = {
   "host-headers": "src/host-headers.ts",
   replay: "src/replay/index.ts",
   consent: "src/consent/index.ts",
+  atlas: "src/atlas/index.ts",
   guides: "src/guides/index.ts",
 };
 
@@ -47,6 +48,7 @@ export default defineConfig([
       toolbar: "src/toolbar/index.ts",
       inspector: "src/inspector/index.ts",
       correlate: "src/watchtower/correlate.ts",
+      atlas: "src/atlas/index.ts",
       "host-headers": "src/host-headers.ts",
     },
     splitting: false,

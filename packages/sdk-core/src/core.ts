@@ -341,8 +341,9 @@ export class Core {
   }
 
   /** Apply the project settings of `GET /v1/config`: the session definition and the geo consent default. */
-  applyRemote(r: RemoteSessionSettings & { consent_default?: string; consent_mode?: string }): void {
+  applyRemote(r: RemoteSessionSettings & { consent_default?: string; consent_mode?: string; respect_gpc?: boolean }): void {
     this.session.configure(r);
+    this.consent.setRemoteGpc(r.respect_gpc === true);
     this.resolveConsent(resolveConsentDefault(this.consent.mode, r.consent_mode, r.consent_default));
   }
 

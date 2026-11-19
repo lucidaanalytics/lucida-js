@@ -24,3 +24,22 @@ it("optIn sends $consent_updated; optOut sends an anonymous beacon only with log
   await new Promise((r) => setTimeout(r, 10));
   expect(b.sent.join("")).not.toContain("$consent_updated");
 });
+
+it("declining after identify sends exactly one identified $consent_updated, then nothing", async () => {
+  const { c, sent } = await mk(false);
+  c.optIn();
+  await c.flush();
+  c.identify("u1");
+  await c.flush();
+  sent.length = 0;
+  c.optOut();
+  c.capture("later");
+  await new Promise((r) => setTimeout(r, 20));
+  await c.flush();
+  const evs = sent.flatMap((b) => JSON.parse(b).batch as { event: string; distinct_id?: string; $set?: Record<string, string> }[]);
+  const rec = evs.filter((e) => e.event === "$consent_updated");
+  expect(rec).toHaveLength(1);
+  expect(rec[0]?.distinct_id).toBe("u1");
+  expect(rec[0]?.$set).toEqual({ $consent_analytics: "denied", $consent_replay: "denied" });
+  expect(evs.some((e) => e.event === "later")).toBe(false);
+});

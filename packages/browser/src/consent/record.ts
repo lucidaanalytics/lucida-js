@@ -38,6 +38,8 @@ export function applyConsent(
   opts: { version?: string; onlyIfChanged?: boolean; cookie?: boolean; receiptId?: string } = {},
 ): void {
   const before = JSON.stringify(host.core.getConsent());
+  const identified = host.core.identity.isIdentified && !host.config.disabled;
+  const did = host.core.distinctId;
   host.client.setConsent(update);
   const categories = host.core.getConsent();
   if (opts.cookie) writeDecisionCookies(categories.analytics, host.core.identity.isIdentified ? undefined : host.core.distinctId);
@@ -49,10 +51,12 @@ export function applyConsent(
     ...(opts.receiptId ? { consent_receipt_id: opts.receiptId } : {}),
   };
   if (host.core.hasConsent("analytics")) host.client.capture(CONSENT_EVENT, props);
-  else if (host.config.consent?.logBeacon && !host.config.disabled) {
+  else if (identified || (host.config.consent?.logBeacon && !host.config.disabled)) {
+    // An identified decliner is recorded on their person (one direct POST past the consent gate); an anonymous one only with logBeacon.
+    const ev = { uuid: uuidv7(Date.now()), event: CONSENT_EVENT, timestamp: new Date().toISOString(), properties: { ...props, $lib: "lucida-browser" } };
     const body = JSON.stringify({
       api_key: host.apiKey,
-      batch: [{ uuid: uuidv7(Date.now()), event: CONSENT_EVENT, timestamp: new Date().toISOString(), properties: { ...props, $lib: "lucida-browser" } }],
+      batch: [identified ? { ...ev, distinct_id: did, $set: { $consent_analytics: "denied", $consent_replay: "denied" } } : ev],
       sent_at: new Date().toISOString(),
     });
     void host.fetch(`${host.config.apiHost}/v1/batch`, { method: "POST", body, keepalive: true, credentials: "omit", headers: { "Content-Type": "text/plain" } }).catch(() => {});

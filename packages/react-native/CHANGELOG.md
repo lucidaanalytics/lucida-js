@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Declining consent while identified sends one identified `$consent_updated` (categories false, `$set` `$consent_analytics`/`$consent_replay` `denied`) before capture stops, so server-side consent gating can drop the person's server events.
+
 ## 0.2.0
 
 - BREAKING: UI components (`LucidaGuides`, `GuideAnchor`, `LucidaMask`, `LucidaUnmask`, `LucidaTouchCapture`, `measureAnchor`, `registerAnchor`,

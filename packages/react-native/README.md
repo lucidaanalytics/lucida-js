@@ -8,6 +8,7 @@ local flag evaluation). Native modules are injected, never imported by the root 
 Expo: `npx expo install @lucida-analytics/react-native`, add `"plugins": ["@lucida-analytics/react-native"]` to `app.json`, then `npx expo prebuild`.
 Bare React Native: `npm i @lucida-analytics/react-native`, then `cd ios && pod install` (autolinking picks up the podspec and `android/`).
 The native module (`NativeModules.LucidaReplay`) is only needed for replay, the queue cipher and install attribution.
+Native builds: the public mirror runs `.github/workflows/rn-native.yml` (fresh Expo SDK 52 app + config plugin, `assembleDebug` and an iOS simulator build); see its latest run for the current result.
 The native code is bundled (the Lucida iOS and Android SDK sources ship inside the package): no extra pod or Maven dependency.
 Status: the podspec, Gradle module and plugin are written but not yet verified in a real Xcode/Gradle build.
 
