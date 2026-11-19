@@ -10,7 +10,7 @@ Bare React Native: `npm i @lucida-analytics/react-native`, then `cd ios && pod i
 The native module (`NativeModules.LucidaReplay`) is only needed for replay, the queue cipher and install attribution.
 Native builds: the public mirror runs `.github/workflows/rn-native.yml` (fresh Expo SDK 52 app + config plugin, `assembleDebug` and an iOS simulator build); see its latest run for the current result.
 The native code is bundled (the Lucida iOS and Android SDK sources ship inside the package): no extra pod or Maven dependency.
-Status: the podspec, Gradle module and plugin are written but not yet verified in a real Xcode/Gradle build.
+Status: built in a fresh Expo SDK 52 app on every release (CI `rn-native`): `expo prebuild` with the plugin, Gradle `assembleDebug` with `LucidaReactPackage` autolinked into the APK, and `pod install` plus an iOS simulator build compiling `LucidaReplay`.
 
 UI components moved to `@lucida-analytics/react-native/ui` (`LucidaGuides`, `GuideAnchor`, `LucidaMask`, `LucidaUnmask`, `LucidaTouchCapture`).
 Expo Router: `import { useExpoRouterScreens } from "@lucida-analytics/react-native/expo-router"; useExpoRouterScreens(client);` sends one `$screen`
@@ -122,8 +122,8 @@ resolves JSON text `{"width","height","events":[meta (type 4), fullSnapshot (typ
 be captured. The implementations ship in the package and autolink: iOS `ios/LucidaReplay.swift` + `.m` (bundled Lucida iOS SDK), Android `LucidaReplayModule.kt`
 registered by `LucidaReactPackage` (bundled Lucida Android SDK).
 
-They are not yet verified in a real Xcode/Gradle build; everything they call is covered
-by `swift test` (ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest). Verify in a real app before shipping.
+They compile and link in the CI `rn-native` build (Expo SDK 52, Android and iOS simulator); their behaviour is covered
+by `swift test` (ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest). The build does not run the app on a device.
 
 ### Session replay: privacy additions
 
