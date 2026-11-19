@@ -10,12 +10,13 @@ import { exposeGlobal } from "./global.js";
 import { noopClient } from "./noop-client.js";
 import { takeLinker } from "./linker.js";
 import { installPolicy } from "./policy.js";
+import { defaultUiHost } from "./ui-host.js";
 import { DebouncedStorage, WebStorageAdapter, createStorage, keySuffix, purgeStored } from "./storage.js";
 import { browserTransport, noopTransport } from "./transport.js";
 import type { BrowserConfig, Client, FlagsService, Host, Module, Persistence, RemoteConfig } from "./types.js";
 
 export const LIB = "lucida-browser";
-export const LIB_VERSION = "0.1.13";
+export const LIB_VERSION = "0.1.14";
 const INTERNAL_KEY = "lc_internal";
 /** Longest wait for the geo consent default (consent.geo) before the local mode applies. */
 const GEO_WAIT_MS = 3000;
@@ -157,7 +158,14 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
   // A denial removes what an earlier grant stored; only the decision itself survives (see the consent docs).
   if (!disabled) {
     core.onChange((c) => {
-      if (c !== "consent" || core.hasConsent("analytics") || core.consentStatus() !== "denied") return;
+      if (c !== "consent") return;
+      if (!core.hasConsent("replay"))
+        try {
+          sessionStorage.removeItem("lc_replay_ack");
+        } catch {
+          /* blocked */
+        }
+      if (core.hasConsent("analytics") || core.consentStatus() !== "denied") return;
       debounced?.flush();
       purgeStored(raw, apiKey, config.consent?.storageKey || CONSENT_KEY);
     });
@@ -303,7 +311,7 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       return () => void consentCbs.delete(cb);
     },
     getReplayUrl: (o) => {
-      const base = (config.uiHost ?? apiHost).replace(/\/+$/, "");
+      const base = (config.uiHost ?? defaultUiHost(apiHost)).replace(/\/+$/, "");
       const url = `${base}/replays/${encodeURIComponent(core.sessionId)}`;
       const start = core.sessionStart;
       if (!o?.withTimestamp || start === undefined) return url;

@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 
 import { opened } from "./support/react-native.js";
-import { LucidaGuides, LucidaProvider, createClient, matchGuideScreen } from "../src/index.js";
+import { LucidaProvider, createClient, matchGuideScreen } from "../src/index.js";
+import { LucidaGuides } from "../src/ui.js";
 type Client = Awaited<ReturnType<typeof createClient>>;
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

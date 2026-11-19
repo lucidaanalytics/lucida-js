@@ -1,6 +1,7 @@
 import { Core, flagEventProps, interventionHub, offlineTransport } from "@lucida-analytics/sdk-core";
 import type { Transport } from "@lucida-analytics/sdk-core";
 import { appLifecycle, asyncStorageAdapter, encryptedStorage, fetchTransport, memoryStorage, splitBatches, withTimeout } from "./adapters.js";
+import { applyConsent } from "./consent-log.js";
 import { createAutocapture } from "./autocapture.js";
 import { resolveInstallProps } from "./install.js";
 import { installPolicy } from "./policy.js";
@@ -12,7 +13,7 @@ import { createReplay } from "./replay.js";
 import type { NativeClient, NativeConfig } from "./types.js";
 
 export const LIB = "lucida-react-native";
-export const LIB_VERSION = "0.1.2";
+export const LIB_VERSION = "0.2.0";
 const DEFAULT_HOST = "https://capture.lucidace.com";
 const VERSION_KEY = "lc_app_version";
 
@@ -153,6 +154,7 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
 
   // React Native fetch has no streaming body: the hub falls back to polling GET /v1/interventions.
   const interventions = interventionHub(core, { apiHost, apiKey, fetch: fetchImpl, whenConsented, log, disabled: !!config.disabled });
+  const consentDeps = { config, fetch: fetchImpl, apiHost, apiKey };
   const client: NativeClient = {
     get distinctId() {
       return core.distinctId;
@@ -199,10 +201,10 @@ export async function createClient(apiKey: string, config: NativeConfig = {}): P
     registerOnce: (p) => core.registerOnce(p),
     unregister: (k) => core.unregister(k),
     group: (t, k, p) => core.group(t, k, p),
-    optIn: () => core.optIn(),
+    optIn: () => applyConsent(core, { ...consentDeps, grant: true }),
     optOut: () => {
       replay?.clearSpool();
-      core.optOut();
+      applyConsent(core, { ...consentDeps, grant: false });
     },
     getFlag: (k) => flags.get(k),
     getFlagPayload: (k) => flags.payload(k),

@@ -2,7 +2,10 @@ import Foundation
 #if canImport(AdServices)
 import AdServices
 #endif
-import Lucida  // the Lucida iOS SDK (sdks/ios): ReplayBridge encodes the UIKit hierarchy
+#if canImport(Lucida)
+import Lucida
+#endif
+// the Lucida iOS SDK (sdks/ios): ReplayBridge encodes the UIKit hierarchy
 
 /// React Native module `NativeModules.LucidaReplay`. Contract: see src/replay.ts (NativeReplayModule).
 /// Not compiled in this repository's CI (needs the React Native toolchain); the logic it calls

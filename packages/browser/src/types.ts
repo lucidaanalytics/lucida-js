@@ -61,7 +61,7 @@ export interface CaptureOptions {
 
 export interface BrowserConfig extends StorageConfig, DeliveryConfig {
   apiHost?: string;
-  /** Lucida app/API host for the toolbar and deep links (`getReplayUrl`) when `apiHost` is a reverse proxy that only forwards capture (default `apiHost`). */
+  /** Lucida app/API host for the toolbar and deep links (`getReplayUrl`) when `apiHost` is a reverse proxy that only forwards capture (default `apiHost`; for Lucida cloud's capture host it is https://lucidace.com, so you only set it behind your own proxy). */
   uiHost?: string;
   /** Toolbar: data attributes preferred when it builds an element selector (default data-lc-id, data-testid, data-test, data-cy, data-qa). */
   toolbar?: { dataAttributes?: string[] };

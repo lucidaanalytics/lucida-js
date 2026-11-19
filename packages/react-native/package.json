@@ -1,31 +1,86 @@
 {
   "name": "@lucida-analytics/react-native",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "license": "Apache-2.0",
-  "repository": { "type": "git", "url": "git+https://github.com/lucidaanalytics/lucida-js.git", "directory": "packages/react-native" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucidaanalytics/lucida-js.git",
+    "directory": "packages/react-native"
+  },
   "homepage": "https://lucidace.com/help/quickstart",
   "bugs": "https://github.com/lucidaanalytics/lucida-js/issues",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "exports": { ".": "./src/index.ts", "./package.json": "./package.json" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/ui.ts",
+    "./expo-router": "./src/expo-router.ts",
+    "./storage/expo-file-system": "./src/storage/expo-file-system.ts",
+    "./storage/expo-secure-store": "./src/storage/expo-secure-store.ts",
+    "./storage/mmkv": "./src/storage/mmkv.ts",
+    "./app.plugin": "./app.plugin.js",
+    "./package.json": "./package.json"
+  },
   "publishConfig": {
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
-    "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }, "./package.json": "./package.json" }
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./ui": {
+        "types": "./dist/ui.d.ts",
+        "default": "./dist/ui.js"
+      },
+      "./expo-router": {
+        "types": "./dist/expo-router.d.ts",
+        "default": "./dist/expo-router.js"
+      },
+      "./storage/expo-file-system": {
+        "types": "./dist/storage/expo-file-system.d.ts",
+        "default": "./dist/storage/expo-file-system.js"
+      },
+      "./storage/expo-secure-store": {
+        "types": "./dist/storage/expo-secure-store.d.ts",
+        "default": "./dist/storage/expo-secure-store.js"
+      },
+      "./storage/mmkv": {
+        "types": "./dist/storage/mmkv.d.ts",
+        "default": "./dist/storage/mmkv.js"
+      },
+      "./app.plugin": "./app.plugin.js",
+      "./package.json": "./package.json"
+    }
   },
-  "files": ["dist", "ios", "android"],
+  "files": [
+    "dist",
+    "ios",
+    "android",
+    "lucida-analytics-react-native.podspec",
+    "app.plugin.js",
+    "react-native.config.js",
+    "CHANGELOG.md"
+  ],
   "scripts": {
+    "prepack": "node scripts/vendor-native.mjs",
     "build": "tsup",
     "typecheck": "tsgo --noEmit",
     "test": "vitest run"
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": ">=18",
+    "react-native": ">=0.73",
+    "@expo/config-plugins": ">=7",
+    "expo-router": ">=3",
+    "expo-file-system": ">=16",
+    "expo-secure-store": ">=12",
+    "react-native-mmkv": ">=2"
   },
   "dependencies": {
-    "@lucida-analytics/sdk-core": "workspace:*"
+    "@lucida-analytics/sdk-core": "^0.1.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -35,5 +90,26 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tsup": "^8.5.0"
+  },
+  "description": "Lucida analytics SDK for React Native and Expo",
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    },
+    "@expo/config-plugins": {
+      "optional": true
+    },
+    "expo-router": {
+      "optional": true
+    },
+    "expo-file-system": {
+      "optional": true
+    },
+    "expo-secure-store": {
+      "optional": true
+    },
+    "react-native-mmkv": {
+      "optional": true
+    }
   }
 }

@@ -1,0 +1,39 @@
+buildscript {
+  ext.kotlin_version = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : "1.9.24"
+  repositories { google(); mavenCentral() }
+  dependencies {
+    classpath("com.android.tools.build:gradle:8.1.1")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+def safeExtGet(prop, fallback) { rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback }
+
+android {
+  namespace "com.lucida.reactnative"
+  compileSdkVersion safeExtGet("compileSdkVersion", 34)
+  defaultConfig {
+    minSdkVersion safeExtGet("minSdkVersion", 23)
+    targetSdkVersion safeExtGet("targetSdkVersion", 34)
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+  kotlinOptions { jvmTarget = "17" }
+  // The Lucida Android SDK sources are bundled at pack time (scripts/vendor-native.mjs).
+  sourceSets { main { java.srcDirs += ["vendor/lucida-core", "vendor/lucida-android"] } }
+}
+
+repositories { google(); mavenCentral() }
+
+dependencies {
+  implementation "com.facebook.react:react-android" // version managed by the React Native Gradle plugin (RN 0.73+)
+  implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  // Install attribution (Apache-2.0); the module degrades to null when it is missing.
+  // The vendored SDK declares it compileOnly; the RN module calls it too, so ship it (null result when the service is unavailable).
+  implementation "com.android.installreferrer:installreferrer:2.2"
+}

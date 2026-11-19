@@ -132,7 +132,7 @@ export interface NativeConfig {
   installInfo?: () => Promise<import("./install.js").InstallInfo | null>;
   platform?: string;
   osVersion?: string;
-  consent?: { mode?: "opt_in" | "opt_out"; queueBeforeConsent?: boolean; storageKey?: string };
+  consent?: { mode?: "opt_in" | "opt_out"; queueBeforeConsent?: boolean; storageKey?: string; policyVersion?: string; logBeacon?: boolean };
   flushAt?: number;
   flushIntervalMs?: number;
   maxQueueSize?: number;

@@ -2,7 +2,8 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 
-import { LucidaGuides, LucidaProvider, bubbleOrigin, screenExcluded, createClient, guideAnchor, guideTokens, measureAnchor, registerAnchor } from "../src/index.js";
+import { LucidaProvider, bubbleOrigin, screenExcluded, createClient, guideAnchor, guideTokens } from "../src/index.js";
+import { LucidaGuides, measureAnchor, registerAnchor } from "../src/ui.js";
 import type { MobileGuide } from "../src/index.js";
 type Client = Awaited<ReturnType<typeof createClient>>;
 

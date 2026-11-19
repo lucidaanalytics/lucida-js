@@ -266,6 +266,9 @@ export function createStorage(kind: Persistence, apiKey: string, cookie?: Cookie
   return new Prefixed(inner, suffix);
 }
 
+/** Unsuffixed `lc_*` keys the SDK (or a consent-manager bridge) writes; see storage.json. Never the consent record. */
+const UNSUFFIXED = /^lc_(replay_ack|preview|flag_overrides|toolbar_\w+|distinct_id)$/;
+
 /**
  * Consent denied: removes every stored `lc_*` item of this project (cookies, localStorage, sessionStorage) except the
  * decision itself (`keep`, the consent key), which must survive so the choice is remembered.
@@ -280,6 +283,16 @@ export function purgeStored(store: Storage, apiKey: string, keep: string): void 
     /* storage blocked: nothing more to purge */
   }
   for (const n of names) {
+    if (UNSUFFIXED.test(n)) {
+      document.cookie = `${n}=; Max-Age=0; Path=/`; // shortcut: host-only cookie; a crossSubdomain Domain cookie needs the bridge to clear it
+      try {
+        localStorage.removeItem(n);
+        sessionStorage.removeItem(n);
+      } catch {
+        /* blocked */
+      }
+      continue;
+    }
     if (!n.startsWith("lc_") || !n.endsWith(suffix) || n === keep + suffix) continue;
     store.remove(n.slice(0, -suffix.length));
     try {

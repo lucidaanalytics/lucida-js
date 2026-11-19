@@ -1,4 +1,5 @@
 import type { Guide, GuideStep, Host } from "../types.js";
+import { defaultUiHost } from "../ui-host.js";
 
 /** Session derived from the POST /v1/toolbar/exchange response (contract: sdks/browser/README.md). */
 export interface ToolbarSession {
@@ -107,7 +108,7 @@ export const TOOLBAR_PARAM = "__lc_toolbar";
 
 /** Exchange the one-time `?__lc_toolbar=<token>` for a short-lived session. null = rejected. */
 /** Where the toolbar talks to the Lucida API: `uiHost` when ingestion goes through a reverse proxy that only forwards capture. */
-export const toolbarHost = (host: Host): string => (host.config.uiHost ?? host.config.apiHost ?? "").replace(/\/+$/, "");
+export const toolbarHost = (host: Host): string => (host.config.uiHost ?? defaultUiHost(host.config.apiHost ?? "")).replace(/\/+$/, "");
 
 export async function exchangeToken(host: Host, token: string): Promise<ToolbarSession | null> {
   try {

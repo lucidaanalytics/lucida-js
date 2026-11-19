@@ -1,7 +1,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
-import { LucidaMask, LucidaProvider, LucidaTouchCapture, LucidaUnmask, replayMarker } from "../src/index.js";
+import { LucidaProvider } from "../src/index.js";
+import { LucidaMask, LucidaTouchCapture, LucidaUnmask, replayMarker } from "../src/ui.js";
 import type { NativeClient } from "../src/index.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

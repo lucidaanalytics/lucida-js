@@ -1,8 +1,28 @@
 # @lucida-analytics/react-native
 
 React Native SDK on top of `@lucida-analytics/sdk-core` (queue, batching, retry, identity, sessions, consent,
-local flag evaluation). Native modules are injected, never imported, so the package has no native
-dependency and tests run without React Native.
+local flag evaluation). Native modules are injected, never imported by the root entry, so importing it never loads `react-native` and tests run in plain node.
+
+## Install
+
+Expo: `npx expo install @lucida-analytics/react-native`, add `"plugins": ["@lucida-analytics/react-native"]` to `app.json`, then `npx expo prebuild`.
+Bare React Native: `npm i @lucida-analytics/react-native`, then `cd ios && pod install` (autolinking picks up the podspec and `android/`).
+The native module (`NativeModules.LucidaReplay`) is only needed for replay, the queue cipher and install attribution.
+The native code is bundled (the Lucida iOS and Android SDK sources ship inside the package): no extra pod or Maven dependency.
+Status: the podspec, Gradle module and plugin are written but not yet verified in a real Xcode/Gradle build.
+
+UI components moved to `@lucida-analytics/react-native/ui` (`LucidaGuides`, `GuideAnchor`, `LucidaMask`, `LucidaUnmask`, `LucidaTouchCapture`).
+Expo Router: `import { useExpoRouterScreens } from "@lucida-analytics/react-native/expo-router"; useExpoRouterScreens(client);` sends one `$screen`
+per route template (`/profile/[id]`, never real param values).
+
+## Storage (`AsyncStorageLike`)
+
+`asyncStorage` takes any object with `multiGet(keys): Promise<[key, string | null][]>`, `setItem(key, value): Promise<void>`,
+`removeItem(key): Promise<void>` and optionally `getAllKeys(): Promise<string[]>` (needed to reload spilled replay chunks). All methods are async;
+the SDK hydrates once at start and writes behind. Keys held: `lc_identity`, `lc_session`, `lc_props`, `lc_groups`, `lc_consent`, `lc_flags`,
+`lc_offline`, `lc_app_version`, `lc_guide_seen`, `lc_person_identified`, and `lc_replay` / `lc_replay.<id>`. Adapters (each library is an optional peer):
+`expoFileSystemStorage()` from `.../storage/expo-file-system`, `expoSecureStoreStorage()` from `.../storage/expo-secure-store` (identity/consent only:
+no offline queue or replay, SecureStore values are small), `mmkvAsyncStorage(mmkv?)` from `.../storage/mmkv`.
 
 ```tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -66,6 +86,8 @@ event with `$install_store` only. Disable with `installAttribution: false`. The 
   polls `GET /v1/interventions` every 15 s while a listener is set, after analytics consent. See `docs/guides/interventions.md`.
 - Queue/network: `flushAt`, `flushIntervalMs`, `maxQueueSize`, `maxBatchSize`, `maxRetries`, `retryDelayMs`, `requestTimeoutMs`,
   `dataMode: "wifi"` + `network: { isWifi() }` (inject NetInfo), `sessionIdleMs` / `sessionMaxMs`, `disableGeoip`, `disabled`, `client.debug(true)`.
+- Consent log: `optIn()` / `optOut()` write `$consent_updated { categories, source: "app", version }` like the browser SDK (version from
+  `consent.policyVersion`, default "1"); a decliner sends it only with `consent: { logBeacon: true }`, as one anonymous `/v1/batch` event (no id, no storage).
 - Person helpers: `setPersonProperties`, `capture(event, props, { set, setOnce })`, `getAnonymousId`, `reuseAnonymousId`, `isOptedOut`, `openURL(url, referrer)` (`$deep_link_opened`).
 - Tracing headers: `tracingHeaders: ["api.example.com", ".corp.io"]`, then call your backend through `client.fetch` to add
   `X-Lucida-Distinct-Id` / `X-Lucida-Session-Id` (never to the Lucida host; analytics consent required).
@@ -96,14 +118,11 @@ encodes JPEG (the same `ScreenshotCapture` / `UIKitScreenshot` code the native S
 
 Native contract (`NativeReplayModule` in `src/replay.ts`): `captureWireframe({ screen, maskText, maskAllTextInputs, maskAllImages, maskSandboxedViews }): Promise<string>` (plus `mode: "screenshot", screenshotQuality` in screenshot mode)
 resolves JSON text `{"width","height","events":[meta (type 4), fullSnapshot (type 2)]}`, or `""` when nothing can
-be captured. Reference implementations, linked as ordinary React Native native modules:
+be captured. The implementations ship in the package and autolink: iOS `ios/LucidaReplay.swift` + `.m` (bundled Lucida iOS SDK), Android `LucidaReplayModule.kt`
+registered by `LucidaReactPackage` (bundled Lucida Android SDK).
 
-- iOS: `ios/LucidaReplay.swift` + `.m`, calling `ReplayBridge.capture` from the `Lucida` Swift package (add it as a pod/SPM dependency).
-- Android: `android/src/main/kotlin/com/lucida/reactnative/LucidaReplayModule.kt`, calling `WireframeCapture.capture`
-  from `lucida-android`; register the module in a `ReactPackage` of your app.
-
-These two files are not compiled in this repository (no React Native toolchain); everything they call is covered
-by `swift test` (ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest). Verify them in a real app before shipping.
+They are not yet verified in a real Xcode/Gradle build; everything they call is covered
+by `swift test` (ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest). Verify in a real app before shipping.
 
 ### Session replay: privacy additions
 
@@ -146,10 +165,8 @@ Covered by `test/native-cipher.test.ts` (native module mocked with real AES-GCM)
 Not done in this repository (no RN toolchain, no Xcode/Gradle builds on the dev disk). Exact steps:
 
 1. `npx @react-native-community/cli init LucidaProbe` (RN >= 0.74), then `pnpm add file:<repo>/sdks/react-native` (or `pnpm pack` it).
-2. iOS: add the `Lucida` Swift package (`sdks/ios`) via SPM, copy `ios/LucidaReplay.swift` and `LucidaReplay.m` into the app target
-   (create a bridging header if Xcode asks), `cd ios && pod install`, build for a simulator. Expect: it compiles; `NativeModules.LucidaReplay.captureWireframe({screen:"Home",maskText:true})` resolves JSON starting `{"width"`.
-3. Android: add `include ':lucida-android'` / `project(':lucida-android').projectDir = new File('<repo>/sdks/android/lucida-android')` and the `lucida-core` module,
-   copy `android/src/main/kotlin/com/lucida/reactnative/*.kt`, register the package in `MainApplication`, `./gradlew :app:assembleDebug`. Expect the same JSON.
+2. iOS: `cd ios && pod install` (the podspec depends on the `Lucida` pod), build for a simulator. Expect: it compiles; `NativeModules.LucidaReplay.captureWireframe({screen:"Home",maskText:true})` resolves JSON starting `{"width"`.
+3. Android: `./gradlew :app:assembleDebug` (autolinked). Expect the same JSON.
 4. In JS: `createClient("lc_pk_...", { replay: { enabled: true, module: NativeModules.LucidaReplay }, flagStream: true })`, grant consent, open a screen, and confirm
    `POST /v1/replay` chunks arrive and `GET /v1/flags/stream` connects (RN's `fetch` usually cannot stream response bodies; then the SDK silently polls every `pollMs`).
 5. Queue cipher: with `queueCipher: nativeQueueCipher(NativeModules.LucidaReplay)` go offline, capture an event, and confirm the `lc_offline` AsyncStorage value is

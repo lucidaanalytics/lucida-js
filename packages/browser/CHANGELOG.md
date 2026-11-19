@@ -2,6 +2,12 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.14 (2026-11-19)
+
+Fixed:
+- Declining analytics consent now also removes the unsuffixed keys (`lc_replay_ack`, `lc_preview`, `lc_flag_overrides`, `lc_toolbar_*`, `lc_distinct_id`); withdrawing replay consent alone removes `lc_replay_ack`. Only the consent record survives, as `storage.json` promises.
+- `getReplayUrl()` and the toolbar default to `https://lucidace.com` (legacy sslip host likewise) when `apiHost` is Lucida cloud's capture host and no `uiHost` is set.
+
 ## 0.1.13 (2026-11-18)
 
 Added:
