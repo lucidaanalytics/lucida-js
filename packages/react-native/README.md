@@ -8,9 +8,9 @@ local flag evaluation). Native modules are injected, never imported by the root 
 Expo: `npx expo install @lucida-analytics/react-native`, add `"plugins": ["@lucida-analytics/react-native"]` to `app.json`, then `npx expo prebuild`.
 Bare React Native: `npm i @lucida-analytics/react-native`, then `cd ios && pod install` (autolinking picks up the podspec and `android/`).
 The native module (`NativeModules.LucidaReplay`) is only needed for replay, the queue cipher and install attribution.
-Native builds: the public mirror runs `.github/workflows/rn-native.yml` (fresh Expo SDK 52 app + config plugin, `assembleDebug` and an iOS simulator build); see its latest run for the current result.
+Native builds: the public mirror runs `.github/workflows/rn-native.yml` (fresh Expo SDK 52 app + config plugin, a Release build for Android and for the iOS simulator, then the app is launched on an emulator and a simulator and must print `LUCIDA_NATIVE_OK`); see its latest run for the current result.
 The native code is bundled (the Lucida iOS and Android SDK sources ship inside the package): no extra pod or Maven dependency.
-Status: built in a fresh Expo SDK 52 app on every release (CI `rn-native`): `expo prebuild` with the plugin, Gradle `assembleDebug` with `LucidaReactPackage` autolinked into the APK, and `pod install` plus an iOS simulator build compiling `LucidaReplay`.
+Status: built in a fresh Expo SDK 52 app on every release (CI `rn-native`): `expo prebuild` with the plugin, Gradle `assembleRelease` with `LucidaReactPackage` autolinked into the APK, and `pod install` plus an iOS simulator Release build compiling `LucidaReplay`. Both apps are then run (Android emulator API 34, iOS simulator) and the job checks that `NativeModules.LucidaReplay` is present; when the `LUCIDA_CI_KEY`, `LUCIDA_CI_API_KEY` and `LUCIDA_CI_PROJECT` secrets are set the app also records about ten seconds of replay against `capture.lucidace.com` and the job checks the Lucida API holds a chunk for that session.
 
 UI components moved to `@lucida-analytics/react-native/ui` (`LucidaGuides`, `GuideAnchor`, `LucidaMask`, `LucidaUnmask`, `LucidaTouchCapture`).
 Expo Router: `import { useExpoRouterScreens } from "@lucida-analytics/react-native/expo-router"; useExpoRouterScreens(client);` sends one `$screen`
@@ -123,7 +123,7 @@ be captured. The implementations ship in the package and autolink: iOS `ios/Luci
 registered by `LucidaReactPackage` (bundled Lucida Android SDK).
 
 They compile and link in the CI `rn-native` build (Expo SDK 52, Android and iOS simulator); their behaviour is covered
-by `swift test` (ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest). The build does not run the app on a device.
+by `swift test` (ReplayBridgeTests) and `make sdk-android` (ReplayBridgeTest). The `rn-native` job runs the app on an emulator and a simulator, not on a physical device.
 
 ### Session replay: privacy additions
 
