@@ -1,6 +1,6 @@
 {
   "name": "@lucida-analytics/react-native",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -21,6 +21,7 @@
     "./storage/expo-secure-store": "./src/storage/expo-secure-store.ts",
     "./storage/mmkv": "./src/storage/mmkv.ts",
     "./app.plugin": "./app.plugin.js",
+    "./app.plugin.js": "./app.plugin.js",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -52,6 +53,7 @@
         "default": "./dist/storage/mmkv.js"
       },
       "./app.plugin": "./app.plugin.js",
+      "./app.plugin.js": "./app.plugin.js",
       "./package.json": "./package.json"
     }
   },

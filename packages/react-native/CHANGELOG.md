@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- The Expo config plugin resolves: `exports` now lists `./app.plugin.js`, the path Expo asks for (0.2.0 and 0.2.1 failed `expo prebuild` with "does not contain a valid config plugin").
+
 ## 0.2.1
 
 - Declining consent while identified sends one identified `$consent_updated` (categories false, `$set` `$consent_analytics`/`$consent_replay` `denied`) before capture stops, so server-side consent gating can drop the person's server events.
