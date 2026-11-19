@@ -1,6 +1,6 @@
 {
   "name": "@lucida-analytics/react-native",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -20,8 +20,8 @@
     "./storage/expo-file-system": "./src/storage/expo-file-system.ts",
     "./storage/expo-secure-store": "./src/storage/expo-secure-store.ts",
     "./storage/mmkv": "./src/storage/mmkv.ts",
-    "./app.plugin": "./app.plugin.js",
-    "./app.plugin.js": "./app.plugin.js",
+    "./app.plugin": "./app.plugin.cjs",
+    "./app.plugin.js": "./app.plugin.cjs",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -52,8 +52,8 @@
         "types": "./dist/storage/mmkv.d.ts",
         "default": "./dist/storage/mmkv.js"
       },
-      "./app.plugin": "./app.plugin.js",
-      "./app.plugin.js": "./app.plugin.js",
+      "./app.plugin": "./app.plugin.cjs",
+      "./app.plugin.js": "./app.plugin.cjs",
       "./package.json": "./package.json"
     }
   },
@@ -62,8 +62,7 @@
     "ios",
     "android",
     "lucida-analytics-react-native.podspec",
-    "app.plugin.js",
-    "react-native.config.js",
+    "app.plugin.cjs",
     "CHANGELOG.md"
   ],
   "scripts": {

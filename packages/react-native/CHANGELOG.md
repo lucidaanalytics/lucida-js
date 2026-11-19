@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+
+- The Expo config plugin loads: it is `app.plugin.cjs` (still reached as `@lucida-analytics/react-native/app.plugin.js`), because the package is an ES module and `module.exports` failed there. `react-native.config.js` is removed; autolinking finds the podspec and `LucidaReactPackage` by default.
+
 ## 0.2.2
 
 - The Expo config plugin resolves: `exports` now lists `./app.plugin.js`, the path Expo asks for (0.2.0 and 0.2.1 failed `expo prebuild` with "does not contain a valid config plugin").
