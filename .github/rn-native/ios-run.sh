@@ -6,8 +6,12 @@ xcrun simctl boot "$udid"
 xcrun simctl bootstatus "$udid" -b
 app=$(ls -d example/ios/build/Build/Products/Release-iphonesimulator/*.app | head -1)
 xcrun simctl install "$udid" "$app"
-xcrun simctl spawn "$udid" log stream --style compact --predicate 'eventMessage CONTAINS "LUCIDA_"' > simlog.txt &
-sleep 3
+# `log stream` drops lines from a just-launched app; re-read the stored log every few seconds instead.
+touch simlog.txt
+(while true; do
+  xcrun simctl spawn "$udid" log show --last 15m --style compact --predicate 'eventMessage CONTAINS "LUCIDA_"' > simlog.tmp 2>/dev/null && mv simlog.tmp simlog.txt
+  sleep 5
+done) &
 xcrun simctl launch "$udid" com.lucida.cinative
 fail() { tail -40 simlog.txt >&2 || true; exit 1; }
 bash .github/rn-native/wait-for.sh simlog.txt LUCIDA_NATIVE_OK 120 || fail

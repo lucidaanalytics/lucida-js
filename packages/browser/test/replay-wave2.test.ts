@@ -143,4 +143,21 @@ describe("support widget replay link (LC-EXP-28)", () => {
     delete w.$crisp;
     vi.useRealTimers();
   });
+
+  it("hands the replay URL to Chatly as a conversation link once per session", () => {
+    vi.useFakeTimers();
+    const w = globalThis as { Chatly?: unknown };
+    const chatly = vi.fn();
+    let url = "https://app.test/replays/s1";
+    const stop = attachReplayUrl({ chatly: true }, () => url, () => true, 100);
+    w.Chatly = chatly;
+    vi.advanceTimersByTime(300);
+    expect(chatly.mock.calls).toEqual([["setContext", { links: [{ label: "Lucida replay", url }] }]]);
+    url = "https://app.test/replays/s2";
+    vi.advanceTimersByTime(100);
+    expect(chatly).toHaveBeenCalledTimes(2);
+    stop();
+    delete w.Chatly;
+    vi.useRealTimers();
+  });
 });

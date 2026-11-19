@@ -2,6 +2,10 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.16 (2026-11-19)
+
+- `replay.supportWidgets.chatly`: hands the session replay URL to the Chatly widget as a conversation link (`Chatly("setContext", {links})`), so agents open the exact replay from the conversation.
+
 ## 0.1.15 (2026-11-19)
 
 Added:

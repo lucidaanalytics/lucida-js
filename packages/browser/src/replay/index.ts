@@ -121,7 +121,7 @@ export const replay: Module = (host) => {
   });
   void start();
   const sw = local.supportWidgets;
-  const detach = sw?.intercom || sw?.crisp ? attachReplayUrl(sw, () => host.client.getReplayUrl(), () => state === "on" && !rec?.paused()) : undefined;
+  const detach = sw?.intercom || sw?.crisp || sw?.chatly ? attachReplayUrl(sw, () => host.client.getReplayUrl(), () => state === "on" && !rec?.paused()) : undefined;
   return () => {
     gen++;
     rec?.stop();

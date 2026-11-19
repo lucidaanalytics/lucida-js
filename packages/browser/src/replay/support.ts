@@ -4,11 +4,14 @@ export interface SupportWidgets {
   intercom?: boolean;
   /** `$crisp.push(["set", "session:data", [[["lucida_replay_url", url]]]])` once Crisp is on the page. */
   crisp?: boolean;
+  /** `Chatly("setContext", { links: [{ label, url }] })` once Chatly is on the page: a staff-facing link on the conversation. */
+  chatly?: boolean;
 }
 
 interface WidgetGlobals {
   Intercom?: (cmd: string, data?: unknown) => void;
   $crisp?: { push(cmd: unknown[]): void };
+  Chatly?: (cmd: string, data?: unknown) => void;
 }
 
 export const SUPPORT_KEY = "lucida_replay_url";
@@ -31,6 +34,10 @@ export function attachReplayUrl(o: SupportWidgets, url: () => string, active: ()
       if (o.crisp && typeof w.$crisp?.push === "function" && sent.crisp !== u) {
         w.$crisp.push(["set", "session:data", [[[SUPPORT_KEY, u]]]]);
         sent.crisp = u;
+      }
+      if (o.chatly && typeof w.Chatly === "function" && sent.chatly !== u) {
+        w.Chatly("setContext", { links: [{ label: "Lucida replay", url: u }] }); // visitor-written link, shown apart from the workspace's own
+        sent.chatly = u;
       }
     } catch {
       /* a broken widget must not break recording */

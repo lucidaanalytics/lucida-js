@@ -1,11 +1,11 @@
 {
-  "version": "0.1.8",
+  "version": "0.1.9",
   "sha256": {
-    "lucida_0.1.8_darwin_amd64.tar.gz": "e8372836ff4786074356b3e7526680c54ff8024eb8da69772092b76ae425b654",
-    "lucida_0.1.8_darwin_arm64.tar.gz": "b6ec2e22e4613cb299b1b715fdd3293651e4f56c79eed330f432ec030f1c279e",
-    "lucida_0.1.8_linux_amd64.tar.gz": "42ebd1e9030f9567c88c55cd1a87cb6512ff94b306b82e67850c9cbf14f14f38",
-    "lucida_0.1.8_linux_arm64.tar.gz": "97ef53cdbfeccb97393f6ba7f8552bf478b3631828a4bce9536200d6e1ac15ae",
-    "lucida_0.1.8_windows_amd64.zip": "91db40d8d368c5d7b9657722faae7e2d34110a2e91e1013620b953026af085f2",
-    "lucida_0.1.8_windows_arm64.zip": "7a2c74af790ff6ba49cc462174096255c268e9fa4d413bcc40cf2c39612f9bc6"
+    "lucida_0.1.9_darwin_amd64.tar.gz": "269147020a6b184c3994f1b394f90981eb83733b0a67d7ec643ef55cd6c67c44",
+    "lucida_0.1.9_darwin_arm64.tar.gz": "f8ee4d9a019df74292c1bfce0a98851905d13da7786488887edbbb2bee48c9c1",
+    "lucida_0.1.9_linux_amd64.tar.gz": "2794a1e3490a575347186f56d2ad7a2127441f22a86f58b6c814935bf79bf1f6",
+    "lucida_0.1.9_linux_arm64.tar.gz": "131f9a1603bf7a0a26ba2c16673fbb8d808de9a8b7fb19ceb133ccb1092881fc",
+    "lucida_0.1.9_windows_amd64.zip": "459ea2f496406bf226f71a83b1606feced54d69c99eb3c15b400f7643298cb35",
+    "lucida_0.1.9_windows_arm64.zip": "cb2b4f2f04b5cf4ae56f1530d8f7c8c69123ab0016f3d400c22ebc0ffa804373"
   }
 }
