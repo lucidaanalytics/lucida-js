@@ -152,7 +152,7 @@ describe("support widget replay link (LC-EXP-28)", () => {
     const stop = attachReplayUrl({ chatly: true }, () => url, () => true, 100);
     w.Chatly = chatly;
     vi.advanceTimersByTime(300);
-    expect(chatly.mock.calls).toEqual([["setContext", { links: [{ label: "Lucida replay", url }] }]]);
+    expect(chatly.mock.calls).toEqual([["setContext", { links: [{ label: "View replay", url }] }]]);
     url = "https://app.test/replays/s2";
     vi.advanceTimersByTime(100);
     expect(chatly).toHaveBeenCalledTimes(2);

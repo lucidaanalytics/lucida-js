@@ -12,7 +12,7 @@ c=json.load(open("detail.json")).get("chunks") or []
 print(c[0]["seq"] if c else "")' 2>/dev/null)
   if [ "$code" = 200 ] && [ -n "$seq" ]; then
     code=$(get chunk.bin "$base/chunks/$seq")
-    [ "$code" = 200 ] && [ -s chunk.bin ] && { echo "replay $sid has chunk $seq ($(wc -c < chunk.bin) bytes)"; exit 0; }
+    [ "$code" = 200 ] && [ -s chunk.bin ] && { echo "replay $sid has chunk $seq ($(wc -c < chunk.bin | tr -d ' ') bytes)"; exit 0; }
   fi
   echo "attempt $i: not ready (HTTP $code)"; sleep 15
 done

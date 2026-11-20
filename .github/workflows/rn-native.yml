@@ -13,6 +13,8 @@ on:
 permissions:
   contents: read
 env:
+  # On the public repo's main branch and release tags a missing CI secret fails the run instead of skipping the replay check.
+  LUCIDA_CI_REQUIRED: ${{ github.repository == 'lucidaanalytics/lucida-js' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
   CREATE_EXPO_APP: create-expo-app@3.5.3
 jobs:
   android:
@@ -74,6 +76,7 @@ jobs:
           LUCIDA_CI_PROJECT: ${{ secrets.LUCIDA_CI_PROJECT }}
         run: |
           if [ -z "$LUCIDA_CI_KEY" ] || [ -z "$LUCIDA_CI_API_KEY" ] || [ -z "$LUCIDA_CI_PROJECT" ]; then
+            if [ "$LUCIDA_CI_REQUIRED" = true ]; then echo "::error::LUCIDA_CI_KEY, LUCIDA_CI_API_KEY and LUCIDA_CI_PROJECT are required on main and release tags"; exit 1; fi
             echo "::notice::LUCIDA_CI_KEY, LUCIDA_CI_API_KEY and LUCIDA_CI_PROJECT not all set: API check skipped"; exit 0
           fi
           bash .github/rn-native/poll-replay.sh "$(cat session.txt)"
@@ -125,6 +128,7 @@ jobs:
           LUCIDA_CI_PROJECT: ${{ secrets.LUCIDA_CI_PROJECT }}
         run: |
           if [ -z "$LUCIDA_CI_KEY" ] || [ -z "$LUCIDA_CI_API_KEY" ] || [ -z "$LUCIDA_CI_PROJECT" ]; then
+            if [ "$LUCIDA_CI_REQUIRED" = true ]; then echo "::error::LUCIDA_CI_KEY, LUCIDA_CI_API_KEY and LUCIDA_CI_PROJECT are required on main and release tags"; exit 1; fi
             echo "::notice::LUCIDA_CI_KEY, LUCIDA_CI_API_KEY and LUCIDA_CI_PROJECT not all set: API check skipped"; exit 0
           fi
           bash .github/rn-native/poll-replay.sh "$(cat session.txt)"

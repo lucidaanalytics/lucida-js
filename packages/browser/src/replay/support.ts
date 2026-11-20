@@ -36,7 +36,7 @@ export function attachReplayUrl(o: SupportWidgets, url: () => string, active: ()
         sent.crisp = u;
       }
       if (o.chatly && typeof w.Chatly === "function" && sent.chatly !== u) {
-        w.Chatly("setContext", { links: [{ label: "Lucida replay", url: u }] }); // visitor-written link, shown apart from the workspace's own
+        w.Chatly("setContext", { links: [{ label: "View replay", url: u }] }); // visitor-written link, shown apart from the workspace's own
         sent.chatly = u;
       }
     } catch {
