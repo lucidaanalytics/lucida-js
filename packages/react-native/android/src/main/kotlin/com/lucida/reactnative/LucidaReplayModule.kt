@@ -83,7 +83,7 @@ class LucidaReplayModule(ctx: ReactApplicationContext) : ReactContextBaseJavaMod
         val quality = if (!shots) null else Math.round(100 * (if (options.hasKey("screenshotQuality")) options.getDouble("screenshotQuality") else 0.4)).toInt()
         val maskScreen = options.hasKey("maskScreen") && options.getBoolean("maskScreen")  // P-M17
         val patterns = if (options.hasKey("maskTextPatterns")) options.getArray("maskTextPatterns")?.toArrayList()?.filterIsInstance<String>() ?: emptyList() else emptyList()  // P-M46
-        val activity = currentActivity
+        val activity = reactApplicationContext.currentActivity
         if (activity == null) {
             promise.resolve("")
             return

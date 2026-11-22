@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4
+
+- Android compiles on React Native 0.80+ (tested up to 0.88): the replay module reads `reactApplicationContext.currentActivity`, since `currentActivity` on the base module is no longer a property there. Works on 0.73+ as before.
+
 ## 0.2.3
 
 - The Expo config plugin loads: it is `app.plugin.cjs` (still reached as `@lucida-analytics/react-native/app.plugin.js`), because the package is an ES module and `module.exports` failed there. `react-native.config.js` is removed; autolinking finds the podspec and `LucidaReactPackage` by default.
