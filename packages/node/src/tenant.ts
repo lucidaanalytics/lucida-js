@@ -86,7 +86,7 @@ export async function tenantEvent(events: TenantEvent | TenantEvent[], opts: Ten
     });
     if (!r.ok) return { ok: false, status: r.status, error: `status ${r.status}` };
     const body = (await r.json().catch(() => ({}))) as { accepted?: number; rejected?: { index: number; reason: string }[] };
-    return { ok: true, status: r.status, accepted: body.accepted, rejected: body.rejected ?? [] };
+    return { ok: true, status: r.status, accepted: body.accepted ?? list.length - (body.rejected?.length ?? 0), rejected: body.rejected ?? [] };
   } catch (err) {
     return { ok: false, error: ctl.signal.aborted ? "timeout" : err instanceof Error ? err.message : String(err) };
   } finally {
