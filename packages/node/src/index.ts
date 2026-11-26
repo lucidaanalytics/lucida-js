@@ -1,6 +1,8 @@
 export { Lucida, LIB_VERSION } from "./client.js";
 export { consentFromCookie, CONSENT_COOKIE } from "./consent.js";
 export { captureImmediate } from "./capture-immediate.js";
+export { tenantEvent, assignVariant, tenantBucket } from "./tenant.js";
+export type { TenantEvent, TenantEventOptions, TenantEventResult, TenantExperimentDef } from "./tenant.js";
 export type { CaptureImmediateInput, CaptureImmediateOptions, CaptureImmediateResult } from "./capture-immediate.js";
 export type { LucidaOptions, CaptureInput, ImportEvent, AgentAnalytics, AgentConversationInput } from "./client.js";
 export type { AgentConversation, AgentConversationOptions, AgentFeedback, AgentOutcome, AgentRole } from "@lucida-analytics/sdk-core";
