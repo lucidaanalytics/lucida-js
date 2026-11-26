@@ -2,6 +2,10 @@
 
 Built from the git history of `sdks/browser` and its version bumps. Dates are the bump commit dates.
 
+## 0.1.18 (2026-11-25)
+
+- `optIn()` / `optOut()` write the same `$consent_updated` record as the banner (`source: "api"`, including the decliner paths); repeating an already-recorded decision logs nothing.
+
 ## 0.1.17 (2026-11-19)
 
 - `replay.supportWidgets.chatly`: the conversation link is now labelled "View replay" (was "Lucida replay"), matching the connector's write-back links.

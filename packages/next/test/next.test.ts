@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COOKIE_ID, getBootstrap, HEADER_FLAGS, HEADER_ID, lucidaMiddleware, lucidaRewrites, withLucida } from "../src/index.js";
+import { COOKIE_ID, getBootstrap, HEADER_FLAGS, HEADER_ID, lucidaMiddleware, lucidaRewrites, withLucida, withLucidaRewrites } from "../src/index.js";
 import type { LucidaNextOptions, RequestLike, ResponseLike } from "../src/index.js";
 
 const flagsFetch = (flags: Record<string, unknown>, seen: unknown[] = []) =>
@@ -108,5 +108,14 @@ describe("lucidaRewrites", () => {
   it("proxies only /v1 under a first-party path", () => {
     expect(lucidaRewrites()).toEqual([{ source: "/ingest/v1/:path*", destination: "https://capture.lucidace.com/v1/:path*" }]);
     expect(lucidaRewrites({ path: "t/", host: "https://eu.lucida.dev/" })).toEqual([{ source: "/t/v1/:path*", destination: "https://eu.lucida.dev/v1/:path*" }]);
+  });
+});
+
+describe("withLucidaRewrites", () => {
+  it("sets the marker env and puts our rewrites before the app's", async () => {
+    const cfg = withLucidaRewrites({ env: { A: "1" }, rewrites: async () => [{ source: "/x", destination: "/y" }] });
+    expect(cfg.env).toEqual({ A: "1", NEXT_PUBLIC_LUCIDA_REWRITE: "/ingest" });
+    const r = (await cfg.rewrites()) as unknown as { beforeFiles: { source: string }[] };
+    expect(r.beforeFiles.map((x) => x.source)).toEqual(["/ingest/v1/:path*", "/x"]);
   });
 });

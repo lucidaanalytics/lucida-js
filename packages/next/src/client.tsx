@@ -15,7 +15,11 @@ export interface LucidaNextProviderProps {
   apiKey: string;
   /** From `getBootstrap` (App Router) so the first client render matches the server. */
   bootstrap?: Bootstrap;
-  /** Browser SDK options. `apiHost` defaults to "/ingest" (see `lucidaRewrites`). */
+  /**
+   * Browser SDK options. `apiHost` defaults to "/ingest" only when `withLucidaRewrites()` (or `NEXT_PUBLIC_LUCIDA_REWRITE`)
+   * configured the proxy, else to https://capture.lucidace.com, so a missing rewrite never drops events silently.
+   * In development a 404 from a same-origin `apiHost` logs one console.error.
+   */
   options?: BrowserConfig;
   /** Browser modules (third `init` argument), e.g. `[cookieMunchConsent]` from `@lucida-analytics/browser/consent`. Read once, when the client is created. */
   modules?: Module[];
@@ -33,11 +37,38 @@ export interface LucidaNextProviderProps {
   children?: ReactNode;
 }
 
-/** `LucidaProvider` wired for Next: first-party `/ingest` host, server bootstrap for flags and the distinct id. */
+/** Written out in full so Next inlines it at build time. */
+function rewriteMarker(): string | undefined {
+  try {
+    return process.env.NEXT_PUBLIC_LUCIDA_REWRITE || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+let warned = false;
+/** Development only: the first 404 from a same-origin ingest path almost always means the rewrite is missing. */
+function watch404(host: string, inner: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    const r = await inner(input, init);
+    if (r.status === 404 && !warned) {
+      warned = true;
+      console.error(`[lucida] 404 from ${host}: rewrite missing. Add withLucidaRewrites() to next.config, or set options.apiHost (e.g. "https://capture.lucidace.com").`);
+    }
+    return r;
+  };
+}
+
+/** `LucidaProvider` wired for Next: first-party `/ingest` host when the rewrite is configured, else the cloud host, server bootstrap for flags and the distinct id. */
 export function LucidaNextProvider({ apiKey, bootstrap, options, modules, routeTemplates, router, identify, identifyProps, children }: LucidaNextProviderProps) {
   const templated = !!routeTemplates || !!router;
+  const marker = rewriteMarker();
+  const apiHost = options?.apiHost ?? marker ?? "https://capture.lucidace.com";
+  const dev = typeof process !== "undefined" && process.env.NODE_ENV === "development";
+  const sameOrigin = apiHost.startsWith("/");
   const merged: BrowserConfig = {
-    apiHost: "/ingest",
+    apiHost,
+    ...(dev && sameOrigin ? { fetch: watch404(apiHost, (options?.fetch ?? ((...a) => fetch(...a)))) } : {}),
     exposeGlobal: true, // window.lucida, like the script build; pass `exposeGlobal: false` to opt out
     ...(templated ? { capturePageview: false, capturePageleave: true } : {}),
     ...options,

@@ -45,4 +45,27 @@ describe("captureImmediate", () => {
     vi.stubGlobal("fetch", async () => { throw new Error("boom"); });
     expect(await captureImmediate(ev, { apiKey: "k" })).toEqual({ ok: false, error: "boom" });
   });
+  it("consentFromCookies: granted stamps the event and person, denied sends nothing", async () => {
+    const f = vi.fn(async () => new Response("", { status: 200 }));
+    vi.stubGlobal("fetch", f);
+    await captureImmediate(ev, { apiKey: "k", consentFromCookies: { get: (n) => (n === "lc_consent" ? { value: "granted" } : undefined) } });
+    const b = JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(b.batch[0].properties.$consent_analytics).toBe("granted");
+    expect(b.batch[0].$set).toEqual({ p: 1, $consent_analytics: "granted" });
+    expect(await captureImmediate(ev, { apiKey: "k", consentFromCookies: "x=1; lc_consent=denied" })).toEqual({ ok: false, error: "consent denied" });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+  it("falls back to LUCIDA_KEY, and new Lucida() reads the env key", async () => {
+    vi.stubEnv("LUCIDA_SECRET_KEY", "");
+    vi.stubEnv("LUCIDA_KEY", "old");
+    const f = vi.fn(async () => new Response("", { status: 200 }));
+    vi.stubGlobal("fetch", f);
+    await captureImmediate(ev);
+    expect(JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).api_key).toBe("old");
+    vi.stubEnv("LUCIDA_SECRET_KEY", "new");
+    const { Lucida } = await import("../src/index.js");
+    const c = new Lucida(undefined, { testMode: { fixture: { flags: [] } } as never });
+    expect((c as unknown as { apiKey: string }).apiKey).toBe("new");
+    await c.shutdown();
+  });
 });

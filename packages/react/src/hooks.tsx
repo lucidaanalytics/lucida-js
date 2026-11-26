@@ -1,7 +1,8 @@
 import type { Client, FlagValue } from "@lucida-analytics/browser";
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { useLucidaContext } from "./provider.js";
+import { LucidaContext, useLucidaContext } from "./provider.js";
+import { getTagClient, subscribeTagClient } from "./tag.js";
 
 export function useLucida(): Client | null {
   return useLucidaContext().client;
@@ -35,6 +36,24 @@ export function useFeatureFlag(key: string): FlagValue | undefined {
     if (value !== undefined) client?.getFlag(key);
   }, [client, key, value]);
   return value;
+}
+
+/**
+ * Flag value that works under `LucidaProvider` or just `LucidaTag`: uses the provider when present, else the tag's
+ * client, and re-renders when flags load or change. undefined until known. The value is read without an exposure
+ * (never a side effect of render); one exposure is recorded after mount, and the SDK dedupes it per session.
+ */
+export function useFlag(key: string): FlagValue | undefined {
+  const ctx = useContext(LucidaContext);
+  const tag = useSyncExternalStore(subscribeTagClient, getTagClient, () => null);
+  const client = ctx ? ctx.client : tag;
+  const subscribe = useCallback((cb: () => void) => (ctx || !tag ? none() : tag.onFlags(cb)), [ctx, tag]);
+  const own = useSyncExternalStore(subscribe, () => (ctx ? undefined : tag?.getAllFlags()[key]), () => undefined);
+  const value = ctx ? ctx.flags[key] : own;
+  useEffect(() => {
+    if (value !== undefined) client?.getFlag(key);
+  }, [client, key, value]);
+  return client ? value : undefined;
 }
 
 /** The variant key of a multivariate flag; undefined for booleans and unknown flags. */

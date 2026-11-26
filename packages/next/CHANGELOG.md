@@ -2,6 +2,14 @@
 
 Built from the git history of `sdks/next` and its version bumps.
 
+## 0.1.7 (2026-11-25)
+
+Added:
+- `withLucidaRewrites(config)` for `next.config`: adds the rewrites and the `NEXT_PUBLIC_LUCIDA_REWRITE` marker.
+
+Fixed:
+- `LucidaNextProvider` no longer fails silently without the rewrite: `apiHost` defaults to `/ingest` only when the marker is set, else `https://capture.lucidace.com`; in development the first 404 from a same-origin `apiHost` logs one console.error.
+
 ## 0.1.6 (2026-11-18)
 
 Added:

@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const identify = vi.fn();
 const init = vi.fn();
 vi.mock("@lucida-analytics/browser", () => ({ init: (...a: unknown[]) => init(...a) }));
+const replayMod = () => {};
+vi.mock("@lucida-analytics/browser/replay", () => ({ replay: replayMod }));
 vi.mock("@lucida-analytics/browser/consent", () => ({ cookieMunchConsent: () => {} }));
 
 async function mount(el: JSX.Element) {
@@ -57,5 +59,29 @@ describe("LucidaTag", () => {
     await act(async () => root.render(<LucidaTag publicKey="lc_pk_c" uid="u2" />));
     await act(async () => {});
     expect(identify).toHaveBeenLastCalledWith("u2");
+  });
+
+  it("resolves module names and boolean shorthands by dynamic import", async () => {
+    const { LucidaTag } = await import("../src/index.js");
+    await mount(<LucidaTag publicKey="lc_pk_d" modules={["replay"]} cookieMunch={false} />);
+    expect((init.mock.calls[0] as unknown[])[2]).toEqual([replayMod]);
+    await mount(<LucidaTag publicKey="lc_pk_e" replay cookieMunch={false} />);
+    expect((init.mock.calls[1] as unknown[])[2]).toEqual([replayMod]);
+  });
+
+  it("useFlag follows the tag's client and records one exposure after mount", async () => {
+    let flags: Record<string, boolean> = {};
+    const subs = new Set<() => void>();
+    const getFlag = vi.fn();
+    init.mockReturnValue({ identify, getAllFlags: () => flags, getFlag, onFlags: (cb: () => void) => (subs.add(cb), () => subs.delete(cb)) });
+    const { LucidaTag, useFlag } = await import("../src/index.js");
+    const seen: unknown[] = [];
+    const Probe = () => (seen.push(useFlag("f")), null);
+    await mount(<><LucidaTag publicKey="lc_pk_f" /><Probe /></>);
+    expect(seen.at(-1)).toBeUndefined();
+    flags = { f: true };
+    await act(async () => subs.forEach((f) => f()));
+    expect(seen.at(-1)).toBe(true);
+    expect(getFlag).toHaveBeenCalledTimes(1);
   });
 });

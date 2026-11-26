@@ -1,3 +1,4 @@
+import { envKey } from "./env.js";
 import { AgentConversation, EventQueue, FlagSnapshot, backoffDelay, isRetryable, uuidv7, withFlagProps } from "@lucida-analytics/sdk-core";
 import type { AgentConversationOptions, BackoffOptions, FlagDefinition, AsyncStickyStore, FlagValue, Props, StickyStore, Transport, WireEvent } from "@lucida-analytics/sdk-core";
 import { createHash } from "node:crypto";
@@ -152,10 +153,11 @@ export class Lucida {
   readonly ready: Promise<void>;
   readonly ai: AgentAnalytics;
 
-  constructor(
-    private readonly apiKey: string,
-    o: LucidaOptions = {},
-  ) {
+  private readonly apiKey: string;
+
+  /** `apiKey` defaults to `LUCIDA_SECRET_KEY` (then `LUCIDA_KEY`), so `new Lucida()` works on a configured server. */
+  constructor(apiKey?: string, o: LucidaOptions = {}) {
+    this.apiKey = apiKey ?? envKey() ?? "";
     this.host = (o.host ?? "https://capture.lucidace.com").replace(/\/+$/, "");
     this.test = !!o.testMode;
     this.fetchImpl = this.test
@@ -172,7 +174,7 @@ export class Lucida {
     this.queue = new EventQueue({
       transport: this.transport,
       url: `${this.host}/v1/batch`,
-      apiKey,
+      apiKey: this.apiKey,
       flushAt: o.flushAt ?? 20,
       flushIntervalMs: o.flushIntervalMs ?? 10_000,
       log: this.log,
@@ -204,7 +206,7 @@ export class Lucida {
     this.flags = new ServerFlags({
       poller: fixtureDefs ? { defs: fixtureDefs } : this.poller,
       host: this.host,
-      apiKey,
+      apiKey: this.apiKey,
       fetch: this.fetchImpl,
       timeoutMs: flagsTimeoutMs,
       ...(o.maxCacheSize !== undefined ? { dedupCacheSize: o.maxCacheSize } : {}),

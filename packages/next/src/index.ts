@@ -6,7 +6,7 @@ export type { HeadersLike } from "./bootstrap.js";
 export { getRequestContext } from "./context.js";
 export { routeTemplate } from "./route.js";
 export { getServerSideLucida, withLucida, PAGE_PROP } from "./pages.js";
-export { lucidaRewrites } from "./rewrites.js";
+export { lucidaRewrites, withLucidaRewrites, REWRITE_ENV } from "./rewrites.js";
 export type { Rewrite, RewriteOptions } from "./rewrites.js";
 export { COOKIE_CONSENT, COOKIE_ID, HEADER_CTX, HEADER_FLAGS, HEADER_ID } from "./shared.js";
 export type { Bootstrap, Flags, LucidaNextOptions } from "./shared.js";

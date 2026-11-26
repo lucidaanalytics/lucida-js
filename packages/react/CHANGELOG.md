@@ -2,6 +2,12 @@
 
 Built from the git history of `sdks/react` and its version bumps.
 
+## 0.1.7 (2026-11-25)
+
+Added:
+- `LucidaTag` `modules` accepts names ("replay", "heatmaps", "forms", "guides", "webmcp", "recommendations", "earlyAccess", "correlate", "toolbar", "inspector") loaded by dynamic import inside the client component, plus `replay`/`heatmaps`/`forms`/`guides` boolean props: a Next server layout can render `<LucidaTag publicKey=... modules={["replay"]} identify={sub} />` with no "use client" wrapper. The function form still works.
+- `useFlag(key)`: flag value under `LucidaProvider` or only `LucidaTag`; re-renders on change, one exposure after mount (never during render).
+
 ## 0.1.6 (2026-11-18)
 
 Added:

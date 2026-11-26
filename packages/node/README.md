@@ -60,7 +60,7 @@ UUID distinct id when none is given.
 
 `captureImmediate({ event, distinctId, properties?, $set?, uuid?, timestamp? }, { apiKey?, host? })` (a root export, no client
 needed) sends one event with a single POST to `${host}/v1/batch` and resolves `{ ok, status?, error? }`. It never throws, has
-a 5 s timeout, retries nothing and queues nothing. The key comes from `apiKey` or `LUCIDA_SECRET_KEY`, the host from `host`,
+a 5 s timeout, retries nothing and queues nothing. The key comes from `apiKey`, `LUCIDA_SECRET_KEY` (or the older `LUCIDA_KEY`), `consentFromCookies` honours the `lc_consent` cookie, the host from `host`,
 `LUCIDA_HOST`, or `https://capture.lucidace.com`; with no key it resolves `{ ok: false }` without any request.
 
 ## Flags

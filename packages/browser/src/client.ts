@@ -5,6 +5,7 @@ import { clickIdTracker } from "./clickids.js";
 import { captureCspViolations, cspHint } from "./csp.js";
 import { isExtensionPage, withRewrite } from "./delivery.js";
 import { connectDevtools } from "./devtools-hook.js";
+import { applyConsent } from "./consent/record.js";
 import { campaignKey, enrich, referralCode, referralOptions } from "./env.js";
 import { exposeGlobal } from "./global.js";
 import { noopClient } from "./noop-client.js";
@@ -332,8 +333,10 @@ export function createClient(apiKey: string, config: BrowserConfig = {}, modules
       core.group(t, k, p);
     },
     // Marketing is its own choice: a plain optIn() never grants it.
-    optIn: (categories = ["analytics", "replay"]) => core.setConsent({ analytics: categories.includes("analytics"), replay: categories.includes("replay"), marketing: categories.includes("marketing") }),
-    optOut: () => core.optOut(),
+    // Writes the same `$consent_updated` record as the banner; a repeat of an already-recorded decision (banner then optIn) logs nothing.
+    optIn: (categories = ["analytics", "replay"]) =>
+      applyConsent(host, { analytics: categories.includes("analytics"), replay: categories.includes("replay"), marketing: categories.includes("marketing") }, "api", { onlyIfChanged: core.consentStatus() !== "pending" }),
+    optOut: () => applyConsent(host, { analytics: false, replay: false, marketing: false }, "api", { onlyIfChanged: core.consentStatus() !== "pending" }),
     optOutInternal: (on = true) => {
       internal = on;
       if (on) core.storage.set(INTERNAL_KEY, "1");

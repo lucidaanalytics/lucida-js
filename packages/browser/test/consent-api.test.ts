@@ -76,4 +76,15 @@ describe("consent API (LC-SEC-1)", () => {
     expect(writes[1]).toMatch(/^k=; Max-Age=0; Path=\/; Domain=\.example\.com;/);
     expect(writes[2]).not.toContain("Domain=");
   });
+
+  it("optIn()/optOut() write one $consent_updated record, and a repeat of the same decision writes none", async () => {
+    const { client, t } = start({ consent: { mode: "opt_in" }, capturePageview: false, autocapture: false });
+    client.optIn();
+    client.optIn();
+    await client.flush();
+    const logs = () => t.events().filter((e) => e.event === "$consent_updated");
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]?.properties).toMatchObject({ source: "api", categories: { analytics: true, replay: true, marketing: false } });
+    await client.shutdown();
+  });
 });
